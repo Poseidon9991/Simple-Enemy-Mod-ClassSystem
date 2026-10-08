@@ -35,18 +35,22 @@ ordering="NONE"
 side="BOTH"
 
 # TaCZ - SEM needs it so we need it too. Loads before us.
+# Supports TaCZ 1.1.4 through the 1.1.8 line - upper bound 1.1.9 excluded so
+# any 1.1.8.x hotfix still matches.
 [[dependencies.sem_classsystem]]
 modId="tacz"
 mandatory=true
-versionRange="[1.1.4,)"
+versionRange="[1.1.4,1.1.9)"
 ordering="BEFORE"
 side="BOTH"
 
 # Simple Enemy Mod - mandatory hard dependency. Without it the mod refuses
 # to load. BEFORE ordering so SEM classes exist before our mixins apply.
+# Supports SEM 0.1.5-beta through the whole 0.1.6 line - beta, beta.N and
+# beta-hotfix releases all sort below the plain 0.1.6 upper bound.
 [[dependencies.sem_classsystem]]
 modId="simpleenemymod"
 mandatory=true
-versionRange="[1.20.1-0.1.5-beta,)"
+versionRange="[1.20.1-0.1.5-beta,1.20.1-0.1.6]"
 ordering="BEFORE"
 side="BOTH"

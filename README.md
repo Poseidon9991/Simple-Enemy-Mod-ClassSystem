@@ -47,8 +47,8 @@ No SEM code is copied or modified — everything is applied at runtime via mixin
 ## Requirements
 
 - Minecraft 1.20.1, Forge 47+
-- [Simple Enemy Mod](https://github.com/NekoYuni/Simple-Enemy-Mod) 1.20.1-0.1.5-beta+
-- TaCZ 1.1.4+ (required by SEM)
+- [Simple Enemy Mod](https://github.com/NekoYuni/Simple-Enemy-Mod) `1.20.1-0.1.5-beta` up to `0.1.6` (covers `v0.1.6-beta.1`)
+- TaCZ `1.1.4` – `1.1.8` (required by SEM)
 
 ## Building
 
