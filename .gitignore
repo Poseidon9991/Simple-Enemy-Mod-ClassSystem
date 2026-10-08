@@ -36,3 +36,6 @@ run/
 run-data/
 logs/
 debug/
+
+# local asset-generation scripts
+tools/
