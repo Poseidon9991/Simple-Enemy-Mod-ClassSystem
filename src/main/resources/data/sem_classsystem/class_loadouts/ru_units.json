@@ -1,0 +1,55 @@
+{
+  "classes": {
+    "smg": {
+      "uzi": {
+        "gun_id": "tacz:uzi",
+        "ammo_count": 32,
+        "fire_mode": "AUTO",
+        "scope_id": "tacz:sight_t2"
+      }
+    },
+    "rifle": {
+      "ak47": {
+        "gun_id": "tacz:ak47",
+        "ammo_count": 30,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:sight_t2"
+      },
+      "type_81": {
+        "gun_id": "tacz:type_81",
+        "ammo_count": 30,
+        "fire_mode": "SEMI"
+      }
+    },
+    "shotgun": {
+      "spas_12": {
+        "gun_id": "tacz:spas_12",
+        "ammo_count": 8,
+        "fire_mode": "SEMI",
+        "muzzle_id": "tacz:muzzle_choke_sg"
+      }
+    },
+    "sniper": {
+      "sks_tactical": {
+        "gun_id": "tacz:sks_tactical",
+        "ammo_count": 10,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_elcan_4x"
+      },
+      "rpg7": {
+        "gun_id": "tacz:rpg7",
+        "ammo_count": 1,
+        "fire_mode": "SEMI"
+      }
+    },
+    "heavy_mg": {
+      "rpk": {
+        "gun_id": "tacz:rpk",
+        "ammo_count": 40,
+        "fire_mode": "AUTO",
+        "scope_id": "tacz:sight_t2",
+        "muzzle_id": "tacz:muzzle_silencer_ursus"
+      }
+    }
+  }
+}

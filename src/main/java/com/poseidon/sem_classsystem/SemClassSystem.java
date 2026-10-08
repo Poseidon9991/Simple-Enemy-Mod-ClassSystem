@@ -18,8 +18,9 @@ public class SemClassSystem {
     // Rules: lowercase letters, digits and underscores only.
     public static final String MODID = "sem_classsystem";
 
-    // Shared logger so we can print messages to the game log/console
-    private static final Logger LOGGER = LogUtils.getLogger();
+    // Shared logger so we can print messages to the game log/console.
+    // Public because the datapack listener reports loadout parse issues through it.
+    public static final Logger LOGGER = LogUtils.getLogger();
 
     // The mod constructor. Forge calls this once when it discovers and loads the mod.
     // No-arg on purpose - works on every Forge 47.x version (SEM 0.1.5 uses a

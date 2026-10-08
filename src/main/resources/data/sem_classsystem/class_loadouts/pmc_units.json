@@ -1,0 +1,49 @@
+{
+  "classes": {
+    "smg": {
+      "hk_mp5a5": {
+        "gun_id": "tacz:hk_mp5a5",
+        "ammo_count": 30,
+        "fire_mode": "AUTO",
+        "scope_id": "tacz:sight_t2",
+        "muzzle_id": "tacz:muzzle_silencer_mirage"
+      }
+    },
+    "rifle": {
+      "hk_g3": {
+        "gun_id": "tacz:hk_g3",
+        "ammo_count": 20,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_elcan_4x"
+      }
+    },
+    "shotgun": {
+      "aa12": {
+        "gun_id": "tacz:aa12",
+        "ammo_count": 20,
+        "fire_mode": "AUTO",
+        "muzzle_id": "tacz:muzzle_choke_sg"
+      }
+    },
+    "sniper": {
+      "mk14": {
+        "gun_id": "tacz:mk14",
+        "ammo_count": 20,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_mk5hd"
+      },
+      "rpg7": {
+        "gun_id": "tacz:rpg7",
+        "ammo_count": 1,
+        "fire_mode": "SEMI"
+      }
+    },
+    "heavy_mg": {
+      "minigun": {
+        "gun_id": "tacz:minigun",
+        "ammo_count": 200,
+        "fire_mode": "AUTO"
+      }
+    }
+  }
+}

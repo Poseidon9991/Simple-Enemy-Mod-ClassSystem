@@ -49,4 +49,14 @@ public enum WeaponClass {
             return null;
         }
     }
+
+    // Look up a class by its config/datapack key ("smg", "rifle", ...), or null
+    public static WeaponClass byConfigKey(String key) {
+        for (WeaponClass cls : values()) {
+            if (cls.configKey.equals(key)) {
+                return cls;
+            }
+        }
+        return null;
+    }
 }

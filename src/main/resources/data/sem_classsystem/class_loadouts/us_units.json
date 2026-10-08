@@ -1,0 +1,60 @@
+{
+  "classes": {
+    "smg": {
+      "vector45": {
+        "gun_id": "tacz:vector45",
+        "ammo_count": 30,
+        "fire_mode": "AUTO"
+      }
+    },
+    "rifle": {
+      "m4a1": {
+        "gun_id": "tacz:m4a1",
+        "ammo_count": 30,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_acog_ta31"
+      },
+      "scar_l": {
+        "gun_id": "tacz:scar_l",
+        "ammo_count": 30,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_acog_ta31"
+      }
+    },
+    "shotgun": {
+      "aa12": {
+        "gun_id": "tacz:aa12",
+        "ammo_count": 20,
+        "fire_mode": "AUTO",
+        "muzzle_id": "tacz:muzzle_choke_sg"
+      }
+    },
+    "sniper": {
+      "m107": {
+        "gun_id": "tacz:m107",
+        "ammo_count": 5,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_mk5hd"
+      },
+      "ai_awp": {
+        "gun_id": "tacz:ai_awp",
+        "ammo_count": 5,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_mk5hd"
+      },
+      "rpg7": {
+        "gun_id": "tacz:rpg7",
+        "ammo_count": 1,
+        "fire_mode": "SEMI"
+      }
+    },
+    "heavy_mg": {
+      "m249": {
+        "gun_id": "tacz:m249",
+        "ammo_count": 75,
+        "fire_mode": "AUTO",
+        "scope_id": "tacz:scope_acog_ta31"
+      }
+    }
+  }
+}

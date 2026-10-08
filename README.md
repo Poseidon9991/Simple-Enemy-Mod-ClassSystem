@@ -97,6 +97,37 @@ Defaults match SEM's own values — the mod changes nothing until you ask it to.
 
 ***
 
+## Custom Guns
+
+Use a TaCZ addon gunpack? The class weapon tables are plain datapack files — the same way SEM loads its own guns. Drop a datapack into `saves/[your world]/datapacks/` with a file like:
+
+`data/<my_pack>/class_loadouts/ru_units.json`
+
+```json
+{
+  "classes": {
+    "sniper": {
+      "my_custom_rifle": {
+        "gun_id": "mygunpack:big_iron",
+        "ammo_count": 5,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_mk5hd"
+      }
+    }
+  }
+}
+```
+
+*   Faction files: `ru_units.json`, `us_units.json`, `pmc_units.json`
+*   Class keys: `smg`, `rifle`, `shotgun`, `sniper`, `heavy_mg`
+*   `gun_id`, `ammo_count` and `fire_mode` are required; `scope_id`, `muzzle_id`, `grip_id` are optional
+*   Your file **adds** guns to the class pool — our defaults still apply unless you override them
+*   Guns listed here count as class weapons, so the Weapon Lock applies to them too. Guns listed nowhere stay usable by anyone.
+
+Run `/reload` after editing. Check `latest.log` if a file doesn't load — bad entries are skipped with a warning, never crash.
+
+***
+
 ## Credits
 
 *   **[NekoYuni](https://github.com/NekoYuni)** — original author of **Simple Enemy Mod**. Every soldier, every behaviour, every system this addon builds on is his work. This mod exists because SEM does.
