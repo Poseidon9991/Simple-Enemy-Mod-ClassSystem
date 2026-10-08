@@ -15,6 +15,8 @@ import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.nekoyuni.SimpleEnemyMod.data.UnitLoadout;
+import net.minecraftforge.registries.ForgeRegistries;
+import com.tacz.guns.api.item.IGun;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -86,6 +88,16 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
                         if (loadout == null) {
                             SemClassSystem.LOGGER.warn("loadout '{}' in {} is missing gun_id / ammo_count / fire_mode - skipped",
                                     gunEntry.getKey(), file.getKey());
+                            continue;
+                        }
+                        // Gun id must resolve to an actual TaCZ gun item.
+                        // This makes addon-gun entries automatically
+                        // conditional: e.g. maxstuff:dragonuv_svd joins the
+                        // pool only while the maxstuff gunpack is installed,
+                        // and a typo'd id can never arm a unit with air.
+                        if (!(ForgeRegistries.ITEMS.getValue(loadout.gunId) instanceof IGun)) {
+                            SemClassSystem.LOGGER.info("loadout '{}' in {} skipped - gun '{}' is not installed",
+                                    gunEntry.getKey(), file.getKey(), loadout.gunId);
                             continue;
                         }
                         table.computeIfAbsent(factionId, f -> new EnumMap<>(WeaponClass.class))
