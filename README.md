@@ -43,6 +43,16 @@ Every unit rolls one of five classes when it spawns. The class controls which gu
 
 ***
 
+## Choosing a Class
+
+You are not stuck with the dice roll — three ways to pick the specialist you want:
+
+*   **Recruit Table** — **sneak + right-click** the table to cycle through classes (Random → Breacher → Rifleman → Sweeper → Camper → Suppressor), then right-click normally to recruit. Your pick is remembered between sessions.
+*   **Command** — `/semcs recruit_class <class>` sets your table pick directly, and admins can use `/semcs spawn <ru|us|pmc> <class>` or re-class a living unit with `/semcs class <targets> <class>` (it swaps their gun too).
+*   **Summoning** — `/summon` with NBT also works: `/summon simpleenemymod:pmcunit ~ ~ ~ {semcs_weapon_class:"SNIPER"}`
+
+***
+
 ## Weapon Lock
 
 A specialist only fights with specialist gear:

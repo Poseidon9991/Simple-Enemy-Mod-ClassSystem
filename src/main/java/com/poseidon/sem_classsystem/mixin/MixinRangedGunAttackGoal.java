@@ -47,10 +47,24 @@ public abstract class MixinRangedGunAttackGoal {
     @Shadow(remap = false) @Final @Mutable private int MIN_BURST_COOLDOWN_TICKS;
     @Shadow(remap = false) @Final @Mutable private int MAX_BURST_COOLDOWN_TICKS;
 
-    // Guard: which class the fields were last tuned for - prevents
-    // double-scaling if a second tuning pass ever runs.
+    // Guard: which class the fields were last tuned for - re-running for the
+    // same class does nothing, but a class CHANGE must retune.
     @Unique
     private WeaponClass semcs$tunedClass = null;
+
+    // The constructor's original burst/cooldown values, captured once.
+    // Tuning always computes original x multiplier - never multiplies an
+    // already-scaled field (that would corrupt values on a re-class).
+    @Unique
+    private int semcs$origMinBurst;
+    @Unique
+    private int semcs$origMaxBurst;
+    @Unique
+    private int semcs$origMinCooldown;
+    @Unique
+    private int semcs$origMaxCooldown;
+    @Unique
+    private boolean semcs$origCaptured = false;
 
     // TAIL of the constructor: runs right after SEM stored the global
     // AiShootingConfig burst/cooldown values into the finals above -
@@ -65,10 +79,20 @@ public abstract class MixinRangedGunAttackGoal {
         semcs$applyTuning();
     }
 
-    // Applies burst-length and cooldown multipliers to the shadowed fields.
-    // Idempotent per class - re-running for the same class does nothing.
+    // Applies burst-length and cooldown multipliers to the shadowed fields,
+    // always computed from the captured ORIGINAL constructor values so a
+    // re-class retunes correctly instead of scaling the scaled numbers.
     @Unique
     private void semcs$applyTuning() {
+        // First call: snapshot SEM's constructor values before we touch them
+        if (!this.semcs$origCaptured) {
+            this.semcs$origMinBurst = this.MIN_BURST_SHOTS;
+            this.semcs$origMaxBurst = this.MAX_BURST_SHOTS;
+            this.semcs$origMinCooldown = this.MIN_BURST_COOLDOWN_TICKS;
+            this.semcs$origMaxCooldown = this.MAX_BURST_COOLDOWN_TICKS;
+            this.semcs$origCaptured = true;
+        }
+
         // Which class is the shooter? null -> leave SEM defaults untouched.
         WeaponClass cls = WeaponClassSupport.get(this.mob);
         if (cls == null || cls == this.semcs$tunedClass) {
@@ -78,16 +102,16 @@ public abstract class MixinRangedGunAttackGoal {
 
         // --- burst length (min 1 shot, max >= min) ---
         double burst = ClassSystemConfig.classBurst(cls);
-        this.MIN_BURST_SHOTS = Math.max(1, (int) Math.round(this.MIN_BURST_SHOTS * burst));
+        this.MIN_BURST_SHOTS = Math.max(1, (int) Math.round(this.semcs$origMinBurst * burst));
         this.MAX_BURST_SHOTS = Math.max(this.MIN_BURST_SHOTS,
-                (int) Math.round(this.MAX_BURST_SHOTS * burst));
+                (int) Math.round(this.semcs$origMaxBurst * burst));
 
         // --- cadence between bursts (the "fire rate" knob) ---
         double cooldown = ClassSystemConfig.classCooldown(cls);
         this.MIN_BURST_COOLDOWN_TICKS = Math.max(1,
-                (int) Math.round(this.MIN_BURST_COOLDOWN_TICKS * cooldown));
+                (int) Math.round(this.semcs$origMinCooldown * cooldown));
         this.MAX_BURST_COOLDOWN_TICKS = Math.max(this.MIN_BURST_COOLDOWN_TICKS,
-                (int) Math.round(this.MAX_BURST_COOLDOWN_TICKS * cooldown));
+                (int) Math.round(this.semcs$origMaxCooldown * cooldown));
     }
 
     // @Redirect replaces a CALL to another method with a call to OUR method.
@@ -134,6 +158,9 @@ public abstract class MixinRangedGunAttackGoal {
         if (!cir.getReturnValue()) {
             return;
         }
+        // Retune burst/cooldown if the unit's class changed since the ctor
+        // (e.g. the /semcs class command re-classed a living unit)
+        semcs$applyTuning();
         // No class -> no restriction
         WeaponClass cls = WeaponClassSupport.get(this.mob);
         if (cls == null) {

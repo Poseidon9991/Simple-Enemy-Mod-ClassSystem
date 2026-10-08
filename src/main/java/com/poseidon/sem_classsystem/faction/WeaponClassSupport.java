@@ -77,4 +77,44 @@ public final class WeaponClassSupport {
         unit.setCustomName(Component.literal(label + " Unit - " + nickname));
         unit.setCustomNameVisible(true);                   // nameplate always visible
     }
+
+    // ---- recruit preference ------------------------------------------------
+    // The class a player wants the next Recruit Table soldier to be.
+    // Stored in the player's persistent NBT so it survives death + relog.
+    public static final String RECRUIT_KEY = "semcs_recruit_class";
+
+    // Read the player's chosen recruit class. null = "random" (default).
+    @Nullable
+    public static WeaponClass getRecruitPreference(net.minecraft.world.entity.player.Player player) {
+        String key = player.getPersistentData().getString(RECRUIT_KEY);
+        return key.isEmpty() ? null : WeaponClass.byConfigKey(key);
+    }
+
+    // Write the preference; null clears it back to "random".
+    public static void setRecruitPreference(net.minecraft.world.entity.player.Player player,
+                                            @Nullable WeaponClass cls) {
+        player.getPersistentData().putString(RECRUIT_KEY,
+                cls == null ? "" : cls.configKey());
+    }
+
+    // Sneak-click on the recruit table: step to the next choice.
+    // Order: random -> smg -> rifle -> shotgun -> sniper -> heavy_mg -> random.
+    // Returns the new preference (null = random) for the feedback message.
+    @Nullable
+    public static WeaponClass cycleRecruitPreference(net.minecraft.world.entity.player.Player player) {
+        WeaponClass current = getRecruitPreference(player);
+        WeaponClass next = current == null
+                ? WeaponClass.values()[0]
+                : (current.ordinal() + 1 < WeaponClass.values().length)
+                        ? WeaponClass.values()[current.ordinal() + 1]
+                        : null;
+        setRecruitPreference(player, next);
+        return next;
+    }
+
+    // Pretty label for the actionbar / command feedback.
+    public static String recruitPreferenceLabel(net.minecraft.world.entity.player.Player player) {
+        WeaponClass cls = getRecruitPreference(player);
+        return cls == null ? "Random" : ClassSystemConfig.classNickname(cls);
+    }
 }
