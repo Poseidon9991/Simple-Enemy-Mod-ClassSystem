@@ -53,6 +53,12 @@ Per-class tuning lives in `[class_tuning.<class>]` — `accuracySpreadMultiplier
 displayed `nickname`. The class is stored in the unit's NBT, survives save/load,
 and units saved before this mod get their class inferred from the gun they hold.
 
+**Weapon lock:** a unit can only carry weapons of its own class. In the PMC
+inventory GUI the gun slots reject any known gun that belongs to another class
+(click and shift-click both), and the combat goal additionally refuses to fire
+a wrong-class gun even if it reaches the hand via commands/NBT. Guns unknown to
+the class tables stay allowed, so modded or custom guns still work.
+
 ### How it works
 
 - `MixinAbstractUnit` — injects into `finalizeSpawn`/`readAdditionalSaveData`/
@@ -62,9 +68,12 @@ and units saved before this mod get their class inferred from the gun they hold.
 - `MixinWeaponEquippers` — one mixin over all three SEM equippers; redirects
   `UnitLoadoutManager.getRandomLoadout` to our per-class gun tables.
 - `MixinRangedGunAttackGoal` — `@Mutable @Shadow`s the burst/cooldown finals
-  (retuned per class after the ctor) and redirects
+  (retuned per class after the ctor), redirects
   `AiGunSpreadHelper.CalculateSpread` to scale spread by faction × class and
-  the distance falloff by class.
+  the distance falloff by class, and vetoes `canUse` when the held gun is a
+  wrong-class weapon.
+- `MixinUnitInventoryHandler` — injects `isItemValid` to reject non-class guns
+  in the weapon slots (covers GUI clicks, shift-click and hopper inserts).
 
 No SEM code is copied or modified — everything is applied at runtime via mixins.
 

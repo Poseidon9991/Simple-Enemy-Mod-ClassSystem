@@ -2,10 +2,14 @@
 package com.poseidon.sem_classsystem.mixin;
 
 // Our helper: faction x class -> spread multiplier
+import com.poseidon.sem_classsystem.faction.ClassLoadouts;
 import com.poseidon.sem_classsystem.faction.UnitClassAttributes;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
+// TaCZ interfaces: read which gun id the held ItemStack is
+import com.tacz.guns.api.item.IGun;
+import net.minecraft.resources.ResourceLocation;
 // Vanilla RNG source the goal passes to the spread calculator
 import net.minecraft.util.RandomSource;
 // Vanilla Mob type of the shooter field inside the goal
@@ -24,6 +28,7 @@ import org.spongepowered.asm.mixin.injection.At;         // WHERE inside a metho
 import org.spongepowered.asm.mixin.injection.Inject;     // insert code
 import org.spongepowered.asm.mixin.injection.Redirect;   // replace a method call
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // Patch SEM's RangedGunAttackGoal - the AI goal that makes soldiers shoot.
 @Mixin(RangedGunAttackGoal.class)
@@ -114,5 +119,33 @@ public abstract class MixinRangedGunAttackGoal {
                 baseSpread * (float) (UnitClassAttributes.spreadMultiplier(this.mob) * classSpread),
                 (float) (spreadIncreasePerBlock * classFalloff),
                 random);
+    }
+
+    // ---- class weapon lock -------------------------------------------------
+    // RETURN-inject on canUse(): after SEM decided the goal may run, we veto
+    // it when the held gun belongs to a DIFFERENT weapon class. This is the
+    // second layer of the lock - even if a wrong-class gun reaches the hand
+    // (commands, NBT edits, another mod), the unit simply will not fire it.
+    // remap stays default (true): canUse is a vanilla Goal method, the refmap
+    // translates it to the obfuscated name in production.
+    @Inject(method = "canUse", at = @At("RETURN"), cancellable = true)
+    private void semcs$enforceClassWeapon(CallbackInfoReturnable<Boolean> cir) {
+        // SEM already said no -> nothing to do
+        if (!cir.getReturnValue()) {
+            return;
+        }
+        // No class -> no restriction
+        WeaponClass cls = WeaponClassSupport.get(this.mob);
+        if (cls == null) {
+            return;
+        }
+        // Identify the gun in the main hand through the TaCZ API
+        IGun iGun = IGun.getIGunOrNull(this.mob.getMainHandItem());
+        ResourceLocation gunId = iGun != null ? iGun.getGunId(this.mob.getMainHandItem()) : null;
+        WeaponClass gunClass = gunId == null ? null : ClassLoadouts.inferClass(gunId);
+        // Known gun of another class -> goal cannot run (unit holds fire)
+        if (gunClass != null && gunClass != cls) {
+            cir.setReturnValue(false);
+        }
     }
 }
