@@ -1,108 +1,108 @@
-# [SEM] Class System
+<p align="center">
+  <img src="docs/banner.svg" alt="SEM Class System" width="100%">
+</p>
 
-A Forge 1.20.1 addon for **Simple Enemy Mod** that gives each faction its own
-attribute set instead of sharing the global `unit_attributes` config values.
+<p align="center">
+  <a href="https://github.com/Poseidon9991/SEM-ClassSystem">
+    <img alt="github" height="56" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy-minimal/available/github_vector.svg">
+  </a>
+</p>
 
-**Requires [Simple Enemy Mod](https://github.com/NekoYuni/Simple-Enemy-Mod) to be installed.**
+<p align="center">
+  <img alt="Minecraft 1.20.1" src="https://img.shields.io/badge/Minecraft-1.20.1-8a9455?style=for-the-badge">
+  <img alt="Forge 47+" src="https://img.shields.io/badge/Forge-47%2B-d9a83c?style=for-the-badge">
+  <img alt="License GPLv3" src="https://img.shields.io/badge/License-GPLv3-blue?style=for-the-badge">
+  <img alt="Requires Simple Enemy Mod" src="https://img.shields.io/badge/Requires-Simple%20Enemy%20Mod-critical?style=for-the-badge">
+</p>
 
-## The problem
+***
 
-In SEM, `sem-server.toml` (`config -> unit_attributes`) applies a single
-`health`, `speed`, and `detectionRange` to **every** unit — RU, US, and PMC
-soldiers all end up with identical stats, and gun accuracy comes from the
-global `gun_ai_shooting_config` section.
+## What is this?
 
-## What this mod does
+**[SEM] Class System** is an addon for [Simple Enemy Mod](https://github.com/NekoYuni/Simple-Enemy-Mod-Public) that turns every soldier into a specialist. Instead of every unit sharing the same stats and pulling from the same gun pool, each soldier now spawns with a **class** — a combat role with its own weapon, its own way of shooting, and a nickname floating above its head.
 
-Per-faction attributes, configurable per world in
-`saves/<world>/serverconfig/sem_classsystem-server.toml`:
+A RU squad is no longer three identical riflemen. Now it can be a **Breacher** spraying an UZI up close, a **Camper** picking targets from a hill, and a **Suppressor** keeping heads down with an RPK.
 
-```toml
-[ru_unit]
-    health = 20.0          # 1.0 - 200.0
-    speed = 0.27           # 0.05 - 1.5
-    detectionRange = 96.0  # 32.0 - 384.0
-    accuracySpreadMultiplier = 1.0  # scales bullet spread: <1 = more accurate, >1 = less accurate
+> **Warning:** this addon is in early development. Back up your worlds before installing, and expect balance to change between versions.
 
-[us_unit]
-    # same keys
+***
 
-[pmc_unit]
-    # same keys
-```
+## The Classes
 
-Defaults match SEM's own defaults, so the mod is a no-op until you tune it.
-Applied on spawn and on world load, so existing units pick up config changes.
+Every unit rolls one of five classes when it spawns. The class controls which gun it carries, how fast it fires, how accurate it is, and the name tag it shows.
 
-## Phase 2 — Weapon classes
-
-Every unit also rolls a **weapon class** at spawn. The class decides which gun
-it carries, how it shoots, and the nickname in its name tag
-(e.g. `US Unit - Sweeper`).
-
-| Class | Nickname | Behaviour | Guns |
+| Class | Nickname | Style | Weapons |
 |---|---|---|---|
-| SMG | Breacher | fast follow-up bursts, accuracy dies at range | UZI (RU), Vector (US), MP5 (PMC) |
-| Rifle | Rifleman | untouched SEM baseline | AK-47 / Type-81 (RU), M4A1 / SCAR-L (US), HK G3 (PMC) |
-| Shotgun | Sweeper | tight up close, useless past ~25 blocks | SPAS-12 (RU), AA-12 (US/PMC) |
-| Sniper & RPG | Camper | single aimed shots, long pauses, very tight | SKS / RPG-7 (RU), M107 / AWP / RPG-7 (US), Mk14 / RPG-7 (PMC) |
-| Heavy MG | Suppressor | sustained fire, decent spread | RPK (RU), M249 (US), Minigun (PMC) |
+| **SMG** | Breacher | sprays fast, but shots scatter past mid-range | UZI / Vector / MP5 |
+| **Rifle** | Rifleman | the balanced soldier you already know | AK-47, Type-81 / M4A1, SCAR-L / HK G3 |
+| **Shotgun** | Sweeper | deadly up close, harmless far away | SPAS-12 / AA-12 |
+| **Sniper & RPG** | Camper | slow, patient, rarely misses | SKS, RPG-7 / M107, AWP, RPG-7 / Mk14, RPG-7 |
+| **Heavy MG** | Suppressor | long bursts that keep enemies pinned | RPK / M249 / Minigun |
 
-Per-class tuning lives in `[class_tuning.<class>]` — `accuracySpreadMultiplier`,
-`rangeFalloffMultiplier`, `burstLengthMultiplier`, `cooldownMultiplier`, and the
-displayed `nickname`. The class is stored in the unit's NBT, survives save/load,
-and units saved before this mod get their class inferred from the gun they hold.
+> Nicknames are what show on the unit's name tag — a shotgun unit shows **US Unit - Sweeper**, not "Shotgun Class". You can rename every nickname in the config.
 
-**Weapon lock:** a unit can only carry weapons of its own class. In the PMC
-inventory GUI the gun slots reject any known gun that belongs to another class
-(click and shift-click both), and the combat goal additionally refuses to fire
-a wrong-class gun even if it reaches the hand via commands/NBT. Guns unknown to
-the class tables stay allowed, so modded or custom guns still work.
+***
 
-### How it works
+## Weapon Lock
 
-- `MixinAbstractUnit` — injects into `finalizeSpawn`/`readAdditionalSaveData`/
-  `addAdditionalSaveData`: rolls + persists the weapon class (`semcs$weaponClass`
-  via injected `IClassifiedUnit` bridge), overwrites faction attributes, and
-  sets the `Faction Unit - Nickname` name tag.
-- `MixinWeaponEquippers` — one mixin over all three SEM equippers; redirects
-  `UnitLoadoutManager.getRandomLoadout` to our per-class gun tables.
-- `MixinRangedGunAttackGoal` — `@Mutable @Shadow`s the burst/cooldown finals
-  (retuned per class after the ctor), redirects
-  `AiGunSpreadHelper.CalculateSpread` to scale spread by faction × class and
-  the distance falloff by class, and vetoes `canUse` when the held gun is a
-  wrong-class weapon.
-- `MixinUnitInventoryHandler` — injects `isItemValid` to reject non-class guns
-  in the weapon slots (covers GUI clicks, shift-click and hopper inserts).
+A specialist only fights with specialist gear:
 
-No SEM code is copied or modified — everything is applied at runtime via mixins.
+*   A **Camper** accepts only sniper weapons — you can't hand him a rifle in his inventory screen, he simply won't take it.
+*   Even if a wrong-class weapon somehow ends up in his hands, he will **hold fire** rather than use it.
+*   Guns from other mods or datapacks that aren't in the class tables stay allowed, so nothing gets bricked.
+
+***
+
+## Per-Faction Stats
+
+On top of classes, each faction gets its own attribute set — no more shared stats:
+
+*   **Health** — make RU units tankier than US units if you want
+*   **Walk speed** — fast PMCs, slow RU heavies
+*   **Detection range** — who spots you first
+*   **Accuracy** — a faction-wide aim bonus or penalty that stacks with the class one
+
+***
 
 ## Requirements
 
-- Minecraft 1.20.1, Forge 47+
-- [Simple Enemy Mod](https://github.com/NekoYuni/Simple-Enemy-Mod) `1.20.1-0.1.5-beta` up to `0.1.6` (covers `v0.1.6-beta.1`)
-- TaCZ `1.1.4` – `1.1.8` (required by SEM)
+*   **Minecraft:** 1.20.1
+*   **Forge:** 47.4.0+
+*   **Dependency:** [Simple Enemy Mod](https://github.com/NekoYuni/Simple-Enemy-Mod-Public) `0.1.5-beta` up to `0.1.6` (includes `v0.1.6-beta.1`)
+*   **Dependency:** [TaCZ](https://www.curseforge.com/minecraft/mc-mods/timeless-and-classics-zero) `1.1.4` – `1.1.8` (required by SEM itself)
 
-## Building
+This mod **will not load** without Simple Enemy Mod installed — that's the point, it extends it.
 
-Drop `simpleenemymod.jar` and `tacz.jar` into `libs/`, then:
+***
 
-```
-gradlew build
-```
+## Configuration
 
-Output: `build/libs/sem_classsystem-<version>.jar`
+Everything is editable per-world:
+
+`.minecraft/saves/[your world name]/serverconfig/sem_classsystem-server.toml`
+
+**Per faction** (`[ru_unit]`, `[us_unit]`, `[pmc_unit]`):
+
+*   `health`, `speed`, `detectionRange`, `accuracySpreadMultiplier`
+
+**Per class** (`[class_tuning.smg]` etc.):
+
+*   `nickname` — the name-tag suffix
+*   `accuracySpreadMultiplier` — lower = more accurate
+*   `rangeFalloffMultiplier` — higher = accuracy dies faster with distance
+*   `burstLengthMultiplier` — shots per burst
+*   `cooldownMultiplier` — pause between bursts (lower = higher fire rate)
+
+Defaults match SEM's own values — the mod changes nothing until you ask it to.
+
+***
 
 ## Credits
 
-- **[NekoYuni](https://github.com/NekoYuni)** — original author of
-  [Simple Enemy Mod](https://github.com/NekoYuni/Simple-Enemy-Mod), which this
-  addon depends on and extends. All soldier AI, entities, and core systems are
-  his work.
-- **[Timeless and Classics Zero (TaCZ)](https://www.curseforge.com/minecraft/mc-mods/timeless-and-classics-zero)** — gun system used by SEM.
-- Extension architecture inspired by [tacz-simple-enemies-vehicular-warfare](https://github.com/neoalive/tacz-simple-enemies-vehicular-warfare).
+*   **[NekoYuni](https://github.com/NekoYuni)** — original author of **Simple Enemy Mod**. Every soldier, every behaviour, every system this addon builds on is his work. This mod exists because SEM does.
+*   **[TaCZ team](https://www.curseforge.com/minecraft/mc-mods/timeless-and-classics-zero)** — the weapon system all units fight with.
+*   **[neoalive](https://github.com/neoalive/tacz-simple-enemies-vehicular-warfare)** — the vehicular-warfare addon whose architecture inspired how this mod extends SEM.
 
 ## License
 
-GPLv3 — same as Simple Enemy Mod. This addon modifies SEM behavior at runtime
-and is distributed as a GPLv3 derivative work.
+GPLv3 — same as Simple Enemy Mod. This addon is a derivative work: SEM is GPLv3, so this is too. Source stays open, credit stays attached.

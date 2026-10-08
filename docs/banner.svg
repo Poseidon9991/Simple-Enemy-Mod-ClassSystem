@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300">
+  <defs>
+    <!-- faint dotted grid, military-map feel -->
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#232a1a"/>
+    </pattern>
+    <!-- soft glow for the emblem -->
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- dark field + grid -->
+  <rect width="1200" height="300" fill="#0d0f0b"/>
+  <rect width="1200" height="300" fill="url(#grid)"/>
+
+  <!-- scanline fade at edges -->
+  <rect width="1200" height="300" fill="none" stroke="#0d0f0b" stroke-width="60" opacity="0.55"/>
+
+  <!-- ============ crosshair emblem (left) ============ -->
+  <g transform="translate(165,150)" filter="url(#glow)">
+    <!-- outer ring -->
+    <circle r="78" fill="none" stroke="#d9a83c" stroke-width="3"/>
+    <!-- inner dashed ring -->
+    <circle r="60" fill="none" stroke="#d9a83c" stroke-width="1.5" stroke-dasharray="6 8" opacity="0.7"/>
+    <!-- cardinal ticks -->
+    <g stroke="#d9a83c" stroke-width="4">
+      <line x1="0" y1="-100" x2="0" y2="-72"/>
+      <line x1="0" y1="72" x2="0" y2="100"/>
+      <line x1="-100" y1="0" x2="-72" y2="0"/>
+      <line x1="72" y1="0" x2="100" y2="0"/>
+    </g>
+    <!-- crosshair lines -->
+    <g stroke="#8a9455" stroke-width="1.5" opacity="0.8">
+      <line x1="0" y1="-60" x2="0" y2="60"/>
+      <line x1="-60" y1="0" x2="60" y2="0"/>
+    </g>
+    <!-- center pip -->
+    <circle r="7" fill="#d9a83c"/>
+    <circle r="14" fill="none" stroke="#d9a83c" stroke-width="1.5" opacity="0.6"/>
+  </g>
+
+  <!-- ============ title block ============ -->
+  <g font-family="Arial, Helvetica, sans-serif">
+    <!-- small chip label -->
+    <rect x="290" y="86" width="76" height="26" rx="3" fill="#d9a83c"/>
+    <text x="328" y="104" font-size="15" font-weight="bold" fill="#0d0f0b" text-anchor="middle" letter-spacing="2">SEM</text>
+    <!-- main title -->
+    <text x="290" y="168" font-size="58" font-weight="900" fill="#f2f4ec" letter-spacing="4">CLASS SYSTEM</text>
+    <!-- tagline -->
+    <text x="292" y="206" font-size="19" fill="#9aa38b" letter-spacing="1">Every soldier has a role - a Simple Enemy Mod addon</text>
+  </g>
+
+  <!-- ============ five class pips (right) ============ -->
+  <g transform="translate(880,150)" font-family="Arial, Helvetica, sans-serif" text-anchor="middle">
+    <!-- Breacher -->
+    <g transform="translate(-160,0)">
+      <circle r="30" fill="#14170f" stroke="#3a4028" stroke-width="2"/>
+      <g stroke="#d9a83c" stroke-width="3" fill="none" stroke-linecap="round">
+        <polyline points="-9,-8 -1,0 -9,8"/>
+        <polyline points="1,-8 9,0 1,8"/>
+      </g>
+      <text y="52" font-size="11" fill="#9aa38b" letter-spacing="1">BREACHER</text>
+    </g>
+    <!-- Rifleman -->
+    <g transform="translate(-80,0)">
+      <circle r="30" fill="#14170f" stroke="#3a4028" stroke-width="2"/>
+      <circle r="4" fill="#d9a83c"/>
+      <g stroke="#9aa38b" stroke-width="1.5">
+        <line x1="0" y1="-14" x2="0" y2="-7"/><line x1="0" y1="7" x2="0" y2="14"/>
+        <line x1="-14" y1="0" x2="-7" y2="0"/><line x1="7" y1="0" x2="14" y2="0"/>
+      </g>
+      <text y="52" font-size="11" fill="#9aa38b" letter-spacing="1">RIFLEMAN</text>
+    </g>
+    <!-- Sweeper -->
+    <g transform="translate(0,0)">
+      <circle r="30" fill="#14170f" stroke="#3a4028" stroke-width="2"/>
+      <g fill="#d9a83c">
+        <circle cx="0" cy="-9" r="2.5"/><circle cx="-8" cy="-3" r="2.5"/><circle cx="8" cy="-3" r="2.5"/>
+        <circle cx="-11" cy="6" r="2.5"/><circle cx="0" cy="9" r="2.5"/><circle cx="11" cy="6" r="2.5"/>
+      </g>
+      <text y="52" font-size="11" fill="#9aa38b" letter-spacing="1">SWEEPER</text>
+    </g>
+    <!-- Camper -->
+    <g transform="translate(80,0)">
+      <circle r="30" fill="#14170f" stroke="#3a4028" stroke-width="2"/>
+      <circle r="13" fill="none" stroke="#d9a83c" stroke-width="1.5"/>
+      <g stroke="#d9a83c" stroke-width="1.5">
+        <line x1="0" y1="-19" x2="0" y2="-9"/><line x1="0" y1="9" x2="0" y2="19"/>
+        <line x1="-19" y1="0" x2="-9" y2="0"/><line x1="9" y1="0" x2="19" y2="0"/>
+      </g>
+      <circle r="2.5" fill="#d9a83c"/>
+      <text y="52" font-size="11" fill="#9aa38b" letter-spacing="1">CAMPER</text>
+    </g>
+    <!-- Suppressor -->
+    <g transform="translate(160,0)">
+      <circle r="30" fill="#14170f" stroke="#3a4028" stroke-width="2"/>
+      <g fill="#d9a83c">
+        <rect x="-14" y="-7" width="5" height="14" rx="1"/>
+        <rect x="-6" y="-7" width="5" height="14" rx="1"/>
+        <rect x="2" y="-7" width="5" height="14" rx="1"/>
+        <rect x="10" y="-7" width="5" height="14" rx="1"/>
+      </g>
+      <text y="52" font-size="11" fill="#9aa38b" letter-spacing="1">SUPPRESSOR</text>
+    </g>
+  </g>
+
+  <!-- amber bottom rule -->
+  <rect x="0" y="296" width="1200" height="4" fill="#d9a83c"/>
+</svg>
