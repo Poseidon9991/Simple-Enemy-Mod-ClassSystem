@@ -71,6 +71,11 @@ public abstract class MixinRangedGunAttackGoal {
     @Unique
     private boolean semcs$origCaptured = false;
 
+    // True while WE put this unit into sneak for a crouch-fire stance, so
+    // stop() only clears a flag we own (never touches another system).
+    @Unique
+    private boolean semcs$crouching = false;
+
     // TAIL of the constructor: runs right after SEM stored the global
     // AiShootingConfig burst/cooldown values into the finals above -
     // we overwrite them with class-scaled values.
@@ -146,14 +151,39 @@ public abstract class MixinRangedGunAttackGoal {
         WeaponClass cls = WeaponClassSupport.get(this.mob);
         double classSpread = cls == null ? 1.0 : ClassSystemConfig.classSpread(cls);
         double classFalloff = cls == null ? 1.0 : ClassSystemConfig.classFalloff(cls);
+        // Crouched firing is steadier - the class's own bonus while sneaking
+        double crouch = cls != null && this.mob.isShiftKeyDown()
+                ? ClassSystemConfig.classCrouchSpread(cls) : 1.0;
 
         // Total spread = SEM's value x faction multiplier x class multiplier.
         // The distance falloff arg is scaled by the class falloff multiplier
         // (shotguns collapse at range, snipers barely degrade).
         return AiGunSpreadHelper.CalculateSpread(idealAngle, distance,
-                baseSpread * (float) (UnitClassAttributes.spreadMultiplier(this.mob) * classSpread),
+                baseSpread * (float) (UnitClassAttributes.spreadMultiplier(this.mob) * classSpread * crouch),
                 (float) (spreadIncreasePerBlock * classFalloff),
                 random);
+    }
+
+    // ---- crouch firing stance ----------------------------------------------
+    // Goal lifecycle methods are vanilla (remap stays default). start() puts
+    // crouching classes into sneak - the shared entity flag syncs to the
+    // client, where MixinUnitModelCrouch turns it into a kneel pose. stop()
+    // releases only the flag WE set.
+    @Inject(method = "start", at = @At("TAIL"))
+    private void semcs$enterCrouch(CallbackInfo ci) {
+        WeaponClass cls = WeaponClassSupport.get(this.mob);
+        if (cls != null && ClassSystemConfig.classCrouchWhileFiring(cls)) {
+            this.mob.setShiftKeyDown(true);
+            this.semcs$crouching = true;
+        }
+    }
+
+    @Inject(method = "stop", at = @At("TAIL"))
+    private void semcs$exitCrouch(CallbackInfo ci) {
+        if (this.semcs$crouching) {
+            this.mob.setShiftKeyDown(false);
+            this.semcs$crouching = false;
+        }
     }
 
     // ---- class weapon lock -------------------------------------------------

@@ -15,7 +15,8 @@
     "MixinWeaponEquippers"
   ],
   "client": [
-    "MixinUniversalArmorLayer"
+    "MixinUniversalArmorLayer",
+    "MixinUnitModelCrouch"
   ],
   "server": [],
   "injectors": {

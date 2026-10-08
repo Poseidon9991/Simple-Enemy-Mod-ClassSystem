@@ -36,8 +36,8 @@ Every unit rolls one of five classes when it spawns. The class controls which gu
 | **SMG** | Breacher | sprays fast, but shots scatter past mid-range | pushes in close | UZI / Vector / MP5 |
 | **Rifle** | Rifleman | the balanced soldier you already know | standard spacing | AK-47, Type-81 / M4A1, SCAR-L / HK G3 |
 | **Shotgun** | Sweeper | deadly up close, harmless far away | charges the target, won't waste shells at range | SPAS-12 / AA-12 |
-| **Sniper & RPG** | Camper | slow, patient, rarely misses | never advances — picks targets from where it stands | SKS, RPG-7 / M107, AWP, RPG-7 / Mk14, RPG-7 |
-| **Heavy MG** | Suppressor | long bursts that keep enemies pinned | plants itself mid-field | RPK / M249 / Minigun |
+| **Sniper & RPG** | Camper | slow, patient, rarely misses | never advances — **takes a knee** and picks targets from where it stands | SKS, RPG-7 / M107, AWP, RPG-7 / Mk14, RPG-7 |
+| **Heavy MG** | Suppressor | long bursts that keep enemies pinned | plants itself mid-field, **braces in a crouch** to fire | RPK / M249 / Minigun |
 
 > Nicknames are what show on the unit's name tag — a shotgun unit shows **US Unit - Sweeper**, not "Shotgun Class". You can rename every nickname in the config.
 

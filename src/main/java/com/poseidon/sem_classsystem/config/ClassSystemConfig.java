@@ -71,7 +71,9 @@ public class ClassSystemConfig {
                 "accuracySpreadMultiplier: bullet spread scale (lower = more accurate)",
                 "rangeFalloffMultiplier: how fast accuracy worsens with distance (higher = worse at range)",
                 "burstLengthMultiplier: shots per burst scale (min 1 shot always)",
-                "cooldownMultiplier: pause between bursts scale (lower = higher fire rate)");
+                "cooldownMultiplier: pause between bursts scale (lower = higher fire rate)",
+                "crouchWhileFiring: unit takes a knee while the shoot goal runs",
+                "crouchSpreadMultiplier: extra accuracy bonus while crouched (lower = tighter)");
 
         for (WeaponClass cls : WeaponClass.values()) {
             // One [class_tuning.smg] / [class_tuning.rifle] / ... section each
@@ -105,7 +107,15 @@ public class ClassSystemConfig {
                                     "(lower = holds fire until close, higher = reaches further)")
                             .defineInRange("shootDistanceMultiplier", classShootDefault(cls), 0.1, 5.0),
                     BUILDER.comment("Movement speed multiplier while advancing on a target")
-                            .defineInRange("approachSpeedMultiplier", classApproachDefault(cls), 0.3, 3.0)
+                            .defineInRange("approachSpeedMultiplier", classApproachDefault(cls), 0.3, 3.0),
+                    BUILDER.comment(
+                                    "Whether this class crouches while firing - snipers take a",
+                                    "knee, machine-gunners brace; assault classes stay mobile.")
+                            .define("crouchWhileFiring", classCrouchDefault(cls)),
+                    BUILDER.comment(
+                                    "Spread multiplier applied while crouched (lower = tighter).",
+                                    "Only matters for classes with crouchWhileFiring = true.")
+                            .defineInRange("crouchSpreadMultiplier", 0.8, 0.05, 2.0)
             );
 
             CLASS_ENTRIES.put(cls, entry);
@@ -243,6 +253,14 @@ public class ClassSystemConfig {
         };
     }
 
+    private static boolean classCrouchDefault(WeaponClass cls) {
+        return switch (cls) {
+            case SNIPER -> true;    // takes a knee to aim
+            case HEAVY_MG -> true;  // braces the gun before firing
+            default -> false;       // assault classes stay mobile
+        };
+    }
+
     // Called once from the mod constructor while Forge loads us
     public static void register() {
         // Type.SERVER -> saves/<world>/serverconfig/sem_classsystem-server.toml
@@ -313,6 +331,21 @@ public class ClassSystemConfig {
         return safeGet(CLASS_ENTRIES.get(cls).approachSpeedMultiplier, 1.0);
     }
 
+    // Should this class crouch while its shoot goal is running?
+    public static boolean classCrouchWhileFiring(WeaponClass cls) {
+        ForgeConfigSpec.BooleanValue v = CLASS_ENTRIES.get(cls).crouchWhileFiring;
+        try {
+            return v.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return classCrouchDefault(cls);
+        }
+    }
+
+    // Extra spread multiplier applied while the unit is crouched
+    public static double classCrouchSpread(WeaponClass cls) {
+        return safeGet(CLASS_ENTRIES.get(cls).crouchSpreadMultiplier, 0.8);
+    }
+
     // ================= Compat accessors =================
 
     // Should village defenders (unit_defenders tag) never target this faction?
@@ -361,6 +394,8 @@ public class ClassSystemConfig {
                               ForgeConfigSpec.DoubleValue cooldownMultiplier,
                               ForgeConfigSpec.DoubleValue engageDistance,
                               ForgeConfigSpec.DoubleValue shootDistanceMultiplier,
-                              ForgeConfigSpec.DoubleValue approachSpeedMultiplier) {
+                              ForgeConfigSpec.DoubleValue approachSpeedMultiplier,
+                              ForgeConfigSpec.BooleanValue crouchWhileFiring,
+                              ForgeConfigSpec.DoubleValue crouchSpreadMultiplier) {
     }
 }
