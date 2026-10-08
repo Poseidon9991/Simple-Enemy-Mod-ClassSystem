@@ -5,6 +5,8 @@ package com.poseidon.sem_classsystem;
 import com.mojang.logging.LogUtils;
 // Our own config class - defines the per-faction attribute values in the .toml file
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
+// Our registries: BHQ entity, recruit table block, spawn egg
+import com.poseidon.sem_classsystem.registry.SemcsRegistries;
 // Forge's @Mod annotation - marks this class as THE entry point of the mod
 import net.minecraftforge.fml.common.Mod;
 // The Logger interface itself (SLF4J implementation underneath)
@@ -29,6 +31,8 @@ public class SemClassSystem {
         // Register our config file. Type.SERVER means Forge creates
         // saves/<world>/serverconfig/sem_classsystem-server.toml for each world.
         ClassSystemConfig.register();
+        // Deferred registers: BHQ unit entity, recruit table, spawn egg
+        SemcsRegistries.registerAll();
         // Print a line to the log so you can confirm the mod actually loaded in-game
         LOGGER.info("[SEM-CS] Class System loaded - per-faction unit attributes active");
     }

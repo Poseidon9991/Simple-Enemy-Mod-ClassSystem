@@ -10,6 +10,7 @@ import com.poseidon.sem_classsystem.bridge.IClassifiedUnit;
 import com.poseidon.sem_classsystem.faction.UnitClassAttributes;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
+import com.poseidon.sem_classsystem.registry.SemcsRegistries;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -42,7 +43,7 @@ public final class SemClassCommands {
 
     // Class keys offered in tab-completion
     private static final String[] CLASS_KEYS = {"smg", "rifle", "shotgun", "sniper", "heavy_mg"};
-    private static final String[] FACTION_KEYS = {"ru", "us", "pmc"};
+    private static final String[] FACTION_KEYS = {"ru", "us", "pmc", "bhq"};
 
     private static final SuggestionProvider<CommandSourceStack> CLASS_SUGGEST =
             (ctx, builder) -> SharedSuggestionProvider.suggest(CLASS_KEYS, builder);
@@ -136,10 +137,11 @@ public final class SemClassCommands {
             case "ru" -> ModEntities.RUUNIT.get();
             case "us" -> ModEntities.USUNIT.get();
             case "pmc" -> ModEntities.PMCUNIT.get();
+            case "bhq" -> SemcsRegistries.BHQ_UNIT.get();
             default -> null;
         };
         if (type == null) {
-            src.sendFailure(Component.literal("Unknown faction: " + factionArg + " (use ru, us or pmc)"));
+            src.sendFailure(Component.literal("Unknown faction: " + factionArg + " (use ru, us, pmc or bhq)"));
             return 0;
         }
 

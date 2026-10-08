@@ -17,7 +17,10 @@ public enum UnitClass {
     // US soldiers -> [us_unit] section
     US_UNIT("us_unit", "US Soldier"),
     // PMC soldiers -> [pmc_unit] section
-    PMC_UNIT("pmc_unit", "PMC Soldier");
+    PMC_UNIT("pmc_unit", "PMC Soldier"),
+    // BHQ operators -> [bhq_unit] section (our own elite PMC variant;
+    // sits in SEM's pmc_units tag but gets its own stat profile)
+    BHQ_UNIT("bhq_unit", "BHQ Operator");
 
     // Name of the [section] this faction uses in sem_classsystem-server.toml
     private final String configSection;
@@ -50,6 +53,12 @@ public enum UnitClass {
     // that are not SEM soldiers (players, zombies, other mods' mobs, ...).
     @Nullable
     public static UnitClass of(Entity entity) {
+        // Our own BHQ unit IS in SEM's pmc_units tag (ally of PMCs), so this
+        // instanceof check must run BEFORE the tag checks - otherwise a BHQ
+        // operator would resolve as PMC_UNIT and get the worse stats.
+        if (entity instanceof com.poseidon.sem_classsystem.entity.BhqUnitEntity) {
+            return BHQ_UNIT;
+        }
         // SEM tags RU entities with simpleenemymod:ru_units -> this checks that tag
         if (UnitFactionTags.isRuUnit(entity)) {
             return RU_UNIT;

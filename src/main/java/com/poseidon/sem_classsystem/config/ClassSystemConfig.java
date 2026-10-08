@@ -30,6 +30,8 @@ public class ClassSystemConfig {
     // faction -> whether village defenders (golems, guard mods) ignore it
     private static final Map<UnitClass, ForgeConfigSpec.BooleanValue> DEFENDER_IGNORE =
             new EnumMap<>(UnitClass.class);
+    // BHQ recruit table price (assigned inside the static block below)
+    private static ForgeConfigSpec.IntValue BHQ_RECRUIT_PRICE;
 
     // static {} runs once at class load - defines ALL keys before register()
     static {
@@ -43,20 +45,20 @@ public class ClassSystemConfig {
             Entry entry = new Entry(
                     // max HP of this faction's soldiers (SEM default 20)
                     BUILDER.comment("Max Health for " + unitClass.displayName() + " units")
-                            .defineInRange("health", 20.0, 1.0, 200.0),
+                            .defineInRange("health", factionHealthDefault(unitClass), 1.0, 200.0),
                     // movement speed attribute (SEM default 0.27)
                     BUILDER.comment("Walk Speed for " + unitClass.displayName() + " units")
-                            .defineInRange("speed", 0.27, 0.05, 1.5),
+                            .defineInRange("speed", factionSpeedDefault(unitClass), 0.05, 1.5),
                     // how far the unit spots targets (SEM default 96)
                     BUILDER.comment("Detection Range for " + unitClass.displayName() + " units")
-                            .defineInRange("detectionRange", 96.0, 32.0, 384.0),
+                            .defineInRange("detectionRange", factionRangeDefault(unitClass), 32.0, 384.0),
                     // faction-wide accuracy tweak, stacked on the class multiplier
                     BUILDER.comment(
                                     "Accuracy multiplier for " + unitClass.displayName() + " units",
                                     "Scales the base bullet spread: 1.0 = SEM default accuracy,",
                                     "lower = more accurate, higher = less accurate.",
                                     "Stacks with the per-class multiplier in [class_tuning].")
-                            .defineInRange("accuracySpreadMultiplier", 1.0, 0.0, 10.0)
+                            .defineInRange("accuracySpreadMultiplier", factionSpreadDefault(unitClass), 0.0, 10.0)
             );
 
             ENTRIES.put(unitClass, entry);   // remember section for later lookup
@@ -123,9 +125,9 @@ public class ClassSystemConfig {
                 "unaffected - they still fight units normally.");
 
         for (UnitClass unitClass : UnitClass.values()) {
-            // PMC defaults to true: recruited allies should not be attacked
-            // by the player's own village. RU/US stay hostile targets.
-            boolean def = unitClass == UnitClass.PMC_UNIT;
+            // PMC + BHQ default to true: recruited allies should not be
+            // attacked by the player's own village. RU/US stay hostile.
+            boolean def = unitClass == UnitClass.PMC_UNIT || unitClass == UnitClass.BHQ_UNIT;
             // RU_UNIT -> "RU" -> key "defendersIgnoreRU" etc.
             String key = "defendersIgnore" + unitClass.name().split("_")[0];
             DEFENDER_IGNORE.put(unitClass, BUILDER.comment(
@@ -134,8 +136,39 @@ public class ClassSystemConfig {
         }
         BUILDER.pop();   // close [compat]
 
+        // ================= BHQ recruit table =================
+        BUILDER.push("bhq_recruit");
+        BUILDER.comment(
+                "BHQ Recruit Table settings. The table hires BHQ operators -",
+                "elite units with better stats than plain PMCs, so they cost",
+                "more. The recruit ITEM itself is shared with SEM's table",
+                "(MiscConfig.recruitItem - emerald by default).");
+        BHQ_RECRUIT_PRICE = BUILDER
+                .comment("Amount of the recruit item required to hire a BHQ operator")
+                .defineInRange("price", 32, 1, 64);
+        BUILDER.pop();   // close [bhq_recruit]
+
         // Freeze the builder into the immutable spec Forge will register
         SPEC = BUILDER.build();
+    }
+
+    // ---- per-faction stat defaults -------------------------------------
+    // RU/US/PMC keep SEM's vanilla-feel numbers (20 HP / 0.27 / 96 / x1.0).
+    // BHQ is the elite tier: tougher, faster, spots further, shoots straighter.
+    private static double factionHealthDefault(UnitClass c) {
+        return c == UnitClass.BHQ_UNIT ? 35.0 : 20.0;
+    }
+
+    private static double factionSpeedDefault(UnitClass c) {
+        return c == UnitClass.BHQ_UNIT ? 0.30 : 0.27;
+    }
+
+    private static double factionRangeDefault(UnitClass c) {
+        return c == UnitClass.BHQ_UNIT ? 112.0 : 96.0;
+    }
+
+    private static double factionSpreadDefault(UnitClass c) {
+        return c == UnitClass.BHQ_UNIT ? 0.8 : 1.0;
     }
 
     // ---- per-class default multipliers (match the README table) ----
@@ -289,7 +322,16 @@ public class ClassSystemConfig {
         try {
             return v.get();
         } catch (IllegalStateException notLoadedYet) {
-            return unitClass == UnitClass.PMC_UNIT;
+            return unitClass == UnitClass.PMC_UNIT || unitClass == UnitClass.BHQ_UNIT;
+        }
+    }
+
+    // Price (in the shared recruit item) to hire a BHQ operator
+    public static int bhqRecruitPrice() {
+        try {
+            return BHQ_RECRUIT_PRICE.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 32;
         }
     }
 

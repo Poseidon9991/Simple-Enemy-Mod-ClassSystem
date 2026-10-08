@@ -48,8 +48,8 @@ Every unit rolls one of five classes when it spawns. The class controls which gu
 You are not stuck with the dice roll — three ways to pick the specialist you want:
 
 *   **Recruit Table** — **sneak + right-click** the table to cycle through classes (Random → Breacher → Rifleman → Sweeper → Camper → Suppressor), then right-click normally to recruit. Your pick is remembered between sessions.
-*   **Command** — `/semcs recruit_class <class>` sets your table pick directly, and admins can use `/semcs spawn <ru|us|pmc> <class>` or re-class a living unit with `/semcs class <targets> <class>` (it swaps their gun too).
-*   **Summoning** — `/summon` with NBT also works: `/summon simpleenemymod:pmcunit ~ ~ ~ {semcs_weapon_class:"SNIPER"}`
+*   **Command** — `/semcs recruit_class <class>` sets your table pick directly, and admins can use `/semcs spawn <ru|us|pmc|bhq> <class>` or re-class a living unit with `/semcs class <targets> <class>` (it swaps their gun too).
+*   **Summoning** — `/summon` with NBT also works: `/summon simpleenemymod:pmcunit ~ ~ ~ {semcs_weapon_class:"SNIPER"}` or `/summon sem_classsystem:bhqunit ~ ~ ~ {semcs_weapon_class:"SHOTGUN"}`
 
 ***
 
@@ -63,13 +63,27 @@ A specialist only fights with specialist gear:
 
 ***
 
+## BHQ Operators
+
+Meet the **BHQ** — an elite black-clad unit inspired by Cambodia's Bodyguard Unit, built on top of the PMC framework:
+
+*   **Better stats than a plain PMC** — tougher (35 HP), faster, spots targets further away, and shoots straighter. Check `[bhq_unit]` in the config.
+*   **Their own Recruit Table** — craft the dark **BHQ Recruit Table** (black concrete + iron + an emerald) and use it just like SEM's table: sneak + right-click to pick a class, normal click to hire. They cost more than a PMC — set the price in `[bhq_recruit]`.
+*   **Three tactical looks** — spawned operators wear black armour and helmets with random face gear: a **balaclava**, a **skull mask**, or **sunglasses**.
+*   **Premium arsenal** — BHQ pulls from its own elite gun table (`bhq_units.json`): Vector, SCAR-H, HK416, AA-12, M107, M249…
+*   **Fully part of the class system** — classes, weapon lock, name tags (`BHQ Unit - Sweeper`), defender protection, `/semcs spawn bhq <class>` — everything works.
+
+They fight alongside your PMCs (same side, same faction rules) and count as allies for the defender protection below.
+
+***
+
 ## Village Defenders
 
 SEM units count as monsters to Minecraft — so iron golems, snow golems and guard mods like **Guard Villagers** attack *all* of them, even your own recruited PMCs.
 
 This addon fixes the relationship: defenders never target a **protected faction**. Out of the box **PMC is protected** (they're your allies), while RU and US stay hostile — defenders still fight invaders. Flip it per faction in `[compat]`:
 
-*   `defendersIgnoreRU` / `defendersIgnoreUS` / `defendersIgnorePMC`
+*   `defendersIgnoreRU` / `defendersIgnoreUS` / `defendersIgnorePMC` / `defendersIgnoreBHQ`
 
 Using Guard Villagers or another guard mod? Add its entity to the `sem_classsystem:unit_defenders` entity-type tag via datapack — one json file, no code. Golems are included by default.
 
@@ -105,9 +119,13 @@ Everything is editable per-world:
 
 `.minecraft/saves/[your world name]/serverconfig/sem_classsystem-server.toml`
 
-**Per faction** (`[ru_unit]`, `[us_unit]`, `[pmc_unit]`):
+**Per faction** (`[ru_unit]`, `[us_unit]`, `[pmc_unit]`, `[bhq_unit]`):
 
 *   `health`, `speed`, `detectionRange`, `accuracySpreadMultiplier`
+
+**BHQ table** (`[bhq_recruit]`):
+
+*   `price` — recruit item cost (shares SEM's recruit item, default 32)
 
 **Per class** (`[class_tuning.smg]` etc.):
 
@@ -145,7 +163,7 @@ Use a TaCZ addon gunpack? The class weapon tables are plain datapack files — t
 }
 ```
 
-*   Faction files: `ru_units.json`, `us_units.json`, `pmc_units.json`
+*   Faction files: `ru_units.json`, `us_units.json`, `pmc_units.json`, `bhq_units.json`
 *   Class keys: `smg`, `rifle`, `shotgun`, `sniper`, `heavy_mg`
 *   `gun_id`, `ammo_count` and `fire_mode` are required; `scope_id`, `muzzle_id`, `grip_id` are optional
 *   Your file **adds** guns to the class pool — our defaults still apply unless you override them

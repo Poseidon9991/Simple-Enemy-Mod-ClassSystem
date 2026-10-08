@@ -1,0 +1,70 @@
+{
+  "comment": "BHQ operator loadouts - elite tier. All gun ids verified against the TaCZ 1.1.x default gunpack.",
+  "classes": {
+    "smg": {
+      "vector45": {
+        "gun_id": "tacz:vector45",
+        "ammo_count": 33,
+        "fire_mode": "AUTO",
+        "scope_id": "tacz:sight_t2"
+      },
+      "ump45": {
+        "gun_id": "tacz:ump45",
+        "ammo_count": 25,
+        "fire_mode": "AUTO"
+      }
+    },
+    "rifle": {
+      "scar_h": {
+        "gun_id": "tacz:scar_h",
+        "ammo_count": 20,
+        "fire_mode": "AUTO",
+        "scope_id": "tacz:sight_t2"
+      },
+      "hk416d": {
+        "gun_id": "tacz:hk416d",
+        "ammo_count": 30,
+        "fire_mode": "AUTO",
+        "scope_id": "tacz:sight_t2"
+      }
+    },
+    "shotgun": {
+      "aa12": {
+        "gun_id": "tacz:aa12",
+        "ammo_count": 20,
+        "fire_mode": "AUTO"
+      },
+      "m1014": {
+        "gun_id": "tacz:m1014",
+        "ammo_count": 8,
+        "fire_mode": "SEMI"
+      }
+    },
+    "sniper": {
+      "m107": {
+        "gun_id": "tacz:m107",
+        "ammo_count": 10,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_standard_8x"
+      },
+      "m95": {
+        "gun_id": "tacz:m95",
+        "ammo_count": 5,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_standard_8x"
+      }
+    },
+    "heavy_mg": {
+      "m249": {
+        "gun_id": "tacz:m249",
+        "ammo_count": 100,
+        "fire_mode": "AUTO"
+      },
+      "fn_evolys": {
+        "gun_id": "tacz:fn_evolys",
+        "ammo_count": 100,
+        "fire_mode": "AUTO"
+      }
+    }
+  }
+}

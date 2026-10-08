@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "sem_classsystem:block/bhq_recruit_table" },
+    "facing=south": { "model": "sem_classsystem:block/bhq_recruit_table", "y": 180 },
+    "facing=west":  { "model": "sem_classsystem:block/bhq_recruit_table", "y": 270 },
+    "facing=east":  { "model": "sem_classsystem:block/bhq_recruit_table", "y": 90 }
+  }
+}

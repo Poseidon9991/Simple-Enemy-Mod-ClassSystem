@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "BBB",
+    "IEI",
+    "WSW"
+  ],
+  "key": {
+    "B": {
+      "item": "minecraft:black_concrete"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    },
+    "E": {
+      "item": "minecraft:emerald"
+    },
+    "W": {
+      "tag": "minecraft:planks"
+    },
+    "S": {
+      "tag": "minecraft:wooden_slabs"
+    }
+  },
+  "result": {
+    "item": "sem_classsystem:bhq_recruit_table",
+    "count": 1
+  }
+}

@@ -39,7 +39,8 @@ public final class WeaponClassSupport {
         Class<?> c = entity.getClass();
         return c == net.nekoyuni.SimpleEnemyMod.entity.unit.RUunitEntity.class
                 || c == net.nekoyuni.SimpleEnemyMod.entity.unit.USunitEntity.class
-                || c == net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity.class;
+                || c == net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity.class
+                || c == com.poseidon.sem_classsystem.entity.BhqUnitEntity.class;
     }
 
     // Get the unit's class, rolling and storing a random one if unset.

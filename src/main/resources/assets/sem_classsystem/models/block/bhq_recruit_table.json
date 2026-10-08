@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "sem_classsystem:block/bhq_recruit_table_side",
+    "side": "sem_classsystem:block/bhq_recruit_table_side",
+    "top": "sem_classsystem:block/bhq_recruit_table_top",
+    "bottom": "sem_classsystem:block/bhq_recruit_table_bottom"
+  }
+}

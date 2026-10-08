@@ -40,8 +40,12 @@ public abstract class MixinWeaponEquippers {
                                                   LivingEntity entity, RandomSource entityRandom) {
         // Roll (or read) the unit's weapon class, then pick a loadout from
         // OUR per-class table instead of SEM's flat faction pool.
+        // BHQ operators go through SEM's PMC equipper (factionId "pmc_units")
+        // but have their own table: class_loadouts/bhq_units.json.
         WeaponClass cls = WeaponClassSupport.getOrAssign(entity, random);
-        UnitLoadout loadout = ClassLoadouts.pick(factionId, cls, random);
+        String tableKey = entity instanceof com.poseidon.sem_classsystem.entity.BhqUnitEntity
+                ? "bhq_units" : factionId;
+        UnitLoadout loadout = ClassLoadouts.pick(tableKey, cls, random);
 
         if (loadout != null) {
             return loadout;   // class loadout wins
