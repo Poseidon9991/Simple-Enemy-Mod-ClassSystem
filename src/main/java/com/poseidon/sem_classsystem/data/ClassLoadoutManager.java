@@ -42,6 +42,10 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
 
     // factionId -> weapon class -> loadout pool (empty until a world loads)
     private static Map<String, Map<WeaponClass, List<UnitLoadout>>> LOADOUTS = Collections.emptyMap();
+    // gunId -> owning class, flattened from LOADOUTS at load time.
+    // inferClass runs inside the per-tick canUse evaluation of every armed
+    // unit - keep it O(1) instead of re-scanning all tables every call.
+    private static Map<ResourceLocation, WeaponClass> GUN_TO_CLASS = Collections.emptyMap();
 
     public ClassLoadoutManager() {
         super(GSON, FOLDER_PATH);
@@ -112,6 +116,15 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
         }
 
         LOADOUTS = table;
+        Map<ResourceLocation, WeaponClass> gunIndex = new HashMap<>();
+        for (Map<WeaponClass, List<UnitLoadout>> byClass : table.values()) {
+            for (Map.Entry<WeaponClass, List<UnitLoadout>> e : byClass.entrySet()) {
+                for (UnitLoadout l : e.getValue()) {
+                    gunIndex.putIfAbsent(l.gunId, e.getKey());
+                }
+            }
+        }
+        GUN_TO_CLASS = gunIndex;
         int total = table.values().stream().mapToInt(m -> m.values().stream().mapToInt(List::size).sum()).sum();
         SemClassSystem.LOGGER.info("Loaded {} class loadouts for {} factions", total, table.size());
     }
@@ -153,15 +166,6 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
     // listed anywhere counts as that class's weapon for the lock + inference.
     @Nullable
     public static WeaponClass classOf(ResourceLocation gunId) {
-        for (Map<WeaponClass, List<UnitLoadout>> byClass : LOADOUTS.values()) {
-            for (Map.Entry<WeaponClass, List<UnitLoadout>> e : byClass.entrySet()) {
-                for (UnitLoadout l : e.getValue()) {
-                    if (l.gunId.equals(gunId)) {
-                        return e.getKey();
-                    }
-                }
-            }
-        }
-        return null;
+        return GUN_TO_CLASS.get(gunId);
     }
 }
