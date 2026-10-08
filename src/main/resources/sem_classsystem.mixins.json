@@ -14,7 +14,9 @@
     "MixinUnitInventoryHandler",
     "MixinWeaponEquippers"
   ],
-  "client": [],
+  "client": [
+    "MixinUniversalArmorLayer"
+  ],
   "server": [],
   "injectors": {
     "defaultRequire": 1
