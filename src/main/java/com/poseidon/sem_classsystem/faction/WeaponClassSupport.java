@@ -31,11 +31,22 @@ public final class WeaponClassSupport {
         return null;
     }
 
+    // Only SEM's own three concrete unit types take part in the class system.
+    // Addon subclasses (e.g. sewv's medics/engineers/commanders) keep their
+    // own weapons and fire rules - assigning them a random class could
+    // fire-gate their custom guns, so they stay classless on purpose.
+    public static boolean isClassifiable(Entity entity) {
+        Class<?> c = entity.getClass();
+        return c == net.nekoyuni.SimpleEnemyMod.entity.unit.RUunitEntity.class
+                || c == net.nekoyuni.SimpleEnemyMod.entity.unit.USunitEntity.class
+                || c == net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity.class;
+    }
+
     // Get the unit's class, rolling and storing a random one if unset.
     // Uniform pick: each of the 5 classes is equally likely.
     @Nullable
     public static WeaponClass getOrAssign(Entity entity, RandomSource random) {
-        if (!(entity instanceof IClassifiedUnit classified)) {
+        if (!(entity instanceof IClassifiedUnit classified) || !isClassifiable(entity)) {
             return null;
         }
         WeaponClass cls = classified.semcs$getWeaponClass();
@@ -49,7 +60,8 @@ public final class WeaponClassSupport {
 
     // Restore the class saved in NBT (world load). Returns false if absent.
     public static boolean restoreFromTag(Entity entity, net.minecraft.nbt.CompoundTag tag) {
-        if (!(entity instanceof IClassifiedUnit classified) || !tag.contains(NBT_KEY)) {
+        if (!(entity instanceof IClassifiedUnit classified) || !isClassifiable(entity)
+                || !tag.contains(NBT_KEY)) {
             return false;
         }
         classified.semcs$setWeaponClass(WeaponClass.byName(tag.getString(NBT_KEY)));

@@ -95,8 +95,10 @@ public abstract class MixinAbstractUnit implements IClassifiedUnit {
     @Inject(method = "readAdditionalSaveData", at = @At("TAIL"))
     private void semcs$reapplyClassAttributes(CompoundTag tag, CallbackInfo ci) {
         AbstractUnit self = (AbstractUnit) (Object) this;
-        // If NBT had no class (unit saved before this mod) - guess from gun
-        if (this.semcs$weaponClass == null) {
+        // If NBT had no class (unit saved before this mod) - guess from gun.
+        // Skipped for addon subclasses (sewv medics etc.) - they keep custom
+        // weapons that our class tables must not judge.
+        if (this.semcs$weaponClass == null && WeaponClassSupport.isClassifiable(self)) {
             ItemStack held = self.getMainHandItem();
             IGun iGun = IGun.getIGunOrNull(held);
             ResourceLocation gunId = iGun != null ? iGun.getGunId(held) : null;

@@ -181,7 +181,10 @@ public final class SemClassCommands {
         Collection<? extends Entity> targets = EntityArgument.getEntities(ctx, "targets");
         int changed = 0;
         for (Entity entity : targets) {
-            if (entity instanceof AbstractUnit unit && unit instanceof IClassifiedUnit classified) {
+            // isClassifiable: only SEM's own unit types - addon subclasses
+            // (sewv medics/engineers/...) keep their own gear and rules
+            if (entity instanceof AbstractUnit unit && unit instanceof IClassifiedUnit classified
+                    && WeaponClassSupport.isClassifiable(entity)) {
                 classified.semcs$setWeaponClass(cls);          // new class
                 unit.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY); // drop old gun
                 unit.equipRandomGun();                          // pick from new class pool
