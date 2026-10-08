@@ -31,13 +31,13 @@ A RU squad is no longer three identical riflemen. Now it can be a **Breacher** s
 
 Every unit rolls one of five classes when it spawns. The class controls which gun it carries, how fast it fires, how accurate it is, and the name tag it shows.
 
-| Class | Nickname | Style | Weapons |
-|---|---|---|---|
-| **SMG** | Breacher | sprays fast, but shots scatter past mid-range | UZI / Vector / MP5 |
-| **Rifle** | Rifleman | the balanced soldier you already know | AK-47, Type-81 / M4A1, SCAR-L / HK G3 |
-| **Shotgun** | Sweeper | deadly up close, harmless far away | SPAS-12 / AA-12 |
-| **Sniper & RPG** | Camper | slow, patient, rarely misses | SKS, RPG-7 / M107, AWP, RPG-7 / Mk14, RPG-7 |
-| **Heavy MG** | Suppressor | long bursts that keep enemies pinned | RPK / M249 / Minigun |
+| Class | Nickname | Style | Behaviour | Weapons |
+|---|---|---|---|---|
+| **SMG** | Breacher | sprays fast, but shots scatter past mid-range | pushes in close | UZI / Vector / MP5 |
+| **Rifle** | Rifleman | the balanced soldier you already know | standard spacing | AK-47, Type-81 / M4A1, SCAR-L / HK G3 |
+| **Shotgun** | Sweeper | deadly up close, harmless far away | charges the target, won't waste shells at range | SPAS-12 / AA-12 |
+| **Sniper & RPG** | Camper | slow, patient, rarely misses | never advances — picks targets from where it stands | SKS, RPG-7 / M107, AWP, RPG-7 / Mk14, RPG-7 |
+| **Heavy MG** | Suppressor | long bursts that keep enemies pinned | plants itself mid-field | RPK / M249 / Minigun |
 
 > Nicknames are what show on the unit's name tag — a shotgun unit shows **US Unit - Sweeper**, not "Shotgun Class". You can rename every nickname in the config.
 
@@ -116,6 +116,9 @@ Everything is editable per-world:
 *   `rangeFalloffMultiplier` — higher = accuracy dies faster with distance
 *   `burstLengthMultiplier` — shots per burst
 *   `cooldownMultiplier` — pause between bursts (lower = higher fire rate)
+*   `engageDistance` — how close the unit gets before it stops advancing
+*   `shootDistanceMultiplier` — max firing range (lower = holds fire until close)
+*   `approachSpeedMultiplier` — movement speed while advancing
 
 Defaults match SEM's own values — the mod changes nothing until you ask it to.
 

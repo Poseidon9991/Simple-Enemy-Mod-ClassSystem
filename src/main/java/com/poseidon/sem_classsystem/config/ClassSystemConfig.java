@@ -92,7 +92,18 @@ public class ClassSystemConfig {
                     BUILDER.comment("Burst length multiplier (shots per burst)")
                             .defineInRange("burstLengthMultiplier", classBurstDefault(cls), 0.0, 20.0),
                     BUILDER.comment("Cooldown multiplier between bursts (lower = fires faster)")
-                            .defineInRange("cooldownMultiplier", classCooldownDefault(cls), 0.0, 20.0)
+                            .defineInRange("cooldownMultiplier", classCooldownDefault(cls), 0.0, 20.0),
+                    BUILDER.comment(
+                                    "Preferred fighting distance in blocks - how close the unit",
+                                    "tries to get to its target before it stops advancing",
+                                    "(SEM default ~90). Low = charges in, high = holds position.")
+                            .defineInRange("engageDistance", classEngageDefault(cls), 2.0, 384.0),
+                    BUILDER.comment(
+                                    "Max shooting distance multiplier - how far the unit fires from",
+                                    "(lower = holds fire until close, higher = reaches further)")
+                            .defineInRange("shootDistanceMultiplier", classShootDefault(cls), 0.1, 5.0),
+                    BUILDER.comment("Movement speed multiplier while advancing on a target")
+                            .defineInRange("approachSpeedMultiplier", classApproachDefault(cls), 0.3, 3.0)
             );
 
             CLASS_ENTRIES.put(cls, entry);
@@ -168,6 +179,37 @@ public class ClassSystemConfig {
         };
     }
 
+    // ---- per-class behaviour defaults: where they fight from ----
+    private static double classEngageDefault(WeaponClass cls) {
+        return switch (cls) {
+            case SMG -> 25.0;     // closes to SMG range
+            case RIFLE -> 60.0;   // standard infantry spacing
+            case SHOTGUN -> 12.0; // charges into shotgun range
+            case SNIPER -> 105.0; // beyond shoot range -> never advances
+            case HEAVY_MG -> 55.0;// plants itself mid-field and suppresses
+        };
+    }
+
+    private static double classShootDefault(WeaponClass cls) {
+        return switch (cls) {
+            case SMG -> 0.5;      // fires up to ~45 blocks (SEM max 90)
+            case RIFLE -> 1.0;    // SEM default
+            case SHOTGUN -> 0.3;  // holds fire beyond ~27 blocks
+            case SNIPER -> 1.25;  // engages out to ~112 blocks
+            case HEAVY_MG -> 1.0;
+        };
+    }
+
+    private static double classApproachDefault(WeaponClass cls) {
+        return switch (cls) {
+            case SMG -> 1.15;     // pushes in briskly
+            case RIFLE -> 1.0;
+            case SHOTGUN -> 1.2;  // rushes the target
+            case SNIPER -> 1.0;   // rarely moves anyway
+            case HEAVY_MG -> 0.9; // lumbers into position
+        };
+    }
+
     // Called once from the mod constructor while Forge loads us
     public static void register() {
         // Type.SERVER -> saves/<world>/serverconfig/sem_classsystem-server.toml
@@ -223,6 +265,21 @@ public class ClassSystemConfig {
         return safeGet(CLASS_ENTRIES.get(cls).cooldownMultiplier, 1.0);
     }
 
+    // Per-class preferred fighting distance in blocks (MoveToAttackRangeGoal)
+    public static double classEngageDistance(WeaponClass cls) {
+        return safeGet(CLASS_ENTRIES.get(cls).engageDistance, 90.0);
+    }
+
+    // Per-class max shooting distance multiplier (RangedGunAttackGoal)
+    public static double classShootDistance(WeaponClass cls) {
+        return safeGet(CLASS_ENTRIES.get(cls).shootDistanceMultiplier, 1.0);
+    }
+
+    // Per-class movement speed multiplier while advancing
+    public static double classApproachSpeed(WeaponClass cls) {
+        return safeGet(CLASS_ENTRIES.get(cls).approachSpeedMultiplier, 1.0);
+    }
+
     // ================= Compat accessors =================
 
     // Should village defenders (unit_defenders tag) never target this faction?
@@ -254,10 +311,14 @@ public class ClassSystemConfig {
     }
 
     // One weapon class's tuning bundle: nickname + 4 combat multipliers
+    // + 3 behaviour values (engage distance, shoot distance, approach speed)
     private record ClassEntry(ForgeConfigSpec.ConfigValue<String> nickname,
                               ForgeConfigSpec.DoubleValue spreadMultiplier,
                               ForgeConfigSpec.DoubleValue falloffMultiplier,
                               ForgeConfigSpec.DoubleValue burstMultiplier,
-                              ForgeConfigSpec.DoubleValue cooldownMultiplier) {
+                              ForgeConfigSpec.DoubleValue cooldownMultiplier,
+                              ForgeConfigSpec.DoubleValue engageDistance,
+                              ForgeConfigSpec.DoubleValue shootDistanceMultiplier,
+                              ForgeConfigSpec.DoubleValue approachSpeedMultiplier) {
     }
 }

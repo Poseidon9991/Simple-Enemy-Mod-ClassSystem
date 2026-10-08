@@ -46,6 +46,9 @@ public abstract class MixinRangedGunAttackGoal {
     @Shadow(remap = false) @Final @Mutable private int MAX_BURST_SHOTS;
     @Shadow(remap = false) @Final @Mutable private int MIN_BURST_COOLDOWN_TICKS;
     @Shadow(remap = false) @Final @Mutable private int MAX_BURST_COOLDOWN_TICKS;
+    // Squared max engagement distance - also mutable so classes get their
+    // own firing distance (shotguns hold fire at range, snipers reach far)
+    @Shadow(remap = false) @Final @Mutable private float MAX_SHOOT_DISTANCE_SQR;
 
     // Guard: which class the fields were last tuned for - re-running for the
     // same class does nothing, but a class CHANGE must retune.
@@ -63,6 +66,8 @@ public abstract class MixinRangedGunAttackGoal {
     private int semcs$origMinCooldown;
     @Unique
     private int semcs$origMaxCooldown;
+    @Unique
+    private float semcs$origShootSqr;
     @Unique
     private boolean semcs$origCaptured = false;
 
@@ -90,6 +95,7 @@ public abstract class MixinRangedGunAttackGoal {
             this.semcs$origMaxBurst = this.MAX_BURST_SHOTS;
             this.semcs$origMinCooldown = this.MIN_BURST_COOLDOWN_TICKS;
             this.semcs$origMaxCooldown = this.MAX_BURST_COOLDOWN_TICKS;
+            this.semcs$origShootSqr = this.MAX_SHOOT_DISTANCE_SQR;
             this.semcs$origCaptured = true;
         }
 
@@ -112,6 +118,11 @@ public abstract class MixinRangedGunAttackGoal {
                 (int) Math.round(this.semcs$origMinCooldown * cooldown));
         this.MAX_BURST_COOLDOWN_TICKS = Math.max(this.MIN_BURST_COOLDOWN_TICKS,
                 (int) Math.round(this.semcs$origMaxCooldown * cooldown));
+
+        // --- max shooting distance (how far the unit will fire from) ---
+        // Field stores distance SQUARED, so the multiplier gets squared too.
+        double shootMult = ClassSystemConfig.classShootDistance(cls);
+        this.MAX_SHOOT_DISTANCE_SQR = (float) (this.semcs$origShootSqr * shootMult * shootMult);
     }
 
     // @Redirect replaces a CALL to another method with a call to OUR method.
