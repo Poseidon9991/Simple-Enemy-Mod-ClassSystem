@@ -177,7 +177,6 @@ Run `/reload` after editing. Check `latest.log` if a file doesn't load — bad e
 
 *   **[NekoYuni](https://github.com/NekoYuni)** — original author of **Simple Enemy Mod**. Every soldier, every behaviour, every system this addon builds on is his work. This mod exists because SEM does.
 *   **[TaCZ team](https://www.curseforge.com/minecraft/mc-mods/timeless-and-classics-zero)** — the weapon system all units fight with.
-*   **[neoalive](https://github.com/neoalive/tacz-simple-enemies-vehicular-warfare)** — the vehicular-warfare addon whose architecture inspired how this mod extends SEM.
 
 ## License
 
