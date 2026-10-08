@@ -1,8 +1,11 @@
+# Forge mod descriptor - read by FML when the game loads mods.
+# Placeholders get filled in by processResources from gradle.properties.
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
 
 
+# This jar provides one mod. modId must match the Mod annotation in code.
 [[mods]]
 modId="${mod_id}"
 version="${mod_version}"
@@ -10,31 +13,38 @@ displayName="${mod_name}"
 authors="${mod_authors}"
 description='''${mod_description}'''
 
+# Tells Forge to apply our mixin config file at load time.
 [[mixins]]
 config="${mod_id}.mixins.json"
 
-[[dependencies.${mod_id}]]
+# ---- Dependencies ----
+# Forge itself - obviously required.
+[[dependencies.sem_classsystem]]
 modId="forge"
 mandatory=true
 versionRange="${forge_version_range}"
 ordering="NONE"
 side="BOTH"
 
-[[dependencies.${mod_id}]]
+# Minecraft version range - 1.20.x only.
+[[dependencies.sem_classsystem]]
 modId="minecraft"
 mandatory=true
 versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
 
-[[dependencies.${mod_id}]]
+# TaCZ - SEM needs it so we need it too. Loads before us.
+[[dependencies.sem_classsystem]]
 modId="tacz"
 mandatory=true
 versionRange="[1.1.4,)"
 ordering="BEFORE"
 side="BOTH"
 
-[[dependencies.${mod_id}]]
+# Simple Enemy Mod - mandatory hard dependency. Without it the mod refuses
+# to load. BEFORE ordering so SEM classes exist before our mixins apply.
+[[dependencies.sem_classsystem]]
 modId="simpleenemymod"
 mandatory=true
 versionRange="[1.20.1-0.1.5-beta,)"

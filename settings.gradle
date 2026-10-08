@@ -1,14 +1,16 @@
+// Where Gradle looks for the plugins declared in build.gradle's plugins {} block
 pluginManagement {
     repositories {
-        gradlePluginPortal()
+        gradlePluginPortal()                                        // default plugin repo
         maven {
-            name = 'MinecraftForge'
+            name = 'MinecraftForge'                                 // ForgeGradle lives here
             url = 'https://maven.minecraftforge.net/'
         }
-        maven { url = 'https://maven.parchmentmc.org' }
+        maven { url = 'https://maven.parchmentmc.org' }               // Parchment/Librarian plugin repo
     }
 }
 
 plugins {
+    // Lets Gradle auto-download a matching JDK toolchain if the local one is wrong
     id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
 }

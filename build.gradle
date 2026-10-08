@@ -1,46 +1,65 @@
+// ==================== PLUGINS ====================
+// Gradle plugins give the project its capabilities. Versions are resolved here,
+// not inside the build logic.
 plugins {
-    id 'eclipse'
-    id 'idea'
-    id 'maven-publish'
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
-    id 'org.parchmentmc.librarian.forgegradle' version '1.+'
-    id 'org.spongepowered.mixin' version '0.7.+'
+    id 'eclipse'                                              // eclipse IDE import support
+    id 'idea'                                                 // IntelliJ import support
+    id 'maven-publish'                                        // lets `publish` push jars to a maven repo
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'        // ForgeGradle 6 - THE Minecraft/Forge toolchain (download MC, deobf, reobf, dev runs)
+    id 'org.parchmentmc.librarian.forgegradle' version '1.+'  // adds community "parchment" mappings on top of official names
+    id 'org.spongepowered.mixin' version '0.7.+'              // MixinGradle - wires mixin refmaps + annotation processor into the build
 }
 
-version = mod_version
-group = mod_group_id
+// Values come from gradle.properties - keeps versions/metadata in one place
+version = mod_version        // e.g. 1.20.1-0.1.0  -> becomes the jar name suffix
+group = mod_group_id         // maven-style group for publishing
 
 base {
-    archivesName = mod_id
+    archivesName = mod_id    // jar filename base -> sem_classsystem-<version>.jar
 }
 
+// This mod needs Java 17 (Minecraft 1.20.1 requirement)
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
+// Debug line printed during configuration - shows which JDK Gradle runs on
 println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
 
+// MixinGradle block: registers our mixin config so the annotation processor
+// generates the refmap (dev names -> obfuscated SRG names translation table)
 mixin {
+    // Refmap file name - written into the jar as sem_classsystem.refmap.json
     add sourceSets.main, "${mod_id}.refmap.json"
-
+    // Our mixin config json in resources - defines which classes get patched
     config "${mod_id}.mixins.json"
 }
 
+// ==================== MINECRAFT / FORGE SETUP ====================
 minecraft {
 
+    // Which obfuscation mappings to develop against.
+    // "parchment" = official Mojang names + community-added parameter names/docs.
     mappings channel: mapping_channel, version: mapping_version
+
+    // Copies resources into the IDE run output so IDE-launched games see them
     copyIdeResources = true
 
-
+    // ---- Run configurations (gradlew runClient / runServer / runData) ----
     runs {
 
+        // Shared settings applied to EVERY run config below
         configureEach {
+            // The game runs from ./run (keeps crashes/logs/mods out of the repo root)
             workingDirectory project.file('run')
 
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
+            property 'forge.logging.markers', 'REGISTRIES'            // log registry activity
+            property 'forge.logging.console.level', 'debug'           // verbose console logging
 
+            // Tell Mixin to translate dev names -> production (SRG) names using
+            // the mapping file ForgeGradle generates in build/createSrgToMcp
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
 
+            // Load OUR mod in dev runs (mod classes from src/main)
             mods {
                 "${mod_id}" {
                     source sourceSets.main
@@ -48,19 +67,23 @@ minecraft {
             }
         }
 
+        // gradlew runClient - launches a dev Minecraft client
         client {
             property 'forge.enabledGameTestNamespaces', mod_id
         }
 
+        // gradlew runServer - headless dedicated server (--nogui skips its UI)
         server {
             property 'forge.enabledGameTestNamespaces', mod_id
             args '--nogui'
         }
 
+        // gradlew runGameTestServer - server that auto-runs registered game tests
         gameTestServer {
             property 'forge.enabledGameTestNamespaces', mod_id
         }
 
+        // gradlew runData - runs datagen to generate json assets into src/generated
         data {
             workingDirectory project.file('run-data')
             args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
@@ -68,9 +91,10 @@ minecraft {
     }
 }
 
-
+// Include datagen output (if any) in the built jar
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
+// ==================== REPOSITORIES ====================
 repositories {
 
     // Mod jars dropped in by hand (Simple Enemy Mod, TaCZ). Not on a public maven
@@ -79,22 +103,27 @@ repositories {
         dirs 'libs'
     }
 
+    // Parchment mappings repo
     maven {
         url = 'https://maven.parchmentmc.org'
     }
 
 }
 
+// ==================== DEPENDENCIES ====================
 dependencies {
 
+    // The Forge+MC dev bundle (versions from gradle.properties)
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
-    // Mixins Support
+    // Mixin library + its annotation processor (generates the refmap at compile)
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
     implementation 'org.spongepowered:mixin:0.8.5'
     testAnnotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
     // Hard dependency: Simple Enemy Mod (libs/simpleenemymod.jar)
+    // fg.deobf = "this jar is a production (obfuscated) mod jar, remap it to dev names"
+    // "blank:<filename-without-.jar>:1.0" is the naming convention for flatDir jars
     implementation fg.deobf("blank:simpleenemymod:1.0")
 
     // SEM itself requires TaCZ — needed on the classpath so SEM classes resolve
@@ -102,8 +131,10 @@ dependencies {
 
 }
 
-
+// ==================== RESOURCE PROCESSING ====================
+// Replaces ${...} placeholders inside mods.toml / pack.mcmeta with real values
 tasks.named('processResources', ProcessResources).configure {
+    // Map of placeholder -> value pulled from gradle.properties
     var replaceProperties = [
             minecraft_version: minecraft_version, minecraft_version_range: minecraft_version_range,
             forge_version: forge_version, forge_version_range: forge_version_range,
@@ -111,17 +142,20 @@ tasks.named('processResources', ProcessResources).configure {
             mod_id: mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
             mod_authors: mod_authors, mod_description: mod_description,
     ]
+    // Register the map so Gradle re-runs the task when values change
     inputs.properties replaceProperties
 
+    // Only these files get placeholder expansion
     filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
         expand replaceProperties + [project: project]
     }
 }
 
-
+// ==================== JAR OUTPUT ====================
 tasks.named('jar', Jar).configure {
     manifest {
         attributes([
+                // Standard metadata written into META-INF/MANIFEST.MF
                 'Specification-Title'     : mod_id,
                 'Specification-Vendor'    : mod_authors,
                 'Specification-Version'   : '1',
@@ -129,14 +163,18 @@ tasks.named('jar', Jar).configure {
                 'Implementation-Version'  : project.jar.archiveVersion,
                 'Implementation-Vendor'   : mod_authors,
                 'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+                // Extra safety net: some loaders read mixin config from the manifest too
                 'MixinConfigs'            : "${mod_id}.mixins.json"
         ])
     }
 
+    // After jar -> reobfJar: translate dev names back to production SRG names
+    // so the jar works in a real Minecraft install
     finalizedBy 'reobfJar'
 }
 
-
+// ==================== PUBLISHING ====================
+// `gradlew publish` drops the built jar into ./mcmodsrepo (local maven layout)
 publishing {
     publications {
         register('mavenJava', MavenPublication) {
@@ -150,6 +188,7 @@ publishing {
     }
 }
 
+// Source files are UTF-8 - keeps javac happy with any special characters
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
