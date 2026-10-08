@@ -63,6 +63,20 @@ A specialist only fights with specialist gear:
 
 ***
 
+## Village Defenders
+
+SEM units count as monsters to Minecraft — so iron golems, snow golems and guard mods like **Guard Villagers** attack *all* of them, even your own recruited PMCs.
+
+This addon fixes the relationship: defenders never target a **protected faction**. Out of the box **PMC is protected** (they're your allies), while RU and US stay hostile — defenders still fight invaders. Flip it per faction in `[compat]`:
+
+*   `defendersIgnoreRU` / `defendersIgnoreUS` / `defendersIgnorePMC`
+
+Using Guard Villagers or another guard mod? Add its entity to the `sem_classsystem:unit_defenders` entity-type tag via datapack — one json file, no code. Golems are included by default.
+
+Zombies and other hostile mobs still fight units normally — only defenders are filtered.
+
+***
+
 ## Per-Faction Stats
 
 On top of classes, each faction gets its own attribute set — no more shared stats:

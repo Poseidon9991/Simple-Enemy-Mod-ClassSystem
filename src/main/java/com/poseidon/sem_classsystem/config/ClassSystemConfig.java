@@ -27,6 +27,9 @@ public class ClassSystemConfig {
     private static final Map<UnitClass, Entry> ENTRIES = new EnumMap<>(UnitClass.class);
     // weapon class -> its combat tuning values (phase 2)
     private static final Map<WeaponClass, ClassEntry> CLASS_ENTRIES = new EnumMap<>(WeaponClass.class);
+    // faction -> whether village defenders (golems, guard mods) ignore it
+    private static final Map<UnitClass, ForgeConfigSpec.BooleanValue> DEFENDER_IGNORE =
+            new EnumMap<>(UnitClass.class);
 
     // static {} runs once at class load - defines ALL keys before register()
     static {
@@ -96,6 +99,29 @@ public class ClassSystemConfig {
             BUILDER.pop();
         }
         BUILDER.pop();   // close [class_tuning]
+
+        // ================= COMPAT: other-mod defender behaviour =================
+        BUILDER.push("compat");
+        BUILDER.comment(
+                "Relationship between SEM units and 'village defender' mobs",
+                "(iron golems, snow golems, guard mods like Guard Villagers).",
+                "SEM units extend Monster, so defenders attack ALL of them by",
+                "default - including your own recruited PMC soldiers.",
+                "true = defenders of the sem_classsystem:unit_defenders entity tag",
+                "will never target that faction. Other mobs (zombies etc.) are",
+                "unaffected - they still fight units normally.");
+
+        for (UnitClass unitClass : UnitClass.values()) {
+            // PMC defaults to true: recruited allies should not be attacked
+            // by the player's own village. RU/US stay hostile targets.
+            boolean def = unitClass == UnitClass.PMC_UNIT;
+            // RU_UNIT -> "RU" -> key "defendersIgnoreRU" etc.
+            String key = "defendersIgnore" + unitClass.name().split("_")[0];
+            DEFENDER_IGNORE.put(unitClass, BUILDER.comment(
+                    "Village defenders ignore " + unitClass.displayName() + " units")
+                    .define(key, def));
+        }
+        BUILDER.pop();   // close [compat]
 
         // Freeze the builder into the immutable spec Forge will register
         SPEC = BUILDER.build();
@@ -195,6 +221,19 @@ public class ClassSystemConfig {
     // Per-class burst cooldown multiplier (the "fire rate" knob)
     public static double classCooldown(WeaponClass cls) {
         return safeGet(CLASS_ENTRIES.get(cls).cooldownMultiplier, 1.0);
+    }
+
+    // ================= Compat accessors =================
+
+    // Should village defenders (unit_defenders tag) never target this faction?
+    // Defaults: PMC=true (allies), RU/US=false (hostile - defenders fight them)
+    public static boolean defendersIgnore(UnitClass unitClass) {
+        ForgeConfigSpec.BooleanValue v = DEFENDER_IGNORE.get(unitClass);
+        try {
+            return v.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return unitClass == UnitClass.PMC_UNIT;
+        }
     }
 
     // Config values throw IllegalStateException if read before the file loads.
