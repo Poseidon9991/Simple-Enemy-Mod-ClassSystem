@@ -34,13 +34,37 @@ Per-faction attributes, configurable per world in
 Defaults match SEM's own defaults, so the mod is a no-op until you tune it.
 Applied on spawn and on world load, so existing units pick up config changes.
 
+## Phase 2 — Weapon classes
+
+Every unit also rolls a **weapon class** at spawn. The class decides which gun
+it carries, how it shoots, and the nickname in its name tag
+(e.g. `US Unit - Sweeper`).
+
+| Class | Nickname | Behaviour | Guns |
+|---|---|---|---|
+| SMG | Breacher | fast follow-up bursts, accuracy dies at range | UZI (RU), Vector (US), MP5 (PMC) |
+| Rifle | Rifleman | untouched SEM baseline | AK-47 / Type-81 (RU), M4A1 / SCAR-L (US), HK G3 (PMC) |
+| Shotgun | Sweeper | tight up close, useless past ~25 blocks | SPAS-12 (RU), AA-12 (US/PMC) |
+| Sniper & RPG | Camper | single aimed shots, long pauses, very tight | SKS / RPG-7 (RU), M107 / AWP / RPG-7 (US), Mk14 / RPG-7 (PMC) |
+| Heavy MG | Suppressor | sustained fire, decent spread | RPK (RU), M249 (US), Minigun (PMC) |
+
+Per-class tuning lives in `[class_tuning.<class>]` — `accuracySpreadMultiplier`,
+`rangeFalloffMultiplier`, `burstLengthMultiplier`, `cooldownMultiplier`, and the
+displayed `nickname`. The class is stored in the unit's NBT, survives save/load,
+and units saved before this mod get their class inferred from the gun they hold.
+
 ### How it works
 
-- `MixinAbstractUnit` — injects at the tail of `AbstractUnit.finalizeSpawn`
-  (and `readAdditionalSaveData` for reloads), overwriting health /
-  movement speed / follow range per faction via SEM's `UnitFactionTags`.
-- `MixinRangedGunAttackGoal` — redirects `AiGunSpreadHelper.CalculateSpread`
-  to scale the shooter's base spread by the faction's accuracy multiplier.
+- `MixinAbstractUnit` — injects into `finalizeSpawn`/`readAdditionalSaveData`/
+  `addAdditionalSaveData`: rolls + persists the weapon class (`semcs$weaponClass`
+  via injected `IClassifiedUnit` bridge), overwrites faction attributes, and
+  sets the `Faction Unit - Nickname` name tag.
+- `MixinWeaponEquippers` — one mixin over all three SEM equippers; redirects
+  `UnitLoadoutManager.getRandomLoadout` to our per-class gun tables.
+- `MixinRangedGunAttackGoal` — `@Mutable @Shadow`s the burst/cooldown finals
+  (retuned per class after the ctor) and redirects
+  `AiGunSpreadHelper.CalculateSpread` to scale spread by faction × class and
+  the distance falloff by class.
 
 No SEM code is copied or modified — everything is applied at runtime via mixins.
 

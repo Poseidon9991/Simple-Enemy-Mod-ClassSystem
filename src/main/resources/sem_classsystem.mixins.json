@@ -7,7 +7,8 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "MixinAbstractUnit",
-    "MixinRangedGunAttackGoal"
+    "MixinRangedGunAttackGoal",
+    "MixinWeaponEquippers"
   ],
   "client": [],
   "server": [],
