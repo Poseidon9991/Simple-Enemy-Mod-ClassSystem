@@ -104,8 +104,10 @@ public abstract class MixinRangedGunAttackGoal {
             this.semcs$origCaptured = true;
         }
 
-        // Which class is the shooter? null -> leave SEM defaults untouched.
-        WeaponClass cls = WeaponClassSupport.get(this.mob);
+        // Which class is the shooter? The EFFECTIVE class - a unit holding
+        // a subclass gun (pistol sidearm) fights with that gun's tuning.
+        // null -> leave SEM defaults untouched.
+        WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
         if (cls == null || cls == this.semcs$tunedClass) {
             return;   // no class yet, or already tuned for this class
         }
@@ -147,8 +149,10 @@ public abstract class MixinRangedGunAttackGoal {
         // burst/cooldown fields right before the first real shot.
         semcs$applyTuning();
 
-        // Resolve the shooter's weapon class (null -> neutral 1.0 multipliers)
-        WeaponClass cls = WeaponClassSupport.get(this.mob);
+        // Resolve the shooter's effective class - held gun's class overrides
+        // the assigned one, so a sidearm shoots with pistol spread/falloff.
+        // (null -> neutral 1.0 multipliers)
+        WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
         double classSpread = cls == null ? 1.0 : ClassSystemConfig.classSpread(cls);
         double classFalloff = cls == null ? 1.0 : ClassSystemConfig.classFalloff(cls);
         // Crouched firing is steadier - the class's own bonus while sneaking
@@ -171,7 +175,7 @@ public abstract class MixinRangedGunAttackGoal {
     // releases only the flag WE set.
     @Inject(method = "start", at = @At("TAIL"))
     private void semcs$enterCrouch(CallbackInfo ci) {
-        WeaponClass cls = WeaponClassSupport.get(this.mob);
+        WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
         if (cls != null && ClassSystemConfig.classCrouchWhileFiring(cls)) {
             this.mob.setShiftKeyDown(true);
             this.semcs$crouching = true;
@@ -211,8 +215,10 @@ public abstract class MixinRangedGunAttackGoal {
         IGun iGun = IGun.getIGunOrNull(this.mob.getMainHandItem());
         ResourceLocation gunId = iGun != null ? iGun.getGunId(this.mob.getMainHandItem()) : null;
         WeaponClass gunClass = gunId == null ? null : ClassLoadouts.inferClass(gunId);
-        // Known gun of another class -> goal cannot run (unit holds fire)
-        if (gunClass != null && gunClass != cls) {
+        // Known gun of another MAIN class -> goal cannot run (unit holds fire).
+        // Subclass guns (pistols) are exempt - they are universal sidearms,
+        // and getEffective() already retuned this goal for pistol cadence.
+        if (gunClass != null && gunClass != cls && !gunClass.isSubclass()) {
             cir.setReturnValue(false);
         }
     }

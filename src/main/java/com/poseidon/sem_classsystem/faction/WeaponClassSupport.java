@@ -4,6 +4,7 @@ package com.poseidon.sem_classsystem.faction;
 
 import com.poseidon.sem_classsystem.bridge.IClassifiedUnit;
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
+import com.tacz.guns.api.item.IGun;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
@@ -43,8 +44,30 @@ public final class WeaponClassSupport {
                 || c == com.poseidon.sem_classsystem.entity.BhqUnitEntity.class;
     }
 
+    // The class that actually drives combat tuning RIGHT NOW: if the unit
+    // is holding a gun that belongs to a known class, that gun's class wins
+    // (this is how subclasses work - hand any soldier a pistol and it fights
+    // like a Sidearm while keeping its real class). Unmapped guns fall back
+    // to the assigned class; classless units stay classless either way.
+    @Nullable
+    public static WeaponClass getEffective(Entity entity) {
+        WeaponClass cls = get(entity);
+        if (cls == null || !(entity instanceof LivingEntity living)) {
+            return cls;
+        }
+        net.minecraft.world.item.ItemStack held = living.getMainHandItem();
+        IGun iGun = IGun.getIGunOrNull(held);
+        if (iGun != null) {
+            WeaponClass gunClass = ClassLoadouts.inferClass(iGun.getGunId(held));
+            if (gunClass != null) {
+                return gunClass;
+            }
+        }
+        return cls;
+    }
+
     // Get the unit's class, rolling and storing a random one if unset.
-    // Uniform pick: each of the 5 classes is equally likely.
+    // Uniform pick over the assignable (non-subclass) classes.
     @Nullable
     public static WeaponClass getOrAssign(Entity entity, RandomSource random) {
         if (!(entity instanceof IClassifiedUnit classified) || !isClassifiable(entity)) {
@@ -52,7 +75,7 @@ public final class WeaponClassSupport {
         }
         WeaponClass cls = classified.semcs$getWeaponClass();
         if (cls == null) {
-            WeaponClass[] all = WeaponClass.values();
+            WeaponClass[] all = WeaponClass.mainClasses();
             cls = all[random.nextInt(all.length)];
             classified.semcs$setWeaponClass(cls);
         }
@@ -112,15 +135,26 @@ public final class WeaponClassSupport {
 
     // Sneak-click on the recruit table: step to the next choice.
     // Order: random -> smg -> rifle -> shotgun -> sniper -> heavy_mg -> random.
+    // Subclasses are skipped - you pick a class here, sidearms come from
+    // the gun you hand the unit afterwards.
     // Returns the new preference (null = random) for the feedback message.
     @Nullable
     public static WeaponClass cycleRecruitPreference(net.minecraft.world.entity.player.Player player) {
         WeaponClass current = getRecruitPreference(player);
-        WeaponClass next = current == null
-                ? WeaponClass.values()[0]
-                : (current.ordinal() + 1 < WeaponClass.values().length)
-                        ? WeaponClass.values()[current.ordinal() + 1]
-                        : null;
+        WeaponClass[] all = WeaponClass.mainClasses();
+        WeaponClass next;
+        if (current == null) {
+            next = all[0];
+        } else {
+            int idx = -1;
+            for (int i = 0; i < all.length; i++) {
+                if (all[i] == current) {
+                    idx = i;
+                    break;
+                }
+            }
+            next = idx >= 0 && idx + 1 < all.length ? all[idx + 1] : null;
+        }
         setRecruitPreference(player, next);
         return next;
     }

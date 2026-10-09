@@ -2,8 +2,12 @@
 // a unit is "RU SMG", "US Sniper", "PMC Heavy MG" etc.
 package com.poseidon.sem_classsystem.faction;
 
+import java.util.Arrays;
+
 // Enum constants = the combat roles a soldier can be assigned.
 // Each constant stores its config section key and default nickname.
+// Constants flagged as subclasses are never rolled or assigned - they only
+// exist through the gun in the unit's hand (see WeaponClassSupport.getEffective).
 public enum WeaponClass {
 
     // Close-range skirmisher: fast follow-up shots, accuracy falls off with range
@@ -16,18 +20,28 @@ public enum WeaponClass {
     SNIPER("sniper", "Camper"),
     // Suppression platform: sustained bursts, slightly worse spread than SMG
     HEAVY_MG("heavy_mg", "Suppressor"),
-    // Sidearm: quick single shots, mid-range fighter that stays mobile
-    PISTOL("pistol", "Sidearm");
+    // SUBCLASS, not assignable: any unit given a pistol fights with these
+    // rules (quick single shots, mid-range, stays mobile) while keeping its
+    // real class. Pistols bypass the class weapon lock for every class.
+    PISTOL("pistol", "Sidearm", true);
 
     // Key used in the config file, e.g. [class_tuning.smg]
     private final String configKey;
     // Default display nickname shown in the name tag (Sweeper, Camper, ...)
     private final String defaultNickname;
+    // Subclasses are behaviour overlays only - excluded from spawn rolls,
+    // recruit-table cycling and /semcs assignment commands.
+    private final boolean subclass;
 
     // Enum constructor - stores key + nickname per constant
     WeaponClass(String configKey, String defaultNickname) {
+        this(configKey, defaultNickname, false);
+    }
+
+    WeaponClass(String configKey, String defaultNickname, boolean subclass) {
         this.configKey = configKey;
         this.defaultNickname = defaultNickname;
+        this.subclass = subclass;
     }
 
     // Getter for the toml key
@@ -38,6 +52,21 @@ public enum WeaponClass {
     // Getter for the built-in nickname (config can override it)
     public String defaultNickname() {
         return this.defaultNickname;
+    }
+
+    // True for behaviour overlays (pistol sidearm) that are never assigned
+    // as a unit's main class.
+    public boolean isSubclass() {
+        return this.subclass;
+    }
+
+    // The assignable classes only - subclasses are filtered out once here so
+    // spawn rolls and recruit cycling never see them.
+    private static final WeaponClass[] MAIN_CLASSES =
+            Arrays.stream(values()).filter(c -> !c.subclass).toArray(WeaponClass[]::new);
+
+    public static WeaponClass[] mainClasses() {
+        return MAIN_CLASSES;
     }
 
     // Parse a saved NBT string back into the enum, or null if unknown/absent

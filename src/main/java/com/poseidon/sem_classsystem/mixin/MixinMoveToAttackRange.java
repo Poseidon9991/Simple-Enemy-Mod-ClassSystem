@@ -64,7 +64,10 @@ public abstract class MixinMoveToAttackRange {
             this.semcs$origSpeed = this.speed;
             this.semcs$origCaptured = true;
         }
-        WeaponClass cls = WeaponClassSupport.get(this.mob);
+        // Effective class: holding a subclass gun (pistol) swaps the unit's
+        // movement tuning for the sidearm's - it keeps advancing mid-range
+        // instead of planting/rushing for its real class.
+        WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
         if (cls == null || cls == this.semcs$tunedClass) {
             return;
         }

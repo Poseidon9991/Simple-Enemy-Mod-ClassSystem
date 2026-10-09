@@ -60,7 +60,9 @@ public abstract class MixinUnitInventoryHandler {
 
         // Unknown/custom guns stay allowed - only guns we KNOW belong to a
         // different class get rejected. A Camper can never hold an AK-47.
-        if (gunClass != null && gunClass != cls) {
+        // Subclass guns (pistols) skip the lock: any class may carry a
+        // sidearm - that's the whole point of the subclass.
+        if (gunClass != null && gunClass != cls && !gunClass.isSubclass()) {
             cir.setReturnValue(false);
         }
     }

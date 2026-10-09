@@ -29,7 +29,7 @@ A RU squad is no longer three identical riflemen. Now it can be a **Breacher** s
 
 ## The Classes
 
-Every unit rolls one of six classes when it spawns. The class controls which gun it carries, how fast it fires, how accurate it is, and the name tag it shows.
+Every unit rolls one of five classes when it spawns. The class controls which gun it carries, how fast it fires, how accurate it is, and the name tag it shows.
 
 | Class | Nickname | Style | Behaviour | Weapons |
 |---|---|---|---|---|
@@ -38,9 +38,14 @@ Every unit rolls one of six classes when it spawns. The class controls which gun
 | **Shotgun** | Sweeper | deadly up close, harmless far away | charges the target, won't waste shells at range | SPAS-12 / AA-12 |
 | **Sniper & RPG** | Camper | slow, patient, rarely misses | never advances — **takes a knee** and picks targets from where it stands | SKS, RPG-7 / M107, AWP, RPG-7 / Mk14, RPG-7 |
 | **Heavy MG** | Suppressor | long bursts that keep enemies pinned | plants itself mid-field, **braces in a crouch** to fire | RPK / M249 / Minigun |
-| **Pistol** | Sidearm | quick single shots, accurate but fades at range | stays mobile, works mid-range | CZ75 / M1911, P320 / Glock 17, Deagle / Deagle, Timeless .50 |
 
 > Nicknames are what show on the unit's name tag — a shotgun unit shows **US Unit - Sweeper**, not "Shotgun Class". You can rename every nickname in the config.
+
+### The Pistol Subclass
+
+Pistols are not a class you roll — they are a **subclass** every unit can take on. Open a unit's inventory and put a pistol in its gun slot (pistols bypass the class weapon lock, so a Camper can carry a Glock too). The moment the pistol is in hand, that unit fights with sidearm rules: quick semi-auto shots, decent accuracy that fades past mid-range, and it keeps drifting toward the target instead of planting or charging. Swap back to its class gun and the original behaviour returns instantly — the name tag and class never change.
+
+Default sidearms per faction: RU → CZ75, US → M1911 / P320, PMC → Glock 17 / Deagle, BHQ → Deagle / Timeless .50. Tuning lives in `[class_tuning.pistol]` like every other class.
 
 ***
 
@@ -48,7 +53,7 @@ Every unit rolls one of six classes when it spawns. The class controls which gun
 
 You are not stuck with the dice roll — three ways to pick the specialist you want:
 
-*   **Recruit Table** — **sneak + right-click** the table to cycle through classes (Random → Breacher → Rifleman → Sweeper → Camper → Suppressor → Sidearm), then right-click normally to recruit. Your pick is remembered between sessions.
+*   **Recruit Table** — **sneak + right-click** the table to cycle through classes (Random → Breacher → Rifleman → Sweeper → Camper → Suppressor), then right-click normally to recruit. Your pick is remembered between sessions.
 *   **Command** — `/semcs recruit_class <class>` sets your table pick directly, and admins can use `/semcs spawn <ru|us|pmc|bhq> <class>` or re-class a living unit with `/semcs class <targets> <class>` (it swaps their gun too).
 *   **Summoning** — `/summon` with NBT also works: `/summon simpleenemymod:pmcunit ~ ~ ~ {semcs_weapon_class:"SNIPER"}` or `/summon sem_classsystem:bhqunit ~ ~ ~ {semcs_weapon_class:"SHOTGUN"}`
 
@@ -59,6 +64,7 @@ You are not stuck with the dice roll — three ways to pick the specialist you w
 A specialist only fights with specialist gear:
 
 *   A **Camper** accepts only sniper weapons — you can't hand him a rifle in his inventory screen, he simply won't take it.
+*   **Pistols are exempt** — every class may carry a sidearm (see the Pistol Subclass above).
 *   Even if a wrong-class weapon somehow ends up in his hands, he will **hold fire** rather than use it.
 *   Guns from other mods or datapacks that aren't in the class tables stay allowed, so nothing gets bricked.
 
@@ -165,7 +171,7 @@ Use a TaCZ addon gunpack? The class weapon tables are plain datapack files — t
 ```
 
 *   Faction files: `ru_units.json`, `us_units.json`, `pmc_units.json`, `bhq_units.json`
-*   Class keys: `smg`, `rifle`, `shotgun`, `sniper`, `heavy_mg`, `pistol`
+*   Class keys: `smg`, `rifle`, `shotgun`, `sniper`, `heavy_mg` — plus `pistol`, the sidearm subclass pool (used for gun→subclass detection, not assignment)
 *   `gun_id`, `ammo_count` and `fire_mode` are required; `scope_id`, `muzzle_id`, `grip_id` are optional
 *   Your file **adds** guns to the class pool — our defaults still apply unless you override them
 *   Guns listed here count as class weapons, so the Weapon Lock applies to them too. Guns listed nowhere stay usable by anyone.

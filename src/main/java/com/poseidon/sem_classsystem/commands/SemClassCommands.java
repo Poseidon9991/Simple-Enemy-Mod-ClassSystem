@@ -42,7 +42,9 @@ public final class SemClassCommands {
     }
 
     // Class keys offered in tab-completion
-    private static final String[] CLASS_KEYS = {"smg", "rifle", "shotgun", "sniper", "heavy_mg", "pistol"};
+    // Assignable main classes only - pistol is a subclass (sidearm), it is
+    // picked up by handing the unit a pistol gun, not by assignment.
+    private static final String[] CLASS_KEYS = {"smg", "rifle", "shotgun", "sniper", "heavy_mg"};
     private static final String[] FACTION_KEYS = {"ru", "us", "pmc", "bhq"};
 
     private static final SuggestionProvider<CommandSourceStack> CLASS_SUGGEST =
@@ -51,7 +53,7 @@ public final class SemClassCommands {
             (ctx, builder) -> SharedSuggestionProvider.suggest(FACTION_KEYS, builder);
     private static final SuggestionProvider<CommandSourceStack> RECRUIT_SUGGEST =
             (ctx, builder) -> SharedSuggestionProvider.suggest(
-                    new String[]{"random", "smg", "rifle", "shotgun", "sniper", "heavy_mg", "pistol"}, builder);
+                    new String[]{"random", "smg", "rifle", "shotgun", "sniper", "heavy_mg"}, builder);
 
     // Forge fires this when the server builds its command tree
     @SubscribeEvent
