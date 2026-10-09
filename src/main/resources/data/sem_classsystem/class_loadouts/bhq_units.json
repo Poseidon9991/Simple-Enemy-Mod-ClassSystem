@@ -58,6 +58,18 @@
         "fire_mode": "AUTO",
         "muzzle_id": "tacz:muzzle_silencer_ursus"
       }
+    },
+    "pistol": {
+      "deagle": {
+        "gun_id": "tacz:deagle",
+        "ammo_count": 7,
+        "fire_mode": "SEMI"
+      },
+      "timeless50": {
+        "gun_id": "tacz:timeless50",
+        "ammo_count": 7,
+        "fire_mode": "SEMI"
+      }
     }
   }
 }

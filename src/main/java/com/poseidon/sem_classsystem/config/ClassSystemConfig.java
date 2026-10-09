@@ -189,6 +189,7 @@ public class ClassSystemConfig {
             case SHOTGUN -> 0.8;  // tight when close
             case SNIPER -> 0.3;   // ~3 misses per 10 shots
             case HEAVY_MG -> 1.15;
+            case PISTOL -> 0.9;   // decent per-shot accuracy
         };
     }
 
@@ -199,6 +200,7 @@ public class ClassSystemConfig {
             case SHOTGUN -> 4.0;  // only dangerous up close
             case SNIPER -> 0.5;   // stays accurate at distance
             case HEAVY_MG -> 1.5;
+            case PISTOL -> 2.0;   // fades past mid-range
         };
     }
 
@@ -209,6 +211,7 @@ public class ClassSystemConfig {
             case SHOTGUN -> 0.5;  // 1-2 shells then pause
             case SNIPER -> 0.25;  // single aimed shots
             case HEAVY_MG -> 1.4;
+            case PISTOL -> 0.4;   // short taps, mostly singles
         };
     }
 
@@ -219,6 +222,7 @@ public class ClassSystemConfig {
             case SHOTGUN -> 1.3;  // pump-action feel
             case SNIPER -> 5.0;   // very low fire rate
             case HEAVY_MG -> 0.65;
+            case PISTOL -> 0.7;   // snappy semi-auto cadence
         };
     }
 
@@ -230,6 +234,7 @@ public class ClassSystemConfig {
             case SHOTGUN -> 12.0; // charges into shotgun range
             case SNIPER -> 105.0; // beyond shoot range -> never advances
             case HEAVY_MG -> 55.0;// plants itself mid-field and suppresses
+            case PISTOL -> 30.0;  // works mid-range, keeps moving
         };
     }
 
@@ -240,6 +245,7 @@ public class ClassSystemConfig {
             case SHOTGUN -> 0.3;  // holds fire beyond ~27 blocks
             case SNIPER -> 1.25;  // engages out to ~112 blocks
             case HEAVY_MG -> 1.0;
+            case PISTOL -> 0.5;   // engages inside ~45 blocks
         };
     }
 
@@ -250,6 +256,7 @@ public class ClassSystemConfig {
             case SHOTGUN -> 1.2;  // rushes the target
             case SNIPER -> 1.0;   // rarely moves anyway
             case HEAVY_MG -> 0.9; // lumbers into position
+            case PISTOL -> 1.1;   // light on its feet, keeps closing
         };
     }
 

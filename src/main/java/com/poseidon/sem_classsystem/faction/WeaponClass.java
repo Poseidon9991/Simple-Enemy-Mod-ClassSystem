@@ -15,7 +15,9 @@ public enum WeaponClass {
     // Long-range / launcher: very slow cadence but very tight grouping
     SNIPER("sniper", "Camper"),
     // Suppression platform: sustained bursts, slightly worse spread than SMG
-    HEAVY_MG("heavy_mg", "Suppressor");
+    HEAVY_MG("heavy_mg", "Suppressor"),
+    // Sidearm: quick single shots, mid-range fighter that stays mobile
+    PISTOL("pistol", "Sidearm");
 
     // Key used in the config file, e.g. [class_tuning.smg]
     private final String configKey;

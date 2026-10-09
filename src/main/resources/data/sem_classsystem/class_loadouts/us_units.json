@@ -55,6 +55,18 @@
         "fire_mode": "AUTO",
         "scope_id": "tacz:scope_acog_ta31"
       }
+    },
+    "pistol": {
+      "m1911": {
+        "gun_id": "tacz:m1911",
+        "ammo_count": 7,
+        "fire_mode": "SEMI"
+      },
+      "p320": {
+        "gun_id": "tacz:p320",
+        "ammo_count": 17,
+        "fire_mode": "SEMI"
+      }
     }
   }
 }

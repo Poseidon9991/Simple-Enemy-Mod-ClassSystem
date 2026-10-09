@@ -44,6 +44,18 @@
         "ammo_count": 200,
         "fire_mode": "AUTO"
       }
+    },
+    "pistol": {
+      "glock_17": {
+        "gun_id": "tacz:glock_17",
+        "ammo_count": 17,
+        "fire_mode": "SEMI"
+      },
+      "deagle": {
+        "gun_id": "tacz:deagle",
+        "ammo_count": 7,
+        "fire_mode": "SEMI"
+      }
     }
   }
 }

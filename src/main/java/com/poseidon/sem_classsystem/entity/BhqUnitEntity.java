@@ -23,9 +23,10 @@ import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;
 // the friendly role, and defenders-ignore-PMC-style rules still work.
 public class BhqUnitEntity extends PmcUnitEntity {
 
-    // 3 BHQ skins in assets/sem_classsystem/textures/entity/bhq_unit/:
-    // mask / skull / shades - chosen randomly like SEM's own variants.
-    public static final int VARIANT_COUNT = 3;
+    // 6 BHQ skins in assets/sem_classsystem/textures/entity/bhq_unit/:
+    // 0-2: Standard BHQ (woodland camo: mask, skull, shades)
+    // 3-5: GRK style (navy blue: mask, skull, beret)
+    public static final int VARIANT_COUNT = 6;
 
     public BhqUnitEntity(EntityType<? extends Monster> entityType, Level level) {
         super(entityType, level);

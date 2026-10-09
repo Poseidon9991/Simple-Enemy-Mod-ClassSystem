@@ -50,6 +50,13 @@
         "scope_id": "tacz:sight_t2",
         "muzzle_id": "tacz:muzzle_silencer_ursus"
       }
+    },
+    "pistol": {
+      "cz75": {
+        "gun_id": "tacz:cz75",
+        "ammo_count": 12,
+        "fire_mode": "SEMI"
+      }
     }
   }
 }

@@ -14,12 +14,20 @@ import com.poseidon.sem_classsystem.entity.BhqUnitEntity;
 public class BhqUnitRenderer extends PmcUnitRenderer {
 
     private static final ResourceLocation[] BHQ_TEXTURES = new ResourceLocation[]{
+            // Standard BHQ variants (woodland camo)
             ResourceLocation.fromNamespaceAndPath(
                     SemClassSystem.MODID, "textures/entity/bhq_unit/bhq_unit_mask.png"),
             ResourceLocation.fromNamespaceAndPath(
                     SemClassSystem.MODID, "textures/entity/bhq_unit/bhq_unit_skull.png"),
             ResourceLocation.fromNamespaceAndPath(
                     SemClassSystem.MODID, "textures/entity/bhq_unit/bhq_unit_shades.png"),
+            // GRK variants (royal navy blue uniform)
+            ResourceLocation.fromNamespaceAndPath(
+                    SemClassSystem.MODID, "textures/entity/bhq_unit/bhq_unit_grk_mask.png"),
+            ResourceLocation.fromNamespaceAndPath(
+                    SemClassSystem.MODID, "textures/entity/bhq_unit/bhq_unit_grk_skull.png"),
+            ResourceLocation.fromNamespaceAndPath(
+                    SemClassSystem.MODID, "textures/entity/bhq_unit/bhq_unit_grk_beret.png"),
     };
 
     public BhqUnitRenderer(EntityRendererProvider.Context context) {
