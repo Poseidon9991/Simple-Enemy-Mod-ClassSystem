@@ -73,7 +73,13 @@ public class ClassSystemConfig {
                 "burstLengthMultiplier: shots per burst scale (min 1 shot always)",
                 "cooldownMultiplier: pause between bursts scale (lower = higher fire rate)",
                 "crouchWhileFiring: unit takes a knee while the shoot goal runs",
-                "crouchSpreadMultiplier: extra accuracy bonus while crouched (lower = tighter)");
+                "crouchSpreadMultiplier: extra accuracy bonus while crouched (lower = tighter)",
+                "tacticalPatienceMultiplier: no-LoS wait time before flanking (lower = flanks sooner)",
+                "tacticalFlankDurationMultiplier: flank arc time before a forced rush",
+                "tacticalRushSpeedMultiplier: movement speed of the forced rush",
+                "tacticalForcedRush: false = never charges on flank timeout, keeps arcing instead",
+                "tacticalRetreatHealthMultiplier: low-health cover threshold scale (higher = hides sooner)",
+                "tacticalCloseRangeMultiplier: close-quarters band edge scale (higher = CQB from further out)");
 
         for (WeaponClass cls : WeaponClass.values()) {
             // One [class_tuning.smg] / [class_tuning.rifle] / ... section each
@@ -115,7 +121,33 @@ public class ClassSystemConfig {
                     BUILDER.comment(
                                     "Spread multiplier applied while crouched (lower = tighter).",
                                     "Only matters for classes with crouchWhileFiring = true.")
-                            .defineInRange("crouchSpreadMultiplier", 0.8, 0.05, 2.0)
+                            .defineInRange("crouchSpreadMultiplier", 0.8, 0.05, 2.0),
+                    BUILDER.comment(
+                                    "Tactical AI: patience multiplier - how long the unit waits",
+                                    "without line of sight before it starts flanking.",
+                                    "(lower = flanks sooner, higher = holds position waiting)")
+                            .defineInRange("tacticalPatienceMultiplier", classPatienceDefault(cls), 0.05, 10.0),
+                    BUILDER.comment(
+                                    "Tactical AI: flank duration multiplier - how long the unit",
+                                    "keeps arcing around the target before SEM forces a rush.")
+                            .defineInRange("tacticalFlankDurationMultiplier", classFlankDurationDefault(cls), 0.1, 10.0),
+                    BUILDER.comment("Tactical AI: movement speed multiplier of the forced rush")
+                            .defineInRange("tacticalRushSpeedMultiplier", classRushSpeedDefault(cls), 0.3, 3.0),
+                    BUILDER.comment(
+                                    "Tactical AI: whether a flank timeout triggers a forced charge.",
+                                    "false = the unit re-arms a fresh flank arc instead of rushing -",
+                                    "hold-position classes (Camper, Suppressor) use this.")
+                            .define("tacticalForcedRush", classForcedRushDefault(cls)),
+                    BUILDER.comment(
+                                    "Tactical AI: retreat health threshold multiplier - scales the",
+                                    "health fraction (SEM default 35%) below which the unit hides.",
+                                    "higher = seeks cover earlier, lower = fights wounded longer.")
+                            .defineInRange("tacticalRetreatHealthMultiplier", classRetreatHealthDefault(cls), 0.1, 3.0),
+                    BUILDER.comment(
+                                    "Tactical AI: close-range band edge multiplier - scales the",
+                                    "distance where CQB tactics start (SEM default 15 blocks).",
+                                    "higher = shotgun-style close tactics from further out.")
+                            .defineInRange("tacticalCloseRangeMultiplier", classCloseRangeDefault(cls), 0.3, 4.0)
             );
 
             CLASS_ENTRIES.put(cls, entry);
@@ -268,6 +300,62 @@ public class ClassSystemConfig {
         };
     }
 
+    // ---- per-class tactical AI defaults: how the squad brain plays them ----
+    private static double classPatienceDefault(WeaponClass cls) {
+        return switch (cls) {
+            case SMG -> 0.5;      // flanks almost immediately
+            case SHOTGUN -> 0.5;  // impatient - wants the door now
+            case SNIPER -> 3.0;   // waits the target out
+            case HEAVY_MG -> 2.0; // plants and lets the target come
+            case PISTOL -> 0.8;
+            default -> 1.0;      // RIFLE baseline
+        };
+    }
+
+    private static double classFlankDurationDefault(WeaponClass cls) {
+        return switch (cls) {
+            case SHOTGUN -> 0.7;  // short arc, then commit
+            case SNIPER -> 2.0;   // patient repositioning arc
+            case HEAVY_MG -> 1.5;
+            default -> 1.0;
+        };
+    }
+
+    private static double classRushSpeedDefault(WeaponClass cls) {
+        return switch (cls) {
+            case SMG -> 1.1;
+            case SHOTGUN -> 1.2;  // full sprint into the room
+            case HEAVY_MG -> 0.9;
+            default -> 1.0;
+        };
+    }
+
+    private static boolean classForcedRushDefault(WeaponClass cls) {
+        return switch (cls) {
+            // Hold-position classes never charge on flank timeout - the mixin
+            // re-arms a fresh flank arc instead of letting them charge.
+            case SNIPER, HEAVY_MG -> false;
+            default -> true;
+        };
+    }
+
+    private static double classRetreatHealthDefault(WeaponClass cls) {
+        return switch (cls) {
+            case SMG -> 0.8;
+            case SHOTGUN -> 0.7;  // keeps fighting wounded
+            case SNIPER -> 1.3;   // bails to cover earlier - too valuable to lose
+            case HEAVY_MG -> 1.1;
+            default -> 1.0;
+        };
+    }
+
+    private static double classCloseRangeDefault(WeaponClass cls) {
+        return switch (cls) {
+            case SHOTGUN -> 1.5;  // CQB tactics kick in from ~22 blocks out
+            default -> 1.0;
+        };
+    }
+
     // Called once from the mod constructor while Forge loads us
     public static void register() {
         // Type.SERVER -> saves/<world>/serverconfig/sem_classsystem-server.toml
@@ -353,6 +441,41 @@ public class ClassSystemConfig {
         return safeGet(CLASS_ENTRIES.get(cls).crouchSpreadMultiplier, 0.8);
     }
 
+    // Per-class no-LoS patience multiplier (TacticalManagerGoal)
+    public static double classPatienceMultiplier(WeaponClass cls) {
+        return safeGet(CLASS_ENTRIES.get(cls).patienceMultiplier, 1.0);
+    }
+
+    // Per-class flank duration multiplier
+    public static double classFlankDurationMultiplier(WeaponClass cls) {
+        return safeGet(CLASS_ENTRIES.get(cls).flankDurationMultiplier, 1.0);
+    }
+
+    // Per-class forced-rush speed multiplier
+    public static double classRushSpeedMultiplier(WeaponClass cls) {
+        return safeGet(CLASS_ENTRIES.get(cls).rushSpeedMultiplier, 1.0);
+    }
+
+    // May this class forced-rush when a flank times out? false = re-arc.
+    public static boolean classForcedRush(WeaponClass cls) {
+        ForgeConfigSpec.BooleanValue v = CLASS_ENTRIES.get(cls).forcedRush;
+        try {
+            return v.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return classForcedRushDefault(cls);
+        }
+    }
+
+    // Per-class low-health retreat threshold multiplier
+    public static double classRetreatHealthMultiplier(WeaponClass cls) {
+        return safeGet(CLASS_ENTRIES.get(cls).retreatHealthMultiplier, 1.0);
+    }
+
+    // Per-class close-quarters band edge multiplier
+    public static double classCloseRangeMultiplier(WeaponClass cls) {
+        return safeGet(CLASS_ENTRIES.get(cls).closeRangeMultiplier, 1.0);
+    }
+
     // ================= Compat accessors =================
 
     // Should village defenders (unit_defenders tag) never target this faction?
@@ -403,6 +526,12 @@ public class ClassSystemConfig {
                               ForgeConfigSpec.DoubleValue shootDistanceMultiplier,
                               ForgeConfigSpec.DoubleValue approachSpeedMultiplier,
                               ForgeConfigSpec.BooleanValue crouchWhileFiring,
-                              ForgeConfigSpec.DoubleValue crouchSpreadMultiplier) {
+                              ForgeConfigSpec.DoubleValue crouchSpreadMultiplier,
+                              ForgeConfigSpec.DoubleValue patienceMultiplier,
+                              ForgeConfigSpec.DoubleValue flankDurationMultiplier,
+                              ForgeConfigSpec.DoubleValue rushSpeedMultiplier,
+                              ForgeConfigSpec.BooleanValue forcedRush,
+                              ForgeConfigSpec.DoubleValue retreatHealthMultiplier,
+                              ForgeConfigSpec.DoubleValue closeRangeMultiplier) {
     }
 }

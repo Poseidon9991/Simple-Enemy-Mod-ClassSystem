@@ -47,6 +47,10 @@ Pistols are not a class you roll — they are a **subclass** every unit can take
 
 Default sidearms per faction: RU → CZ75, US → M1911 / P320, PMC → Glock 17 / Deagle, BHQ → Deagle / Timeless .50. Tuning lives in `[class_tuning.pistol]` like every other class.
 
+### Class-Aware Squad Tactics
+
+Each class also plays SEM's tactical layer (`tactical_ai_phase_*`) differently — patience before flanking, how long it arcs, whether a failed flank becomes a charge, when it retreats to cover, and where close-quarters tactics kick in. A **Breacher** flanks almost immediately, a **Sweeper** commits to CQB from further out and fights on while wounded, a **Camper** waits the target out and re-arcs instead of ever charging, and a **Suppressor** plants and holds the same way. All of it is per-class in the config (`tactical*` keys below).
+
 ***
 
 ## Choosing a Class
@@ -144,6 +148,12 @@ Everything is editable per-world:
 *   `engageDistance` — how close the unit gets before it stops advancing
 *   `shootDistanceMultiplier` — max firing range (lower = holds fire until close)
 *   `approachSpeedMultiplier` — movement speed while advancing
+*   `tacticalPatienceMultiplier` — no-LoS wait before flanking (lower = flanks sooner)
+*   `tacticalFlankDurationMultiplier` — flank arc time before a forced rush
+*   `tacticalRushSpeedMultiplier` — speed of the forced rush
+*   `tacticalForcedRush` — `false` = never charges on flank timeout, keeps arcing instead (Camper/Suppressor)
+*   `tacticalRetreatHealthMultiplier` — low-health cover threshold (higher = hides sooner)
+*   `tacticalCloseRangeMultiplier` — close-quarters band edge (higher = CQB tactics from further out)
 
 Defaults match SEM's own values — the mod changes nothing until you ask it to.
 

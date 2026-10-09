@@ -11,6 +11,7 @@
     "MixinPmcAmmoPlacement",
     "MixinRangedGunAttackGoal",
     "MixinRecruitTable",
+    "MixinTacticalManagerGoal",
     "MixinUnitInventoryHandler",
     "MixinWeaponEquippers"
   ],
