@@ -10,7 +10,7 @@ import com.poseidon.sem_classsystem.entity.BhqUnitEntity;
 
 // Renders the BHQ unit with SEM's own PMC model (same bones, animations,
 // gun layer, armor layers) but swaps the texture for our BHQ skins.
-// Variant 0 = black balaclava, 1 = skull mask, 2 = sunglasses.
+// Variants 0-2 = woodland camo (balaclava, skull, shades), 3-5 = GRK navy (mask, skull, beret).
 public class BhqUnitRenderer extends PmcUnitRenderer {
 
     private static final ResourceLocation[] BHQ_TEXTURES = new ResourceLocation[]{

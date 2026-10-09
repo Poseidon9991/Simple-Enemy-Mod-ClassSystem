@@ -70,7 +70,7 @@ Meet the **BHQ** — an elite black-clad unit inspired by Cambodia's Bodyguard U
 
 *   **Better stats than a plain PMC** — tougher (35 HP), faster, spots targets further away, and shoots straighter. Check `[bhq_unit]` in the config.
 *   **Their own Recruit Table** — craft the dark **BHQ Recruit Table** (black concrete + iron + an emerald) and use it just like SEM's table: sneak + right-click to pick a class, normal click to hire. They cost more than a PMC — set the price in `[bhq_recruit]`.
-*   **Three tactical looks** — spawned operators wear black armour and helmets with random face gear: a **balaclava**, a **skull mask**, or **sunglasses**.
+*   **Six tactical looks** — spawned operators roll one of six skins: the classic **woodland-camo set** (balaclava, skull mask, sunglasses) or the **GRK navy set** (mask, skull mask, beret).
 *   **Premium arsenal** — BHQ pulls from its own elite gun table (`bhq_units.json`): Vector, SCAR-H, HK416, AA-12, M107, M249…
 *   **Fully part of the class system** — classes, weapon lock, name tags (`BHQ Unit - Sweeper`), defender protection, `/semcs spawn bhq <class>` — everything works.
 
