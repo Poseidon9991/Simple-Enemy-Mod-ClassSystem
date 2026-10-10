@@ -15,8 +15,7 @@ import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.nekoyuni.SimpleEnemyMod.data.UnitLoadout;
-import net.minecraftforge.registries.ForgeRegistries;
-import com.tacz.guns.api.item.IGun;
+import com.tacz.guns.api.TimelessAPI;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -46,6 +45,9 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
     // inferClass runs inside the per-tick canUse evaluation of every armed
     // unit - keep it O(1) instead of re-scanning all tables every call.
     private static Map<ResourceLocation, WeaponClass> GUN_TO_CLASS = Collections.emptyMap();
+    // Gun ids already warned about - pick() logs each missing gun once.
+    private static final java.util.Set<ResourceLocation> WARNED_GUNS =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
     public ClassLoadoutManager() {
         super(GSON, FOLDER_PATH);
@@ -94,16 +96,11 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
                                     gunEntry.getKey(), file.getKey());
                             continue;
                         }
-                        // Gun id must resolve to an actual TaCZ gun item.
-                        // This makes addon-gun entries automatically
-                        // conditional: e.g. maxstuff:dragonuv_svd joins the
-                        // pool only while the maxstuff gunpack is installed,
-                        // and a typo'd id can never arm a unit with air.
-                        if (!(ForgeRegistries.ITEMS.getValue(loadout.gunId) instanceof IGun)) {
-                            SemClassSystem.LOGGER.info("loadout '{}' in {} skipped - gun '{}' is not installed",
-                                    gunEntry.getKey(), file.getKey(), loadout.gunId);
-                            continue;
-                        }
+                        // Gun validity is checked at pick() time via TaCZ's
+                        // gun index - NOT here. TaCZ guns are NBT ids on one
+                        // shared item, so they never appear in Forge's item
+                        // registry, and their index may not be populated yet
+                        // during this same datapack reload pass.
                         table.computeIfAbsent(factionId, f -> new EnumMap<>(WeaponClass.class))
                              .computeIfAbsent(cls, c -> new ArrayList<>())
                              .add(loadout);
@@ -151,7 +148,11 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
         return json.has(key) ? ResourceLocation.parse(json.get(key).getAsString()) : null;
     }
 
-    // Uniform pick from a faction+class pool; null when the pool is empty
+    // Uniform pick from a faction+class pool; null when nothing valid.
+    // Entries whose gun id TaCZ cannot resolve are skipped here instead of
+    // at load time, so addon gunpacks join the pool only while installed and
+    // a typo'd id can never arm a unit with air. Runs at spawn, after all
+    // gunpack data is live.
     @Nullable
     public static UnitLoadout pick(String factionId, WeaponClass cls,
                                    net.minecraft.util.RandomSource random) {
@@ -159,7 +160,19 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
         if (pool == null || pool.isEmpty()) {
             return null;
         }
-        return pool.get(random.nextInt(pool.size()));
+        List<UnitLoadout> valid = null;
+        for (UnitLoadout l : pool) {
+            if (TimelessAPI.getCommonGunIndex(l.gunId).isPresent()) {
+                (valid == null ? (valid = new ArrayList<>(pool.size())) : valid).add(l);
+            } else if (WARNED_GUNS.add(l.gunId)) {
+                SemClassSystem.LOGGER.warn("class loadout gun '{}' is not installed - skipping while spawning",
+                        l.gunId);
+            }
+        }
+        if (valid == null || valid.isEmpty()) {
+            return null;
+        }
+        return valid.get(random.nextInt(valid.size()));
     }
 
     // Which class claims this gun id? Scans every faction's pools so a gun

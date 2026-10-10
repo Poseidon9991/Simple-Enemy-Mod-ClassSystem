@@ -129,6 +129,10 @@ dependencies {
     // SEM itself requires TaCZ — needed on the classpath so SEM classes resolve
     implementation fg.deobf("blank:tacz:1.0")
 
+    // Soft dependency: tacz_sewv (libs/tacz_sewv.jar) — compile-time only for
+    // its client armor/accessory layers; runtime-guarded by ModList.isLoaded.
+    implementation fg.deobf("blank:tacz_sewv:1.0")
+
 }
 
 // ==================== RESOURCE PROCESSING ====================
