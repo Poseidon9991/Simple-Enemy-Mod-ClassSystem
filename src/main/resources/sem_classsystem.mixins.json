@@ -9,6 +9,7 @@
     "MixinAbstractUnit",
     "MixinMoveToAttackRange",
     "MixinPmcAmmoPlacement",
+    "MixinPmcUnitMenuTitle",
     "MixinRangedGunAttackGoal",
     "MixinRecruitTable",
     "MixinTacticalManagerGoal",

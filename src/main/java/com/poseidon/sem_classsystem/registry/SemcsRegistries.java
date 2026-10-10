@@ -4,6 +4,8 @@ package com.poseidon.sem_classsystem.registry;
 import com.poseidon.sem_classsystem.SemClassSystem;
 import com.poseidon.sem_classsystem.block.BhqRecruitTableBlock;
 import com.poseidon.sem_classsystem.entity.BhqUnitEntity;
+import com.poseidon.sem_classsystem.faction.WeaponClass;
+import com.poseidon.sem_classsystem.item.ClassSpawnEggItem;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.item.BlockItem;
@@ -24,6 +26,14 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import net.nekoyuni.SimpleEnemyMod.entity.ai.roles.utils.UnitRole;
 import net.nekoyuni.SimpleEnemyMod.item.RoleSpawnEggItem;
+import net.nekoyuni.SimpleEnemyMod.registry.ModEntities;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
 
 // DeferredRegisters for our entity, block and items - same pattern SEM uses
 // in ModEntities/ModBlocks/ModItems, but everything lives under our modid.
@@ -81,6 +91,44 @@ public final class SemcsRegistries {
             )
     );
 
+    // ---- per-class spawn eggs ----------------------------------------------
+    // One egg per (faction x main weapon class): 4 factions x 5 classes.
+    // Egg colour = faction base, spots = class accent. PISTOL is a subclass -
+    // it is not spawned, it is equipped, so it gets no egg.
+    public static final List<RegistryObject<Item>> CLASS_SPAWN_EGGS;
+
+    private static final Map<WeaponClass, Integer> CLASS_SPOT_COLORS = new EnumMap<>(WeaponClass.class);
+
+    static {
+        CLASS_SPOT_COLORS.put(WeaponClass.SMG, 0xD9A62E);      // amber - breach
+        CLASS_SPOT_COLORS.put(WeaponClass.RIFLE, 0x8C8C8C);    // steel gray
+        CLASS_SPOT_COLORS.put(WeaponClass.SHOTGUN, 0xB0402C);  // breaching red
+        CLASS_SPOT_COLORS.put(WeaponClass.SNIPER, 0x3E6EA8);   // recon blue
+        CLASS_SPOT_COLORS.put(WeaponClass.HEAVY_MG, 0x7B4FA6); // suppression purple
+
+        List<RegistryObject<Item>> eggs = new ArrayList<>();
+        eggs.addAll(registerClassEggs("ru", ModEntities.RUUNIT, 0x4B5320));   // olive drab
+        eggs.addAll(registerClassEggs("us", ModEntities.USUNIT, 0x9C8B6B));   // desert tan
+        eggs.addAll(registerClassEggs("pmc", ModEntities.PMCUNIT, 0x3B3B3F)); // charcoal
+        eggs.addAll(registerClassEggs("bhq", BHQ_UNIT, 0x141B2E));            // midnight navy
+        CLASS_SPAWN_EGGS = Collections.unmodifiableList(eggs);
+    }
+
+    // Registers one egg per main weapon class for a faction. Item id looks
+    // like "pmc_heavy_mg_spawn_egg".
+    private static List<RegistryObject<Item>> registerClassEggs(
+            String factionPrefix,
+            Supplier<? extends EntityType<? extends net.minecraft.world.entity.Mob>> type,
+            int baseColor) {
+        List<RegistryObject<Item>> out = new ArrayList<>();
+        for (WeaponClass cls : WeaponClass.mainClasses()) {
+            out.add(ITEMS.register(
+                    factionPrefix + "_" + cls.configKey() + "_spawn_egg",
+                    () -> new ClassSpawnEggItem(type, baseColor, CLASS_SPOT_COLORS.get(cls), cls)));
+        }
+        return out;
+    }
+
     // Called from the mod constructor: hook all three registers onto the bus.
     public static void registerAll() {
         IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -113,6 +161,9 @@ public final class SemcsRegistries {
             }
             if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
                 event.accept(BHQ_UNIT_SPAWN_EGG.get());
+                for (RegistryObject<Item> egg : CLASS_SPAWN_EGGS) {
+                    event.accept(egg.get());
+                }
             }
         }
     }

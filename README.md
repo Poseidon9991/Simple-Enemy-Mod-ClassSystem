@@ -59,6 +59,7 @@ You are not stuck with the dice roll — three ways to pick the specialist you w
 
 *   **Recruit Table** — **sneak + right-click** the table to cycle through classes (Random → Breacher → Rifleman → Sweeper → Camper → Suppressor), then right-click normally to recruit. Your pick is remembered between sessions.
 *   **Command** — `/semcs recruit_class <class>` sets your table pick directly, and admins can use `/semcs spawn <ru|us|pmc|bhq> <class>` or re-class a living unit with `/semcs class <targets> <class>` (it swaps their gun too).
+*   **Class spawn eggs** — the creative Spawn Eggs tab has an egg for every faction + class combo (20 total: `RU Breacher Spawn Egg` … `BHQ Suppressor Spawn Egg`). The spawned unit is locked to that class — no dice roll — and equips from the class table immediately.
 *   **Summoning** — `/summon` with NBT also works: `/summon simpleenemymod:pmcunit ~ ~ ~ {semcs_weapon_class:"SNIPER"}` or `/summon sem_classsystem:bhqunit ~ ~ ~ {semcs_weapon_class:"SHOTGUN"}`
 
 ***
