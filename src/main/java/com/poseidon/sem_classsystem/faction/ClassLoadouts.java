@@ -8,6 +8,8 @@ import net.minecraft.util.RandomSource;
 import net.nekoyuni.SimpleEnemyMod.data.UnitLoadout;
 
 import javax.annotation.Nullable;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 // The gun tables are DATA, not code: they live in
 //   data/<namespace>/class_loadouts/<faction>.json
@@ -36,10 +38,29 @@ public final class ClassLoadouts {
     // back to the gun's own TaCZ type, so swapping an SMG for a different SMG
     // stays legal even if the new gun isn't in any loadout pool yet.
     // Used on world load (old units) and by the weapon-lock checks.
+    //
+    // The answer is a pure function of (datapack tables, TaCZ index) so it
+    // memoizes per gun id - Optional wraps the "no class" answer so negative
+    // results cache too. ClassLoadoutManager.apply() clears this on every
+    // datapack reload. A stale null can only fail OPEN (the lock permits a
+    // gun it cannot classify), never wrongly reject.
     @Nullable
     public static WeaponClass inferClass(ResourceLocation gunId) {
+        return INFERENCE_CACHE.computeIfAbsent(gunId, ClassLoadouts::inferClassUncached)
+                .orElse(null);
+    }
+
+    private static final ConcurrentHashMap<ResourceLocation, Optional<WeaponClass>> INFERENCE_CACHE =
+            new ConcurrentHashMap<>();
+
+    private static Optional<WeaponClass> inferClassUncached(ResourceLocation gunId) {
         WeaponClass fromTable = ClassLoadoutManager.classOf(gunId);
-        return fromTable != null ? fromTable : typeClass(gunId);
+        return Optional.ofNullable(fromTable != null ? fromTable : typeClass(gunId));
+    }
+
+    // Called by ClassLoadoutManager when datapack tables reload.
+    public static void invalidateInferenceCache() {
+        INFERENCE_CACHE.clear();
     }
 
     // TaCZ type fallback for guns not in our tables. Maps the gun index's

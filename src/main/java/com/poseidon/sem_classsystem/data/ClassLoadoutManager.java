@@ -6,6 +6,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.poseidon.sem_classsystem.SemClassSystem;
+import com.poseidon.sem_classsystem.faction.ClassLoadouts;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -122,6 +123,8 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
             }
         }
         GUN_TO_CLASS = gunIndex;
+        // Tables changed - cached inferClass answers are now stale.
+        ClassLoadouts.invalidateInferenceCache();
         int total = table.values().stream().mapToInt(m -> m.values().stream().mapToInt(List::size).sum()).sum();
         SemClassSystem.LOGGER.info("Loaded {} class loadouts for {} factions", total, table.size());
     }
