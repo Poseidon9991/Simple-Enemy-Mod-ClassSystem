@@ -100,17 +100,17 @@ public final class WeaponClassSupport {
         }
     }
 
-    // Builds and applies the floating name: "<FACTION> Unit - <Nickname>".
-    // Nickname comes from config so it can be renamed per world.
+    // Builds and applies the floating name: "<FACTION> Unit". The class is
+    // intentionally NOT on the nameplate - it shows in the inventory title
+    // instead ("PMC Unit Equipment - Camper"), so overhead names stay clean.
     public static void applyDisplayName(AbstractUnit unit) {
         WeaponClass cls = get(unit);
         UnitClass faction = UnitClass.of(unit);
         if (cls == null || faction == null) {
             return;   // no class -> keep vanilla name
         }
-        String label = faction.name().split("_")[0];       // "RU", "US", "PMC"
-        String nickname = ClassSystemConfig.classNickname(cls);
-        unit.setCustomName(Component.literal(label + " Unit - " + nickname));
+        String label = faction.name().split("_")[0];       // "RU", "US", "PMC", "BHQ"
+        unit.setCustomName(Component.literal(label + " Unit"));
         unit.setCustomNameVisible(true);                   // nameplate always visible
     }
 

@@ -216,7 +216,7 @@ public class ClassSystemConfig {
     }
 
     private static double factionSpreadDefault(UnitClass c) {
-        return c == UnitClass.BHQ_UNIT ? 0.8 : 1.0;
+        return c == UnitClass.BHQ_UNIT ? 0.65 : 1.0;
     }
 
     // ---- per-class default multipliers (match the README table) ----
@@ -225,7 +225,7 @@ public class ClassSystemConfig {
             case SMG -> 1.3;      // less accurate overall
             case RIFLE -> 1.0;    // baseline
             case SHOTGUN -> 0.8;  // tight when close
-            case SNIPER -> 0.3;   // ~3 misses per 10 shots
+            case SNIPER -> 0.22;  // tightest grouping of any class
             case HEAVY_MG -> 1.15;
             case PISTOL -> 0.9;   // decent per-shot accuracy
         };
@@ -236,8 +236,8 @@ public class ClassSystemConfig {
             case SMG -> 2.5;      // accuracy dies at range
             case RIFLE -> 1.0;
             case SHOTGUN -> 4.0;  // only dangerous up close
-            case SNIPER -> 0.5;   // stays accurate at distance
-            case HEAVY_MG -> 1.5;
+            case SNIPER -> 0.15;  // near-flat to max range - a sniper hits far
+            case HEAVY_MG -> 1.1; // suppression still reaches out a bit
             case PISTOL -> 2.0;   // fades past mid-range
         };
     }
@@ -258,7 +258,7 @@ public class ClassSystemConfig {
             case SMG -> 0.5;      // fires again quickly
             case RIFLE -> 1.0;
             case SHOTGUN -> 1.3;  // pump-action feel
-            case SNIPER -> 5.0;   // very low fire rate
+            case SNIPER -> 8.0;   // bolt-action pace - slow deliberate shots
             case HEAVY_MG -> 0.65;
             case PISTOL -> 0.7;   // snappy semi-auto cadence
         };
