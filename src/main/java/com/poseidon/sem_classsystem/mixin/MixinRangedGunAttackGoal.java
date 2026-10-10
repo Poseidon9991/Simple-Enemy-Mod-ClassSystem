@@ -15,6 +15,7 @@ import com.tacz.guns.api.entity.ShootResult;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.resource.pojo.data.gun.BulletData;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.item.ItemStack;
@@ -273,12 +274,30 @@ public abstract class MixinRangedGunAttackGoal {
     // runs so progress ramps to fully scoped; the shoot redirect holds fire
     // until then. Released in stop().
     // tick is a vanilla Goal method - remap stays default for the refmap.
+    // Perf: re-assert every 5 ticks (the aim flag persists internally) and
+    // gate on the cheap assigned-class read before the held-gun scan.
     @Inject(method = "tick", at = @At("HEAD"))
     private void semcs$assertAim(CallbackInfo ci) {
-        if (WeaponClassSupport.getEffective(this.mob) == WeaponClass.SNIPER) {
+        if (this.mob.tickCount % 5 != 0) {
+            return;
+        }
+        if (WeaponClassSupport.get(this.mob) == WeaponClass.SNIPER
+                && WeaponClassSupport.getEffective(this.mob) == WeaponClass.SNIPER) {
             IGunOperator.fromLivingEntity(this.mob).aim(true);
             this.semcs$aiming = true;
         }
+    }
+
+    // ---- vertical FOV boost ------------------------------------------------
+    // SEM gates "may I engage / keep engaging" on raw 3D distance, so a
+    // target a few blocks up a roof or down a slope reads as much farther
+    // and the unit never fires. Redirect those checks through the
+    // elevation-tolerant distance (12 free blocks of height difference).
+    @Redirect(method = {"canUse", "tick"},
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/world/entity/Mob;distanceToSqr(Lnet/minecraft/world/entity/Entity;)D"))
+    private double semcs$elevationTolerantDistance(Mob self, Entity target) {
+        return WeaponClassSupport.elevationTolerantDistanceSqr(self, target);
     }
 
     // Holds the actual trigger pull until the scope is fully up: while aiming

@@ -19,7 +19,6 @@
     "MixinWeaponEquippers"
   ],
   "client": [
-    "MixinPmcUnitScreenBadge",
     "MixinUniversalArmorLayer",
     "MixinUnitModelCrouch"
   ],

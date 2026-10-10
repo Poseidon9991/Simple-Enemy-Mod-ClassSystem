@@ -10,6 +10,7 @@ import net.minecraft.world.entity.Mob;
 // SEM's approach goal - THE CLASS WE PATCH. It walks the unit toward the
 // target until it is inside "attackRange", then hands over to the gun goal.
 import net.nekoyuni.SimpleEnemyMod.entity.ai.goals.MoveToAttackRangeGoal;
+import net.minecraft.world.entity.Entity;
 // Mixin annotations:
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -18,6 +19,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -77,5 +79,17 @@ public abstract class MixinMoveToAttackRange {
         // a Camper's value exceeds its shoot range so it holds position.
         this.attackRange = ClassSystemConfig.classEngageDistance(cls);
         this.speed = this.semcs$origSpeed * ClassSystemConfig.classApproachSpeed(cls);
+    }
+
+    // ---- vertical FOV boost ------------------------------------------------
+    // Same elevation tolerance as the fire goal: the approach band checks
+    // raw 3D distance, so a target on a roof or ledge sat outside the band
+    // and the unit never even moved toward it.
+    @Redirect(method = {"canUse", "canContinueToUse", "tick"},
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/world/entity/Mob;distanceTo(Lnet/minecraft/world/entity/Entity;)F"))
+    private float semcs$elevationTolerantDistance(Mob self, Entity target) {
+        return (float) Math.sqrt(
+                WeaponClassSupport.elevationTolerantDistanceSqr(self, target));
     }
 }

@@ -31,7 +31,10 @@ public abstract class MixinBulletImpactSuppression {
     @Inject(method = "onAmmoHitBlock", at = @At("TAIL"), remap = false)
     private static void semcs$heavySuppression(AmmoHitBlockEvent event, CallbackInfo ci) {
         Entity owner = event.getAmmo().getOwner();
+        // Perf: assigned-class field read first - bullets impact constantly
+        // and non-suppressor shooters skip the held-gun scan entirely.
         if (!(owner instanceof LivingEntity living)
+                || WeaponClassSupport.get(living) != WeaponClass.HEAVY_MG
                 || WeaponClassSupport.getEffective(living) != WeaponClass.HEAVY_MG) {
             return;
         }

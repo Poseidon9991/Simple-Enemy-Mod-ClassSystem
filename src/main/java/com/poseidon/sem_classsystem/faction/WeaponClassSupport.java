@@ -9,6 +9,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;
 
 import javax.annotation.Nullable;
@@ -44,6 +45,15 @@ public final class WeaponClassSupport {
                 || c == com.poseidon.sem_classsystem.entity.BhqUnitEntity.class;
     }
 
+    // Per-tick cache for getEffective: the held-gun scan (item stack -> IGun
+    // -> gun id -> loadout table lookup) is cheap but not free, and combat
+    // mixins call this several times per tick per fighting unit (aim, both
+    // spread calls, shoot, suppression). The hand-slot stack instance is
+    // stable within a tick, so (same stack, same game time) => reuse.
+    private record EffCache(ItemStack held, WeaponClass cls, long gameTime) {}
+    private static final java.util.WeakHashMap<Entity, EffCache> EFFECTIVE_CACHE =
+            new java.util.WeakHashMap<>();
+
     // The class that actually drives combat tuning RIGHT NOW: if the unit
     // is holding a gun that belongs to a known class, that gun's class wins
     // (this is how subclasses work - hand any soldier a pistol and it fights
@@ -51,11 +61,27 @@ public final class WeaponClassSupport {
     // to the assigned class; classless units stay classless either way.
     @Nullable
     public static WeaponClass getEffective(Entity entity) {
-        WeaponClass cls = get(entity);
-        if (cls == null || !(entity instanceof LivingEntity living)) {
-            return cls;
+        if (!(entity instanceof LivingEntity living)) {
+            return get(entity);
         }
-        net.minecraft.world.item.ItemStack held = living.getMainHandItem();
+        ItemStack held = living.getMainHandItem();
+        long now = entity.level().getGameTime();
+        EffCache cached = EFFECTIVE_CACHE.get(entity);
+        if (cached != null && cached.held() == held && cached.gameTime() == now) {
+            return cached.cls();
+        }
+        WeaponClass cls = computeEffective(entity, living, held);
+        EFFECTIVE_CACHE.put(entity, new EffCache(held, cls, now));
+        return cls;
+    }
+
+    @Nullable
+    private static WeaponClass computeEffective(Entity entity, LivingEntity living,
+                                                ItemStack held) {
+        WeaponClass cls = get(entity);
+        if (cls == null) {
+            return null;
+        }
         IGun iGun = IGun.getIGunOrNull(held);
         if (iGun != null) {
             WeaponClass gunClass = ClassLoadouts.inferClass(iGun.getGunId(held));
@@ -64,6 +90,20 @@ public final class WeaponClassSupport {
             }
         }
         return cls;
+    }
+
+    // Vertical "FOV" tolerance for range checks: SEM gates engage/hold on
+    // raw 3D distance, so a target standing a few blocks up a roof or hill
+    // reads as much farther away and the unit never engages. Give 12 free
+    // blocks of elevation difference - only excess height still counts.
+    // Shared by the fire-goal and approach-goal mixins so both agree.
+    private static final double VERTICAL_TOLERANCE = 12.0;
+
+    public static double elevationTolerantDistanceSqr(Entity a, Entity b) {
+        double dx = a.getX() - b.getX();
+        double dz = a.getZ() - b.getZ();
+        double dy = Math.abs(a.getY() - b.getY()) - VERTICAL_TOLERANCE;
+        return dx * dx + dz * dz + (dy > 0.0 ? dy * dy : 0.0);
     }
 
     // Get the unit's class, rolling and storing a random one if unset.
