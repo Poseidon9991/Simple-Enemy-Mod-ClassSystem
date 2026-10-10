@@ -19,6 +19,9 @@ import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
@@ -129,12 +132,40 @@ public final class SemcsRegistries {
         return out;
     }
 
+    // ---- BHQ armor (SBW bedrock-model gear, own design) --------------------
+    // High-cut ballistic helmet + plate carrier, rendered through superbwarfare's
+    // bedrock armor pipeline and drawn by tacz_sewv's BedrockArmorLayer (added
+    // to the BHQ renderer in ClientEventHandlers). Registered only when both
+    // mods are loaded - NpcArmor's PMC kit stays the fallback otherwise.
+    public static final RegistryObject<Item> BHQ_HELMET;
+    public static final RegistryObject<Item> BHQ_VEST;
+
+    static {
+        if (ModList.get().isLoaded("superbwarfare") && ModList.get().isLoaded("tacz_sewv")) {
+            BHQ_HELMET = ITEMS.register("bhq_ballistic_helmet",
+                    () -> new com.poseidon.sem_classsystem.item.BhqArmorItem(
+                            net.minecraft.world.item.ArmorItem.Type.HELMET, "bhq_helmet"));
+            BHQ_VEST = ITEMS.register("bhq_plate_carrier",
+                    () -> new com.poseidon.sem_classsystem.item.BhqArmorItem(
+                            net.minecraft.world.item.ArmorItem.Type.CHESTPLATE, "bhq_vest"));
+        } else {
+            BHQ_HELMET = null;
+            BHQ_VEST = null;
+        }
+    }
+
     // Called from the mod constructor: hook all three registers onto the bus.
     public static void registerAll() {
         IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
         ENTITY_TYPES.register(bus);
         BLOCKS.register(bus);
         ITEMS.register(bus);
+        // Client-only: registers our armor geos with simplebedrockmodel when SBW
+        // is present (guarded internally too; referenced lazily so dedicated
+        // servers never touch the client package).
+        if (FMLEnvironment.dist == Dist.CLIENT) {
+            com.poseidon.sem_classsystem.client.SbwArmorModels.hookIfLoaded(bus);
+        }
     }
 
     // Forge asks every entity type for its attribute table at startup.
@@ -163,6 +194,14 @@ public final class SemcsRegistries {
                 event.accept(BHQ_UNIT_SPAWN_EGG.get());
                 for (RegistryObject<Item> egg : CLASS_SPAWN_EGGS) {
                     event.accept(egg.get());
+                }
+            }
+            if (event.getTabKey() == CreativeModeTabs.COMBAT) {
+                if (BHQ_HELMET != null) {
+                    event.accept(BHQ_HELMET.get());
+                }
+                if (BHQ_VEST != null) {
+                    event.accept(BHQ_VEST.get());
                 }
             }
         }
