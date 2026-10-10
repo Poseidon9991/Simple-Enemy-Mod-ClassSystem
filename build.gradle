@@ -139,6 +139,10 @@ dependencies {
     // armor/accessory layers; runtime-guarded by ModList.isLoaded.
     implementation files('libs/tacz_sewv.jar')
 
+    // Soft dependency: wthit (WAILA) — compile-time only for the entity
+    // tooltip plugin; wthit only loads the class when present.
+    implementation files('libs/wthit.jar')
+
 }
 
 // ==================== RESOURCE PROCESSING ====================

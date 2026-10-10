@@ -99,6 +99,12 @@ public final class SemcsRegistries {
 
     private static final Map<WeaponClass, Integer> CLASS_SPOT_COLORS = new EnumMap<>(WeaponClass.class);
 
+    // The class accent colour shared by spawn eggs, WAILA tooltip and the
+    // inventory badge - single source so every UI agrees.
+    public static int classAccent(WeaponClass cls) {
+        return CLASS_SPOT_COLORS.getOrDefault(cls, 0xFFFFFF);
+    }
+
     static {
         CLASS_SPOT_COLORS.put(WeaponClass.SMG, 0xD9A62E);      // amber - breach
         CLASS_SPOT_COLORS.put(WeaponClass.RIFLE, 0x8C8C8C);    // steel gray

@@ -95,6 +95,10 @@ public abstract class MixinRangedGunAttackGoal {
     @Unique
     private boolean semcs$aiming = false;
 
+    // Successful shots since the Camper last displaced - reposition trigger.
+    @Unique
+    private int semcs$shotsSinceMove = 0;
+
     // TAIL of the constructor: runs right after SEM stored the global
     // AiShootingConfig burst/cooldown values into the finals above -
     // we overwrite them with class-scaled values.
@@ -286,13 +290,56 @@ public abstract class MixinRangedGunAttackGoal {
                     target = "Lcom/tacz/guns/api/entity/IGunOperator;shoot(Ljava/util/function/Supplier;Ljava/util/function/Supplier;)Lcom/tacz/guns/api/entity/ShootResult;"))
     private ShootResult semcs$scopedShoot(IGunOperator operator,
                                           Supplier<Float> pitch, Supplier<Float> yaw) {
-        if (WeaponClassSupport.getEffective(this.mob) == WeaponClass.SNIPER
-                && operator.getSynAimingProgress() < 1.0F) {
+        boolean sniper = WeaponClassSupport.getEffective(this.mob) == WeaponClass.SNIPER;
+        if (sniper && operator.getSynAimingProgress() < 1.0F) {
             operator.aim(true);   // keep the flag asserted between ticks
             return ShootResult.COOL_DOWN;
         }
-        return operator.shoot(pitch, yaw);
+        ShootResult result = operator.shoot(pitch, yaw);
+        // Camper shoot-and-scoot: after a couple of landed shots, arc to a
+        // new firing position at the same range so he isn't a fixed turret.
+        if (sniper && result == ShootResult.SUCCESS
+                && ++this.semcs$shotsSinceMove >= 2) {
+            this.semcs$shotsSinceMove = 0;
+            semcs$tryDisplace();
+        }
+        return result;
     }
+
+    // Picks a new firing point on the same range-ring around the target,
+    // rotated 60-90 degrees either way, and orders the move. Keeps the
+    // engagement distance (so MoveToAttackRangeGoal doesn't fight it) but
+    // forces the enemy to re-acquire him on a new angle.
+    @Unique
+    private void semcs$tryDisplace() {
+        if (this.target == null || !this.target.isAlive()
+                || !this.mob.getNavigation().isDone()) {
+            return;
+        }
+        Vec3 flat = new Vec3(this.mob.getX() - this.target.getX(), 0,
+                this.mob.getZ() - this.target.getZ());
+        double dist = flat.length();
+        if (dist < 1.0) {
+            return;
+        }
+        flat = flat.normalize();
+        double side = this.mob.getRandom().nextBoolean() ? 1.0 : -1.0;
+        double angle = side * (Math.PI / 3.0 + this.mob.getRandom().nextDouble() * Math.PI / 6.0);
+        double cos = Math.cos(angle), sin = Math.sin(angle);
+        double nx = flat.x * cos - flat.z * sin;
+        double nz = flat.x * sin + flat.z * cos;
+        this.mob.getNavigation().moveTo(
+                this.target.getX() + nx * dist,
+                this.target.getY(),
+                this.target.getZ() + nz * dist,
+                1.15);
+    }
+
+    // ---- suppressor pressure ----------------------------------------------
+    // Suppressor-class widening of SEM's suppression lives in
+    // MixinBulletImpactSuppression (the deployed SEM emits suppression only
+    // from bullet IMPACTS via PlayerSuppressionEventHandler - there is no
+    // goal-level emit call to redirect).
 
     @Inject(method = "stop", at = @At("TAIL"))
     private void semcs$exitCrouch(CallbackInfo ci) {
