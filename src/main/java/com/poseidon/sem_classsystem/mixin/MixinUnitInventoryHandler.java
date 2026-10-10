@@ -58,11 +58,12 @@ public abstract class MixinUnitInventoryHandler {
         ResourceLocation gunId = iGun != null ? iGun.getGunId(stack) : null;
         WeaponClass gunClass = gunId == null ? null : ClassLoadouts.inferClass(gunId);
 
-        // Unknown/custom guns stay allowed - only guns we KNOW belong to a
-        // different class get rejected. A Camper can never hold an AK-47.
-        // Subclass guns (pistols) skip the lock: any class may carry a
-        // sidearm - that's the whole point of the subclass.
-        if (gunClass != null && gunClass != cls && !gunClass.isSubclass()) {
+        // Strict whitelist: the weapon slots take ONLY guns of the unit's own
+        // class plus subclass guns (pistols are universal sidearms). Guns that
+        // resolve to no class at all (unlisted addon guns) are rejected too -
+        // a Sweeper holds a shotgun or a pistol, nothing else. To make a new
+        // gun usable by a class, add it to its class_loadouts table.
+        if (gunClass != cls && !(gunClass != null && gunClass.isSubclass())) {
             cir.setReturnValue(false);
         }
     }
