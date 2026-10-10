@@ -10,12 +10,15 @@ import com.poseidon.sem_classsystem.config.ClassSystemConfig;
 // TaCZ interfaces: read which gun id the held ItemStack is, plus bullet
 // ballistics (speed/gravity) for Camper aim-lead
 import com.tacz.guns.api.TimelessAPI;
+import com.tacz.guns.api.entity.IGunOperator;
+import com.tacz.guns.api.entity.ShootResult;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.resource.pojo.data.gun.BulletData;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+import java.util.function.Supplier;
 // Vanilla RNG source the goal passes to the spread calculator
 import net.minecraft.util.RandomSource;
 // Vanilla Mob type of the shooter field inside the goal
@@ -85,6 +88,11 @@ public abstract class MixinRangedGunAttackGoal {
     // stop() only clears a flag we own (never touches another system).
     @Unique
     private boolean semcs$crouching = false;
+
+    // True while WE hold the gun's aim flag for a Camper, so stop() releases
+    // only a flag we set.
+    @Unique
+    private boolean semcs$aiming = false;
 
     // TAIL of the constructor: runs right after SEM stored the global
     // AiShootingConfig burst/cooldown values into the finals above -
@@ -243,11 +251,49 @@ public abstract class MixinRangedGunAttackGoal {
         }
     }
 
+    // ---- camper scoped aim -------------------------------------------------
+    // TaCZ picks bullet dispersion from the shooter's InaccuracyType, and the
+    // AIM tier only applies when aiming progress reaches 1.0. SEM never calls
+    // operator.aim() - its one attempt sits commented out next to the shoot
+    // call - so units were firing snipers with hip-fire (STAND/MOVE) spread,
+    // which for snipers is huge. Assert aim(true) every tick while the goal
+    // runs so progress ramps to fully scoped; the shoot redirect holds fire
+    // until then. Released in stop().
+    // tick is a vanilla Goal method - remap stays default for the refmap.
+    @Inject(method = "tick", at = @At("HEAD"))
+    private void semcs$assertAim(CallbackInfo ci) {
+        if (WeaponClassSupport.getEffective(this.mob) == WeaponClass.SNIPER) {
+            IGunOperator.fromLivingEntity(this.mob).aim(true);
+            this.semcs$aiming = true;
+        }
+    }
+
+    // Holds the actual trigger pull until the scope is fully up: while aiming
+    // progress is under 1.0 we return COOL_DOWN, which SEM treats as a benign
+    // "wait a tick" - the burst state stays put and retries next tick.
+    // remap=false: both the method and the target are mod classes.
+    @Redirect(method = "handleBurstFiringState", remap = false,
+            at = @At(value = "INVOKE",
+                    target = "Lcom/tacz/guns/api/entity/IGunOperator;shoot(Ljava/util/function/Supplier;Ljava/util/function/Supplier;)Lcom/tacz/guns/api/entity/ShootResult;"))
+    private ShootResult semcs$scopedShoot(IGunOperator operator,
+                                          Supplier<Float> pitch, Supplier<Float> yaw) {
+        if (WeaponClassSupport.getEffective(this.mob) == WeaponClass.SNIPER
+                && operator.getSynAimingProgress() < 1.0F) {
+            operator.aim(true);   // keep the flag asserted between ticks
+            return ShootResult.COOL_DOWN;
+        }
+        return operator.shoot(pitch, yaw);
+    }
+
     @Inject(method = "stop", at = @At("TAIL"))
     private void semcs$exitCrouch(CallbackInfo ci) {
         if (this.semcs$crouching) {
             this.mob.setShiftKeyDown(false);
             this.semcs$crouching = false;
+        }
+        if (this.semcs$aiming) {
+            IGunOperator.fromLivingEntity(this.mob).aim(false);
+            this.semcs$aiming = false;
         }
     }
 
