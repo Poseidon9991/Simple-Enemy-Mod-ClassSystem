@@ -5,31 +5,43 @@
       "mp5": {
         "gun_id": "tacz:hk_mp5a5",
         "ammo_count": 30,
-        "fire_mode": "AUTO"
+        "fire_mode": "AUTO",
+        "scope_id": "tacz:sight_552",
+        "muzzle_id": "tacz:muzzle_silencer_ursus",
+        "grip_id": "tacz:grip_rk1_b25u"
       }
     },
     "rifle": {
       "ak47": {
         "gun_id": "tacz:ak47",
         "ammo_count": 30,
-        "fire_mode": "AUTO"
+        "fire_mode": "AUTO",
+        "scope_id": "tacz:scope_qmk152",
+        "muzzle_id": "tacz:muzzle_silencer_ursus"
       },
       "qbz95": {
         "gun_id": "tacz:qbz_95",
         "ammo_count": 30,
-        "fire_mode": "AUTO"
+        "fire_mode": "AUTO",
+        "scope_id": "tacz:scope_qmk152",
+        "muzzle_id": "tacz:muzzle_silencer_ursus",
+        "grip_id": "tacz:grip_rk1_b25u"
       },
       "qbz191": {
         "gun_id": "tacz:qbz_191",
         "ammo_count": 30,
-        "fire_mode": "AUTO"
+        "fire_mode": "AUTO",
+        "scope_id": "tacz:scope_qmk152",
+        "muzzle_id": "tacz:muzzle_silencer_ursus",
+        "grip_id": "tacz:grip_rk1_b25u"
       }
     },
     "shotgun": {
       "m870": {
         "gun_id": "tacz:m870",
         "ammo_count": 8,
-        "fire_mode": "SEMI"
+        "fire_mode": "SEMI",
+        "muzzle_id": "tacz:muzzle_choke_sg"
       }
     },
     "sniper": {
@@ -37,7 +49,9 @@
         "gun_id": "tacz:sks_tactical",
         "ammo_count": 20,
         "fire_mode": "SEMI",
-        "scope_id": "tacz:scope_standard_8x"
+        "scope_id": "tacz:scope_mk5hd",
+        "muzzle_id": "tacz:muzzle_silencer_ursus",
+        "grip_id": "tacz:grip_rk1_b25u"
       },
       "rpg7": {
         "gun_id": "tacz:rpg7",
@@ -56,19 +70,27 @@
         "gun_id": "tacz:rpk",
         "ammo_count": 40,
         "fire_mode": "AUTO",
-        "muzzle_id": "tacz:muzzle_silencer_ursus"
+        "muzzle_id": "tacz:muzzle_silencer_ursus",
+        "scope_id": "tacz:scope_qmk152",
+        "grip_id": "tacz:extended_mag_3"
       }
     },
     "pistol": {
       "deagle": {
         "gun_id": "tacz:deagle",
         "ammo_count": 7,
-        "fire_mode": "SEMI"
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:sight_t1",
+        "muzzle_id": "tacz:muzzle_silencer_ptilopsis",
+        "grip_id": "tacz:laser_nightstick"
       },
       "timeless50": {
         "gun_id": "tacz:timeless50",
         "ammo_count": 7,
-        "fire_mode": "SEMI"
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:sight_rmr_dot",
+        "muzzle_id": "tacz:muzzle_brake_timeless50",
+        "grip_id": "tacz:laser_nightstick"
       }
     }
   }

@@ -147,7 +147,13 @@ public class ClassSystemConfig {
                                     "Tactical AI: close-range band edge multiplier - scales the",
                                     "distance where CQB tactics start (SEM default 15 blocks).",
                                     "higher = shotgun-style close tactics from further out.")
-                            .defineInRange("tacticalCloseRangeMultiplier", classCloseRangeDefault(cls), 0.3, 4.0)
+                            .defineInRange("tacticalCloseRangeMultiplier", classCloseRangeDefault(cls), 0.3, 4.0),
+                    BUILDER.comment(
+                                    "Tactical AI: keep-away distance in blocks - while engaged, if",
+                                    "the target gets closer than this the unit back-pedals instead",
+                                    "of holding position. 0 disables it; Campers use it to keep",
+                                    "sniper standoff instead of standing still as enemies close in.")
+                            .defineInRange("tacticalKiteDistance", classKiteDistanceDefault(cls), 0.0, 96.0)
             );
 
             CLASS_ENTRIES.put(cls, entry);
@@ -330,6 +336,13 @@ public class ClassSystemConfig {
         };
     }
 
+    private static double classKiteDistanceDefault(WeaponClass cls) {
+        return switch (cls) {
+            case SNIPER -> 20.0;  // back-pedals out of ~20 blocks, keeps standoff
+            default -> 0.0;       // everyone else holds their ground
+        };
+    }
+
     private static boolean classForcedRushDefault(WeaponClass cls) {
         return switch (cls) {
             // Hold-position classes never charge on flank timeout - the mixin
@@ -476,6 +489,10 @@ public class ClassSystemConfig {
         return safeGet(CLASS_ENTRIES.get(cls).closeRangeMultiplier, 1.0);
     }
 
+    public static double classKiteDistance(WeaponClass cls) {
+        return safeGet(CLASS_ENTRIES.get(cls).kiteDistance, 0.0);
+    }
+
     // ================= Compat accessors =================
 
     // Should village defenders (unit_defenders tag) never target this faction?
@@ -532,6 +549,7 @@ public class ClassSystemConfig {
                               ForgeConfigSpec.DoubleValue rushSpeedMultiplier,
                               ForgeConfigSpec.BooleanValue forcedRush,
                               ForgeConfigSpec.DoubleValue retreatHealthMultiplier,
-                              ForgeConfigSpec.DoubleValue closeRangeMultiplier) {
+                              ForgeConfigSpec.DoubleValue closeRangeMultiplier,
+                              ForgeConfigSpec.DoubleValue kiteDistance) {
     }
 }

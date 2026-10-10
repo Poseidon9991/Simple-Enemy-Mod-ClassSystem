@@ -4,7 +4,10 @@
       "vector45": {
         "gun_id": "tacz:vector45",
         "ammo_count": 30,
-        "fire_mode": "AUTO"
+        "fire_mode": "AUTO",
+        "scope_id": "tacz:sight_exp3",
+        "muzzle_id": "tacz:muzzle_silencer_ursus",
+        "grip_id": "tacz:grip_vertical_talon"
       }
     },
     "rifle": {
@@ -12,13 +15,17 @@
         "gun_id": "tacz:m4a1",
         "ammo_count": 30,
         "fire_mode": "SEMI",
-        "scope_id": "tacz:scope_acog_ta31"
+        "scope_id": "tacz:scope_elcan_4x",
+        "muzzle_id": "tacz:muzzle_silencer_ursus",
+        "grip_id": "tacz:grip_se_5"
       },
       "scar_l": {
         "gun_id": "tacz:scar_l",
         "ammo_count": 30,
         "fire_mode": "SEMI",
-        "scope_id": "tacz:scope_acog_ta31"
+        "scope_id": "tacz:scope_elcan_4x",
+        "muzzle_id": "tacz:muzzle_silencer_ursus",
+        "grip_id": "tacz:grip_se_5"
       }
     },
     "shotgun": {
@@ -26,7 +33,9 @@
         "gun_id": "tacz:aa12",
         "ammo_count": 20,
         "fire_mode": "AUTO",
-        "muzzle_id": "tacz:muzzle_choke_sg"
+        "muzzle_id": "tacz:muzzle_choke_sg",
+        "scope_id": "tacz:sight_exp3",
+        "grip_id": "tacz:grip_se_5"
       }
     },
     "sniper": {
@@ -40,7 +49,8 @@
         "gun_id": "tacz:ai_awp",
         "ammo_count": 5,
         "fire_mode": "SEMI",
-        "scope_id": "tacz:scope_mk5hd"
+        "scope_id": "tacz:scope_mk5hd",
+        "muzzle_id": "tacz:muzzle_silencer_ursus"
       },
       "rpg7": {
         "gun_id": "tacz:rpg7",
@@ -53,19 +63,25 @@
         "gun_id": "tacz:m249",
         "ammo_count": 75,
         "fire_mode": "AUTO",
-        "scope_id": "tacz:scope_acog_ta31"
+        "scope_id": "tacz:scope_elcan_4x",
+        "muzzle_id": "tacz:muzzle_silencer_ursus",
+        "grip_id": "tacz:extended_mag_3"
       }
     },
     "pistol": {
       "m1911": {
         "gun_id": "tacz:m1911",
         "ammo_count": 7,
-        "fire_mode": "SEMI"
+        "fire_mode": "SEMI",
+        "muzzle_id": "tacz:muzzle_silencer_ptilopsis"
       },
       "p320": {
         "gun_id": "tacz:p320",
         "ammo_count": 17,
-        "fire_mode": "SEMI"
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:sight_rmr_dot",
+        "muzzle_id": "tacz:muzzle_silencer_ptilopsis",
+        "grip_id": "tacz:laser_nightstick"
       }
     }
   }

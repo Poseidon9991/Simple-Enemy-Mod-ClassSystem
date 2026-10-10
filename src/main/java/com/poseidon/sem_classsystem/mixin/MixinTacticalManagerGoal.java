@@ -5,6 +5,7 @@ package com.poseidon.sem_classsystem.mixin;
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
+import net.minecraft.world.entity.LivingEntity;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.util.SoldierState;
 // SEM's per-unit tactical manager - THE CLASS WE PATCH. It decides when the
@@ -84,6 +85,42 @@ public abstract class MixinTacticalManagerGoal {
             this.unit.setFlankingStartTick(this.unit.level().getGameTime());
             this.unit.setSoldierState(SoldierState.TACTICAL_MOV);
         }
+        semcs$kiteIfTooClose(cls);
+    }
+
+    // Keep-away: while ENGAGED, a class with a positive tacticalKiteDistance
+    // back-pedals when the target pushes inside its standoff range instead of
+    // standing still and letting the fight get personal. This is what stops a
+    // Camper drifting toward the enemy - he fires, shuffles backward, fires
+    // again, always out near his sniper distance. Only touches ENGAGE state -
+    // SEM's cover/flank/patrol strategies keep full control otherwise.
+    @Unique
+    private void semcs$kiteIfTooClose(WeaponClass cls) {
+        double kiteDistance = ClassSystemConfig.classKiteDistance(cls);
+        if (kiteDistance <= 0
+                || this.unit.getSoldierState() != SoldierState.ENGAGE
+                || this.unit.level().getGameTime() % 4 != 0) {
+            return;
+        }
+        LivingEntity target = this.unit.getTarget();
+        if (target == null || this.unit.distanceToSqr(target) >= kiteDistance * kiteDistance) {
+            return;
+        }
+        if (this.unit.isMovementLockedByManager()) {
+            this.unit.releaseMovementLock();
+        }
+        double dx = this.unit.getX() - target.getX();
+        double dz = this.unit.getZ() - target.getZ();
+        double len = Math.sqrt(dx * dx + dz * dz);
+        if (len < 0.001) {
+            return;
+        }
+        double reach = kiteDistance * 0.75;
+        this.unit.getMoveControl().setWantedPosition(
+                this.unit.getX() + dx / len * reach,
+                this.unit.getY(),
+                this.unit.getZ() + dz / len * reach,
+                this.RUSH_SPEED);
     }
 
     // Re-scales the shadowed knobs from the captured ORIGINALS (a class swap

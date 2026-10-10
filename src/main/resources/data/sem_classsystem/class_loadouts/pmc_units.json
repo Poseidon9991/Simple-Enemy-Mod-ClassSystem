@@ -6,7 +6,8 @@
         "ammo_count": 30,
         "fire_mode": "AUTO",
         "scope_id": "tacz:sight_t2",
-        "muzzle_id": "tacz:muzzle_silencer_mirage"
+        "muzzle_id": "tacz:muzzle_silencer_knight_qd",
+        "grip_id": "tacz:grip_se_5"
       }
     },
     "rifle": {
@@ -14,7 +15,9 @@
         "gun_id": "tacz:hk_g3",
         "ammo_count": 20,
         "fire_mode": "SEMI",
-        "scope_id": "tacz:scope_elcan_4x"
+        "scope_id": "tacz:scope_elcan_4x",
+        "muzzle_id": "tacz:muzzle_silencer_knight_qd",
+        "grip_id": "tacz:grip_se_5"
       }
     },
     "shotgun": {
@@ -22,7 +25,9 @@
         "gun_id": "tacz:aa12",
         "ammo_count": 20,
         "fire_mode": "AUTO",
-        "muzzle_id": "tacz:muzzle_choke_sg"
+        "muzzle_id": "tacz:muzzle_choke_sg",
+        "scope_id": "tacz:sight_t2",
+        "grip_id": "tacz:grip_se_5"
       }
     },
     "sniper": {
@@ -30,7 +35,9 @@
         "gun_id": "tacz:mk14",
         "ammo_count": 20,
         "fire_mode": "SEMI",
-        "scope_id": "tacz:scope_mk5hd"
+        "scope_id": "tacz:scope_mk5hd",
+        "muzzle_id": "tacz:muzzle_silencer_knight_qd",
+        "grip_id": "tacz:grip_se_5"
       },
       "rpg7": {
         "gun_id": "tacz:rpg7",
@@ -49,12 +56,18 @@
       "glock_17": {
         "gun_id": "tacz:glock_17",
         "ammo_count": 17,
-        "fire_mode": "SEMI"
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:sight_rmr_dot",
+        "muzzle_id": "tacz:muzzle_silencer_ptilopsis",
+        "grip_id": "tacz:laser_nightstick"
       },
       "deagle": {
         "gun_id": "tacz:deagle",
         "ammo_count": 7,
-        "fire_mode": "SEMI"
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:sight_t1",
+        "muzzle_id": "tacz:muzzle_silencer_ptilopsis",
+        "grip_id": "tacz:laser_nightstick"
       }
     }
   }
