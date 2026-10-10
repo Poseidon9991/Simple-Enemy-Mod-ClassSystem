@@ -225,7 +225,7 @@ public class ClassSystemConfig {
             case SMG -> 1.3;      // less accurate overall
             case RIFLE -> 1.0;    // baseline
             case SHOTGUN -> 0.8;  // tight when close
-            case SNIPER -> 0.22;  // tightest grouping of any class
+            case SNIPER -> 0.45;  // scoped but not a laser - ~75% hit rate
             case HEAVY_MG -> 1.15;
             case PISTOL -> 0.9;   // decent per-shot accuracy
         };

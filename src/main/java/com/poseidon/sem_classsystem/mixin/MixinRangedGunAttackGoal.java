@@ -16,6 +16,7 @@ import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.resource.pojo.data.gun.BulletData;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import java.util.function.Supplier;
@@ -180,6 +181,11 @@ public abstract class MixinRangedGunAttackGoal {
         WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
         double classSpread = cls == null ? 1.0 : ClassSystemConfig.classSpread(cls);
         double classFalloff = cls == null ? 1.0 : ClassSystemConfig.classFalloff(cls);
+        // Monster-hunter bonus: campers hit zombies/monsters far more
+        // reliably than they hit players - players must stay dodgeable.
+        if (cls == WeaponClass.SNIPER && this.target instanceof Monster) {
+            classSpread *= 0.6;
+        }
         // Crouched firing is steadier - the class's own bonus while sneaking
         double crouch = cls != null && this.mob.isShiftKeyDown()
                 ? ClassSystemConfig.classCrouchSpread(cls) : 1.0;
@@ -230,11 +236,15 @@ public abstract class MixinRangedGunAttackGoal {
                 pos.add(0, entity.getBbHeight() / 2.0, 0));
         double t = Math.min(dist / (bullet.getSpeed() / 20.0), 8.0);
         Vec3 delta = entity.getDeltaMovement();     // blocks per tick
+        // Perfect lead is inhuman - players strafing get partially led
+        // (dodgeable by changing direction) while monsters get the full
+        // prediction for the monster-hunter bonus.
+        double leadScale = entity instanceof Monster ? 1.0 : 0.7;
         // don't lead grounded entities' idle gravity drift - only airborne
         // motion (jumps/falls) moves the aim point vertically
-        double leadY = entity.onGround() ? 0.0 : delta.y * t;
+        double leadY = entity.onGround() ? 0.0 : delta.y * t * leadScale;
         double drop = Math.min(0.5 * bullet.getGravity() * t * t, 3.0);
-        return pos.add(delta.x * t, leadY + drop, delta.z * t);
+        return pos.add(delta.x * t * leadScale, leadY + drop, delta.z * t * leadScale);
     }
 
     // ---- crouch firing stance ----------------------------------------------
