@@ -137,12 +137,11 @@ public abstract class MixinRangedGunAttackGoal {
         this.MIN_BURST_SHOTS = Math.max(1, (int) Math.round(this.semcs$origMinBurst * burst));
         this.MAX_BURST_SHOTS = Math.max(this.MIN_BURST_SHOTS,
                 (int) Math.round(this.semcs$origMaxBurst * burst));
-        // Campers never mag-dump: at most a 2-shot double-tap per burst,
+        // Campers fire single deliberate shots - one round per burst,
         // regardless of how high the SEM global config is set.
         if (cls == WeaponClass.SNIPER) {
-            this.MAX_BURST_SHOTS = Math.min(this.MAX_BURST_SHOTS, 2);
-            this.MIN_BURST_SHOTS = Math.min(this.MIN_BURST_SHOTS,
-                    this.MAX_BURST_SHOTS);
+            this.MAX_BURST_SHOTS = 1;
+            this.MIN_BURST_SHOTS = 1;
         }
 
         // --- cadence between bursts (the "fire rate" knob) ---
@@ -184,7 +183,7 @@ public abstract class MixinRangedGunAttackGoal {
         // Monster-hunter bonus: campers hit zombies/monsters far more
         // reliably than they hit players - players must stay dodgeable.
         if (cls == WeaponClass.SNIPER && this.target instanceof Monster) {
-            classSpread *= 0.6;
+            classSpread *= 0.4;
         }
         // Crouched firing is steadier - the class's own bonus while sneaking
         double crouch = cls != null && this.mob.isShiftKeyDown()
@@ -239,7 +238,7 @@ public abstract class MixinRangedGunAttackGoal {
         // Perfect lead is inhuman - players strafing get partially led
         // (dodgeable by changing direction) while monsters get the full
         // prediction for the monster-hunter bonus.
-        double leadScale = entity instanceof Monster ? 1.0 : 0.7;
+        double leadScale = entity instanceof Monster ? 1.0 : 0.6;
         // don't lead grounded entities' idle gravity drift - only airborne
         // motion (jumps/falls) moves the aim point vertically
         double leadY = entity.onGround() ? 0.0 : delta.y * t * leadScale;

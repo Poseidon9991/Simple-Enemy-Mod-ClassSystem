@@ -100,18 +100,26 @@ public final class WeaponClassSupport {
         }
     }
 
-    // Builds and applies the floating name: "<FACTION> Unit". The class is
-    // intentionally NOT on the nameplate - it shows in the inventory title
-    // instead ("PMC Unit Equipment - Camper"), so overhead names stay clean.
+    // No floating nameplate at all - the class lives only in the inventory
+    // GUI title ("PMC Unit Equipment - Camper"). Strips nameplates WE
+    // generated ("RU Unit", "RU Unit - Breacher") from existing units too,
+    // while leaving player-given nametag names alone.
     public static void applyDisplayName(AbstractUnit unit) {
         WeaponClass cls = get(unit);
         UnitClass faction = UnitClass.of(unit);
         if (cls == null || faction == null) {
-            return;   // no class -> keep vanilla name
+            return;   // no class -> nothing of ours to strip
         }
-        String label = faction.name().split("_")[0];       // "RU", "US", "PMC", "BHQ"
-        unit.setCustomName(Component.literal(label + " Unit"));
-        unit.setCustomNameVisible(true);                   // nameplate always visible
+        Component name = unit.getCustomName();
+        if (name == null) {
+            return;
+        }
+        String label = faction.name().split("_")[0] + " Unit";  // "RU Unit", "BHQ Unit"
+        String text = name.getString();
+        if (text.equals(label) || text.startsWith(label + " - ")) {
+            unit.setCustomName(null);
+            unit.setCustomNameVisible(false);
+        }
     }
 
     // ---- recruit preference ------------------------------------------------

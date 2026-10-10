@@ -225,7 +225,7 @@ public class ClassSystemConfig {
             case SMG -> 1.3;      // less accurate overall
             case RIFLE -> 1.0;    // baseline
             case SHOTGUN -> 0.8;  // tight when close
-            case SNIPER -> 0.45;  // scoped but not a laser - ~75% hit rate
+            case SNIPER -> 0.6;   // scoped but human - ~65-75% vs players
             case HEAVY_MG -> 1.15;
             case PISTOL -> 0.9;   // decent per-shot accuracy
         };
@@ -258,7 +258,7 @@ public class ClassSystemConfig {
             case SMG -> 0.5;      // fires again quickly
             case RIFLE -> 1.0;
             case SHOTGUN -> 1.3;  // pump-action feel
-            case SNIPER -> 8.0;   // bolt-action pace - slow deliberate shots
+            case SNIPER -> 4.0;   // deliberate but not sluggish - ~2-3s shots
             case HEAVY_MG -> 0.65;
             case PISTOL -> 0.7;   // snappy semi-auto cadence
         };
