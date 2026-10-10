@@ -7,9 +7,15 @@ import com.poseidon.sem_classsystem.faction.UnitClassAttributes;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
-// TaCZ interfaces: read which gun id the held ItemStack is
+// TaCZ interfaces: read which gun id the held ItemStack is, plus bullet
+// ballistics (speed/gravity) for Camper aim-lead
+import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.item.IGun;
+import com.tacz.guns.resource.pojo.data.gun.BulletData;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 // Vanilla RNG source the goal passes to the spread calculator
 import net.minecraft.util.RandomSource;
 // Vanilla Mob type of the shooter field inside the goal
@@ -39,6 +45,10 @@ public abstract class MixinRangedGunAttackGoal {
     @Shadow(remap = false)
     @Final
     private Mob mob;
+
+    // The entity SEM is currently aiming at - needed for aim-lead prediction.
+    @Shadow(remap = false)
+    private LivingEntity target;
 
     // SEM's constructor-set burst/cooldown values. @Mutable removes "final" at
     // weave time so we can retune them after the constructor.
@@ -118,6 +128,13 @@ public abstract class MixinRangedGunAttackGoal {
         this.MIN_BURST_SHOTS = Math.max(1, (int) Math.round(this.semcs$origMinBurst * burst));
         this.MAX_BURST_SHOTS = Math.max(this.MIN_BURST_SHOTS,
                 (int) Math.round(this.semcs$origMaxBurst * burst));
+        // Campers never mag-dump: at most a 2-shot double-tap per burst,
+        // regardless of how high the SEM global config is set.
+        if (cls == WeaponClass.SNIPER) {
+            this.MAX_BURST_SHOTS = Math.min(this.MAX_BURST_SHOTS, 2);
+            this.MIN_BURST_SHOTS = Math.min(this.MIN_BURST_SHOTS,
+                    this.MAX_BURST_SHOTS);
+        }
 
         // --- cadence between bursts (the "fire rate" knob) ---
         double cooldown = ClassSystemConfig.classCooldown(cls);
@@ -166,6 +183,50 @@ public abstract class MixinRangedGunAttackGoal {
                 baseSpread * (float) (UnitClassAttributes.spreadMultiplier(this.mob) * classSpread * crouch),
                 (float) (spreadIncreasePerBlock * classFalloff),
                 random);
+    }
+
+    // ---- sniper aim lead ----------------------------------------------------
+    // SEM aims at the target's CURRENT position - at sniper range the bullet
+    // needs real flight time, so moving targets are already gone and gravity
+    // pulls the round low. Campers get predictive aim: lead the target by
+    // (velocity x flight ticks) and raise the aim point by the bullet drop
+    // (0.5 * g * t^2, gravity is subtracted from deltaY per tick by
+    // EntityKineticBullet). The aim point shift also feeds setLookAt, so the
+    // unit visibly tracks the intercept point like a real marksman.
+    // remap=true: the INVOKE target position() is vanilla - the refmap must
+    // translate it to SRG for production. The SEM-internal method name has no
+    // mapping entry and passes through unchanged.
+    @Redirect(method = "handleBurstFiringState",
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/world/entity/LivingEntity;position()Lnet/minecraft/world/phys/Vec3;"))
+    private Vec3 semcs$leadTargetPosition(LivingEntity entity) {
+        Vec3 pos = entity.position();
+        if (entity != this.target
+                || WeaponClassSupport.getEffective(this.mob) != WeaponClass.SNIPER) {
+            return pos;   // only Campers lead, only their combat target
+        }
+        ItemStack gun = this.mob.getMainHandItem();
+        IGun iGun = IGun.getIGunOrNull(gun);
+        ResourceLocation gunId = iGun == null ? null : iGun.getGunId(gun);
+        if (gunId == null) {
+            return pos;
+        }
+        BulletData bullet = TimelessAPI.getCommonGunIndex(gunId)
+                .map(index -> index.getBulletData()).orElse(null);
+        if (bullet == null || bullet.getSpeed() <= 0) {
+            return pos;
+        }
+        // gun data: speed is m/s -> /20 for blocks per tick;
+        // gravity is subtracted from delta-Y per tick (blocks/tick^2)
+        double dist = this.mob.getEyePosition().distanceTo(
+                pos.add(0, entity.getBbHeight() / 2.0, 0));
+        double t = Math.min(dist / (bullet.getSpeed() / 20.0), 8.0);
+        Vec3 delta = entity.getDeltaMovement();     // blocks per tick
+        // don't lead grounded entities' idle gravity drift - only airborne
+        // motion (jumps/falls) moves the aim point vertically
+        double leadY = entity.onGround() ? 0.0 : delta.y * t;
+        double drop = Math.min(0.5 * bullet.getGravity() * t * t, 3.0);
+        return pos.add(delta.x * t, leadY + drop, delta.z * t);
     }
 
     // ---- crouch firing stance ----------------------------------------------

@@ -371,8 +371,8 @@ public class ClassSystemConfig {
 
     // Called once from the mod constructor while Forge loads us
     public static void register() {
-        // Type.SERVER -> saves/<world>/serverconfig/sem_classsystem-server.toml
-        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, SPEC);
+        // Type.COMMON -> config/sem_classsystem-common.toml (global, all worlds).
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, SPEC);
     }
 
     // ================= Faction accessors (phase 1) =================
