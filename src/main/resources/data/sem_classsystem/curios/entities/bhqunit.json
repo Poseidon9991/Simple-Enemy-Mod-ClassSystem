@@ -1,0 +1,11 @@
+{
+  "entities": [
+    "sem_classsystem:bhqunit"
+  ],
+  "slots": [
+    "head",
+    "back",
+    "body",
+    "belt"
+  ]
+}
