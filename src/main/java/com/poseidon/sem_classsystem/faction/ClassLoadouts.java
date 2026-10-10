@@ -2,6 +2,7 @@
 package com.poseidon.sem_classsystem.faction;
 
 import com.poseidon.sem_classsystem.data.ClassLoadoutManager;
+import com.tacz.guns.api.TimelessAPI;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.nekoyuni.SimpleEnemyMod.data.UnitLoadout;
@@ -29,10 +30,37 @@ public final class ClassLoadouts {
         return ClassLoadoutManager.pick(factionId, cls, random);
     }
 
-    // Reverse lookup: which class claims this gun id (scans all factions).
+    // Reverse lookup: which class claims this gun id. Checks our datapack
+    // tables first - an explicit assignment always wins (our mk14 is a sniper
+    // even though TaCZ calls it a rifle). Guns absent from every table fall
+    // back to the gun's own TaCZ type, so swapping an SMG for a different SMG
+    // stays legal even if the new gun isn't in any loadout pool yet.
     // Used on world load (old units) and by the weapon-lock checks.
     @Nullable
     public static WeaponClass inferClass(ResourceLocation gunId) {
-        return ClassLoadoutManager.classOf(gunId);
+        WeaponClass fromTable = ClassLoadoutManager.classOf(gunId);
+        return fromTable != null ? fromTable : typeClass(gunId);
+    }
+
+    // TaCZ type fallback for guns not in our tables. Maps the gun index's
+    // declared type onto the nearest WeaponClass; types with no equivalent
+    // (rpg, exotic gunpack types) and unknown guns return null - the lock
+    // treats null as "cannot prove it's the wrong class" and permits it.
+    @Nullable
+    private static WeaponClass typeClass(ResourceLocation gunId) {
+        return TimelessAPI.getCommonGunIndex(gunId)
+                .map(index -> {
+                    String type = index.getType();
+                    return switch (type == null ? "" : type) {
+                        case "smg" -> WeaponClass.SMG;
+                        case "rifle" -> WeaponClass.RIFLE;
+                        case "shotgun" -> WeaponClass.SHOTGUN;
+                        case "sniper" -> WeaponClass.SNIPER;
+                        case "mg" -> WeaponClass.HEAVY_MG;
+                        case "pistol" -> WeaponClass.PISTOL;
+                        default -> null;
+                    };
+                })
+                .orElse(null);
     }
 }

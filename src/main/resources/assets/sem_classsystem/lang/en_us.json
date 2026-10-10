@@ -22,7 +22,5 @@
   "item.sem_classsystem.bhq_rifle_spawn_egg": "BHQ Rifleman Spawn Egg",
   "item.sem_classsystem.bhq_shotgun_spawn_egg": "BHQ Sweeper Spawn Egg",
   "item.sem_classsystem.bhq_sniper_spawn_egg": "BHQ Camper Spawn Egg",
-  "item.sem_classsystem.bhq_heavy_mg_spawn_egg": "BHQ Suppressor Spawn Egg",
-  "item.sem_classsystem.bhq_ballistic_helmet": "BHQ Ballistic Helmet",
-  "item.sem_classsystem.bhq_plate_carrier": "BHQ Plate Carrier"
+  "item.sem_classsystem.bhq_heavy_mg_spawn_egg": "BHQ Suppressor Spawn Egg"
 }

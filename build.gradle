@@ -139,11 +139,6 @@ dependencies {
     // armor/accessory layers; runtime-guarded by ModList.isLoaded.
     implementation files('libs/tacz_sewv.jar')
 
-    // Soft dependencies: superbwarfare + simplebedrockmodel — compile-time only
-    // for the BHQ bedrock armor item/renderer; runtime-guarded by ModList.isLoaded.
-    implementation files('libs/superbwarfare.jar')
-    implementation files('libs/simplebedrockmodel.jar')
-
 }
 
 // ==================== RESOURCE PROCESSING ====================
