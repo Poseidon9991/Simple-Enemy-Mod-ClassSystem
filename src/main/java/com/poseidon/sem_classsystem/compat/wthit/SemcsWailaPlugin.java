@@ -13,7 +13,6 @@ import mcp.mobius.waila.api.IEntityComponentProvider;
 import mcp.mobius.waila.api.IDataProvider;
 import mcp.mobius.waila.api.IDataWriter;
 import mcp.mobius.waila.api.IPluginConfig;
-import mcp.mobius.waila.api.IPluginInfo;
 import mcp.mobius.waila.api.IRegistrar;
 import mcp.mobius.waila.api.IServerAccessor;
 import mcp.mobius.waila.api.ITooltip;
@@ -24,7 +23,12 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;
 
-@WailaPlugin(id = "sem_classsystem:units", required = {"wthit"}, side = IPluginInfo.Side.BOTH)
+// NOTE: only `id` is declared - wthit's ForgePluginLoader casts the
+// annotation's `required` member to String[] but Forge scan data stores
+// array members as ArrayList -> ClassCastException at startup. `required`
+// is redundant anyway (wthit itself does the scanning) and `side`
+// defaults to BOTH.
+@WailaPlugin(id = "sem_classsystem:units")
 public class SemcsWailaPlugin implements IWailaPlugin {
 
     private static final String TAG_CLASS = "semcs_class";
