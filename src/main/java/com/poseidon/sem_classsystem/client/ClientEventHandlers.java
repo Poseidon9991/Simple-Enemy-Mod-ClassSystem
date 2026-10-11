@@ -29,8 +29,10 @@ public final class ClientEventHandlers {
 
     @SubscribeEvent
     public static void onRegisterLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
-        event.registerLayerDefinition(BhqArmorModels.OUTER, BhqArmorModels::createOuter);
-        event.registerLayerDefinition(BhqArmorModels.INNER, BhqArmorModels::createInner);
+        event.registerLayerDefinition(BhqArmorModels.HEAD, BhqArmorModels::createHead);
+        event.registerLayerDefinition(BhqArmorModels.CHEST, BhqArmorModels::createChest);
+        event.registerLayerDefinition(BhqArmorModels.LEGS, BhqArmorModels::createLegs);
+        event.registerLayerDefinition(BhqArmorModels.FEET, BhqArmorModels::createFeet);
     }
 
     @SubscribeEvent
