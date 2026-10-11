@@ -20,6 +20,14 @@ public enum WeaponClass {
     SNIPER("sniper", "Camper"),
     // Suppression platform: sustained bursts, slightly worse spread than SMG
     HEAVY_MG("heavy_mg", "Suppressor"),
+    // Ordnance specialist: every launcher TaCZ types as "rpg" - RPGs fly
+    // flat, grenade launchers lob - the firing goal computes the arc from
+    // each gun's real bullet speed/gravity so it handles both.
+    HEAVY("heavy", "Demolisher"),
+    // Generalist: the lock accepts every gun type; its own middling tuning
+    // applies no matter what it holds (see computeEffective) - decent at
+    // everything, never as good as the specialist holding the same gun.
+    JACK("jack", "Jack"),
     // SUBCLASS, not assignable: any unit given a pistol fights with these
     // rules (quick single shots, mid-range, stays mobile) while keeping its
     // real class. Pistols bypass the class weapon lock for every class.

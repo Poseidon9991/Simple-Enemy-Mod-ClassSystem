@@ -85,7 +85,10 @@ public final class WeaponClassSupport {
         IGun iGun = IGun.getIGunOrNull(held);
         if (iGun != null) {
             WeaponClass gunClass = ClassLoadouts.inferClass(iGun.getGunId(held));
-            if (gunClass != null) {
+            // JACK is the exception to "gun class wins": it keeps its own
+            // middling tuning on every weapon - that IS its identity.
+            // Subclass guns (pistols) still overlay, same as everyone.
+            if (gunClass != null && (cls != WeaponClass.JACK || gunClass.isSubclass())) {
                 return gunClass;
             }
         }

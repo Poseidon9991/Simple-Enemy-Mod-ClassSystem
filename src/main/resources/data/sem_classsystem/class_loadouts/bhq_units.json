@@ -53,11 +53,6 @@
         "muzzle_id": "tacz:muzzle_silencer_ursus",
         "grip_id": "tacz:grip_rk1_b25u"
       },
-      "rpg7": {
-        "gun_id": "tacz:rpg7",
-        "ammo_count": 3,
-        "fire_mode": "SEMI"
-      },
       "dragonuv": {
         "gun_id": "maxstuff:dragonuv_svd",
         "ammo_count": 10,
@@ -73,6 +68,40 @@
         "muzzle_id": "tacz:muzzle_silencer_ursus",
         "scope_id": "tacz:scope_qmk152",
         "grip_id": "tacz:extended_mag_3"
+      }
+    },
+    "heavy": {
+      "rpg7": {
+        "gun_id": "tacz:rpg7",
+        "ammo_count": 1,
+        "fire_mode": "SEMI"
+      },
+      "f_faust": {
+        "gun_id": "bf1:f_faust",
+        "ammo_count": 1,
+        "fire_mode": "SEMI"
+      },
+      "mgl320": {
+        "gun_id": "sfms:mgl320",
+        "ammo_count": 6,
+        "fire_mode": "SEMI"
+      }
+    },
+    "jack": {
+      "ak47": {
+        "gun_id": "tacz:ak47",
+        "ammo_count": 30,
+        "fire_mode": "AUTO"
+      },
+      "hk_mp5a5": {
+        "gun_id": "tacz:hk_mp5a5",
+        "ammo_count": 30,
+        "fire_mode": "AUTO"
+      },
+      "m870": {
+        "gun_id": "tacz:m870",
+        "ammo_count": 8,
+        "fire_mode": "SEMI"
       }
     },
     "pistol": {

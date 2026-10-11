@@ -219,9 +219,12 @@ public abstract class MixinRangedGunAttackGoal {
                     target = "Lnet/minecraft/world/entity/LivingEntity;position()Lnet/minecraft/world/phys/Vec3;"))
     private Vec3 semcs$leadTargetPosition(LivingEntity entity) {
         Vec3 pos = entity.position();
-        if (entity != this.target
-                || WeaponClassSupport.getEffective(this.mob) != WeaponClass.SNIPER) {
-            return pos;   // only Campers lead, only their combat target
+        if (entity != this.target) {
+            return pos;   // only lead the unit's own combat target
+        }
+        WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
+        if (cls != WeaponClass.SNIPER && cls != WeaponClass.HEAVY && cls != WeaponClass.JACK) {
+            return pos;
         }
         ItemStack gun = this.mob.getMainHandItem();
         IGun iGun = IGun.getIGunOrNull(gun);
@@ -229,8 +232,20 @@ public abstract class MixinRangedGunAttackGoal {
         if (gunId == null) {
             return pos;
         }
-        BulletData bullet = TimelessAPI.getCommonGunIndex(gunId)
-                .map(index -> index.getBulletData()).orElse(null);
+        var index = TimelessAPI.getCommonGunIndex(gunId).orElse(null);
+        if (index == null) {
+            return pos;
+        }
+        // TaCZ types every launcher "rpg" - RPGs and grenade launchers alike.
+        // The arc difference lives in bullet speed/gravity, which the math
+        // below reads per-gun - flat shots get tiny corrections, lobbers get
+        // the big aim-up they need. JACK only gets prediction on launchers;
+        // for plain bullets it stays a plain shot (decent, not specialist).
+        boolean launcher = "rpg".equals(index.getType());
+        if (cls == WeaponClass.JACK && !launcher) {
+            return pos;
+        }
+        BulletData bullet = index.getBulletData();
         if (bullet == null || bullet.getSpeed() <= 0) {
             return pos;
         }
@@ -238,17 +253,33 @@ public abstract class MixinRangedGunAttackGoal {
         // gravity is subtracted from delta-Y per tick (blocks/tick^2)
         double dist = this.mob.getEyePosition().distanceTo(
                 pos.add(0, entity.getBbHeight() / 2.0, 0));
-        double t = Math.min(dist / (bullet.getSpeed() / 20.0), 8.0);
+        // Slow lobbers need real flight-time and aim-up budgets; bullets
+        // keep the tight caps so nothing aims at the sky.
+        double tMax = launcher ? 24.0 : 8.0;
+        double dropCap = launcher ? 30.0 : 3.0;
+        double t = Math.min(dist / (bullet.getSpeed() / 20.0), tMax);
         Vec3 delta = entity.getDeltaMovement();     // blocks per tick
         // Perfect lead is inhuman - players strafing get partially led
         // (dodgeable by changing direction) while monsters get the full
-        // prediction for the monster-hunter bonus.
-        double leadScale = entity instanceof Monster ? 1.0 : 0.6;
+        // prediction. HEAVY leads a little harder than JACK - its splash
+        // still pays off a near-miss, but a specialist reads flight better.
+        double leadScale = semcs$leadScale(cls, entity instanceof Monster);
         // don't lead grounded entities' idle gravity drift - only airborne
         // motion (jumps/falls) moves the aim point vertically
         double leadY = entity.onGround() ? 0.0 : delta.y * t * leadScale;
-        double drop = Math.min(0.5 * bullet.getGravity() * t * t, 3.0);
+        double drop = Math.min(0.5 * bullet.getGravity() * t * t, dropCap);
         return pos.add(delta.x * t * leadScale, leadY + drop, delta.z * t * leadScale);
+    }
+
+    // How perfectly each class predicts intercepts: monsters move dumb and
+    // get fully led, players stay dodgeable.
+    @Unique
+    private static double semcs$leadScale(WeaponClass cls, boolean monster) {
+        return switch (cls) {
+            case SNIPER -> monster ? 1.0 : 0.6;
+            case HEAVY -> monster ? 1.0 : 0.8;
+            default -> monster ? 0.8 : 0.6;   // JACK: decent, not lethal
+        };
     }
 
     // ---- crouch firing stance ----------------------------------------------
@@ -309,7 +340,16 @@ public abstract class MixinRangedGunAttackGoal {
                     target = "Lcom/tacz/guns/api/entity/IGunOperator;shoot(Ljava/util/function/Supplier;Ljava/util/function/Supplier;)Lcom/tacz/guns/api/entity/ShootResult;"))
     private ShootResult semcs$scopedShoot(IGunOperator operator,
                                           Supplier<Float> pitch, Supplier<Float> yaw) {
-        boolean sniper = WeaponClassSupport.getEffective(this.mob) == WeaponClass.SNIPER;
+        WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
+        // Blast standoff: a launcher round that lands within its own
+        // explosion radius hurts the shooter (and squad). Hold fire while
+        // the target is inside the danger zone - HEAVY's kite distance
+        // back-pedals the unit out instead of eating its own blast.
+        if ((cls == WeaponClass.HEAVY || cls == WeaponClass.JACK)
+                && this.target != null && semcs$insideBlastRadius()) {
+            return ShootResult.COOL_DOWN;
+        }
+        boolean sniper = cls == WeaponClass.SNIPER;
         if (sniper && operator.getSynAimingProgress() < 1.0F) {
             operator.aim(true);   // keep the flag asserted between ticks
             return ShootResult.COOL_DOWN;
@@ -323,6 +363,28 @@ public abstract class MixinRangedGunAttackGoal {
             semcs$tryDisplace();
         }
         return result;
+    }
+
+    // True when the target is inside the held gun's own blast radius (plus
+    // a small margin) - i.e. firing would splash the shooter. Non-explosive
+    // guns always report safe. Reads the same per-gun bullet data the lead
+    // code uses.
+    @Unique
+    private boolean semcs$insideBlastRadius() {
+        ItemStack gun = this.mob.getMainHandItem();
+        IGun iGun = IGun.getIGunOrNull(gun);
+        ResourceLocation gunId = iGun == null ? null : iGun.getGunId(gun);
+        if (gunId == null) {
+            return false;
+        }
+        BulletData bullet = TimelessAPI.getCommonGunIndex(gunId)
+                .map(index -> index.getBulletData()).orElse(null);
+        if (bullet == null || bullet.getExplosionData() == null
+                || !bullet.getExplosionData().isExplode()) {
+            return false;
+        }
+        double danger = bullet.getExplosionData().getRadius() + 2.0;
+        return this.mob.distanceTo(this.target) < Math.min(danger, 20.0);
     }
 
     // Picks a new firing point on the same range-ring around the target,
@@ -388,9 +450,10 @@ public abstract class MixinRangedGunAttackGoal {
         // Retune burst/cooldown if the unit's class changed since the ctor
         // (e.g. the /semcs class command re-classed a living unit)
         semcs$applyTuning();
-        // No class -> no restriction
+        // No class -> no restriction. JACK is the generalist - it fires
+        // anything it can hold.
         WeaponClass cls = WeaponClassSupport.get(this.mob);
-        if (cls == null) {
+        if (cls == null || cls == WeaponClass.JACK) {
             return;
         }
         // Identify the gun in the main hand through the TaCZ API

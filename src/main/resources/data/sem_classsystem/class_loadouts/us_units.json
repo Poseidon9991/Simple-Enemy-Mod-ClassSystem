@@ -51,11 +51,6 @@
         "fire_mode": "SEMI",
         "scope_id": "tacz:scope_mk5hd",
         "muzzle_id": "tacz:muzzle_silencer_ursus"
-      },
-      "rpg7": {
-        "gun_id": "tacz:rpg7",
-        "ammo_count": 1,
-        "fire_mode": "SEMI"
       }
     },
     "heavy_mg": {
@@ -66,6 +61,40 @@
         "scope_id": "tacz:scope_elcan_4x",
         "muzzle_id": "tacz:muzzle_silencer_ursus",
         "grip_id": "tacz:extended_mag_3"
+      }
+    },
+    "heavy": {
+      "m320": {
+        "gun_id": "tacz:m320",
+        "ammo_count": 1,
+        "fire_mode": "SEMI"
+      },
+      "m202": {
+        "gun_id": "lradd:m202",
+        "ammo_count": 4,
+        "fire_mode": "SEMI"
+      },
+      "mgl40": {
+        "gun_id": "sfms:mgl40",
+        "ammo_count": 6,
+        "fire_mode": "SEMI"
+      }
+    },
+    "jack": {
+      "m4a1": {
+        "gun_id": "tacz:m4a1",
+        "ammo_count": 30,
+        "fire_mode": "AUTO"
+      },
+      "vector45": {
+        "gun_id": "tacz:vector45",
+        "ammo_count": 30,
+        "fire_mode": "AUTO"
+      },
+      "m870": {
+        "gun_id": "tacz:m870",
+        "ammo_count": 7,
+        "fire_mode": "SEMI"
       }
     },
     "pistol": {

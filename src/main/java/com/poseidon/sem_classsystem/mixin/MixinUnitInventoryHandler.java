@@ -48,9 +48,10 @@ public abstract class MixinUnitInventoryHandler {
         if (!(stack.getItem() instanceof AbstractGunItem)) {
             return;
         }
-        // No class assigned -> no lock (fresh unit mid-setup)
+        // No class assigned -> no lock (fresh unit mid-setup).
+        // JACK is the generalist - its weapon slots take any gun.
         WeaponClass cls = WeaponClassSupport.get(this.unit);
-        if (cls == null) {
+        if (cls == null || cls == WeaponClass.JACK) {
             return;
         }
         // Which class does this gun belong to? Read the gun id through TaCZ.

@@ -41,11 +41,6 @@
         "scope_id": "tacz:scope_mk5hd",
         "muzzle_id": "tacz:muzzle_brake_pioneer",
         "grip_id": "tacz:grip_rk1_b25u"
-      },
-      "rpg7": {
-        "gun_id": "tacz:rpg7",
-        "ammo_count": 1,
-        "fire_mode": "SEMI"
       }
     },
     "heavy_mg": {
@@ -56,6 +51,35 @@
         "scope_id": "tacz:scope_qmk152",
         "muzzle_id": "tacz:muzzle_brake_pioneer",
         "grip_id": "tacz:extended_mag_3"
+      }
+    },
+    "heavy": {
+      "rpg7": {
+        "gun_id": "tacz:rpg7",
+        "ammo_count": 1,
+        "fire_mode": "SEMI"
+      },
+      "mgl320": {
+        "gun_id": "sfms:mgl320",
+        "ammo_count": 6,
+        "fire_mode": "SEMI"
+      }
+    },
+    "jack": {
+      "ak47": {
+        "gun_id": "tacz:ak47",
+        "ammo_count": 30,
+        "fire_mode": "AUTO"
+      },
+      "uzi": {
+        "gun_id": "tacz:uzi",
+        "ammo_count": 32,
+        "fire_mode": "AUTO"
+      },
+      "spas_12": {
+        "gun_id": "tacz:spas_12",
+        "ammo_count": 8,
+        "fire_mode": "SEMI"
       }
     },
     "pistol": {

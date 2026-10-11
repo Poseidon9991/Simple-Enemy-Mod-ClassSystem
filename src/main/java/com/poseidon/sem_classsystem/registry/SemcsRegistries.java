@@ -92,7 +92,7 @@ public final class SemcsRegistries {
     );
 
     // ---- per-class spawn eggs ----------------------------------------------
-    // One egg per (faction x main weapon class): 4 factions x 5 classes.
+    // One egg per (faction x main weapon class): 4 factions x 7 classes.
     // Egg colour = faction base, spots = class accent. PISTOL is a subclass -
     // it is not spawned, it is equipped, so it gets no egg.
     public static final List<RegistryObject<Item>> CLASS_SPAWN_EGGS;
@@ -111,6 +111,8 @@ public final class SemcsRegistries {
         CLASS_SPOT_COLORS.put(WeaponClass.SHOTGUN, 0xB0402C);  // breaching red
         CLASS_SPOT_COLORS.put(WeaponClass.SNIPER, 0x3E6EA8);   // recon blue
         CLASS_SPOT_COLORS.put(WeaponClass.HEAVY_MG, 0x7B4FA6); // suppression purple
+        CLASS_SPOT_COLORS.put(WeaponClass.HEAVY, 0xC97B1E);    // ordnance orange
+        CLASS_SPOT_COLORS.put(WeaponClass.JACK, 0x5C8A4D);     // ranger green
 
         List<RegistryObject<Item>> eggs = new ArrayList<>();
         eggs.addAll(registerClassEggs("ru", ModEntities.RUUNIT, 0x4B5320));   // olive drab

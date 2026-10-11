@@ -38,6 +38,25 @@
         "scope_id": "tacz:scope_mk5hd",
         "muzzle_id": "tacz:muzzle_silencer_knight_qd",
         "grip_id": "tacz:grip_se_5"
+      }
+    },
+    "heavy_mg": {
+      "minigun": {
+        "gun_id": "tacz:minigun",
+        "ammo_count": 200,
+        "fire_mode": "AUTO"
+      }
+    },
+    "heavy": {
+      "mgl416": {
+        "gun_id": "sfms:mgl416",
+        "ammo_count": 6,
+        "fire_mode": "SEMI"
+      },
+      "m202": {
+        "gun_id": "lradd:m202",
+        "ammo_count": 4,
+        "fire_mode": "SEMI"
       },
       "rpg7": {
         "gun_id": "tacz:rpg7",
@@ -45,10 +64,15 @@
         "fire_mode": "SEMI"
       }
     },
-    "heavy_mg": {
-      "minigun": {
-        "gun_id": "tacz:minigun",
-        "ammo_count": 200,
+    "jack": {
+      "hk_g3": {
+        "gun_id": "tacz:hk_g3",
+        "ammo_count": 20,
+        "fire_mode": "AUTO"
+      },
+      "hk_mp5a5": {
+        "gun_id": "tacz:hk_mp5a5",
+        "ammo_count": 30,
         "fire_mode": "AUTO"
       }
     },

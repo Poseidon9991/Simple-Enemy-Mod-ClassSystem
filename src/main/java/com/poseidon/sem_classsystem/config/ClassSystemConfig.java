@@ -227,6 +227,8 @@ public class ClassSystemConfig {
             case SHOTGUN -> 0.8;  // tight when close
             case SNIPER -> 0.6;   // scoped but human - ~65-75% vs players
             case HEAVY_MG -> 1.15;
+            case HEAVY -> 1.2;    // launchers are AoE - precision is optional
+            case JACK -> 1.1;     // a touch sloppier than the Rifleman
             case PISTOL -> 0.9;   // decent per-shot accuracy
         };
     }
@@ -238,6 +240,8 @@ public class ClassSystemConfig {
             case SHOTGUN -> 4.0;  // only dangerous up close
             case SNIPER -> 0.15;  // near-flat to max range - a sniper hits far
             case HEAVY_MG -> 1.1; // suppression still reaches out a bit
+            case HEAVY -> 0.8;    // arc math does the ranging, not spread
+            case JACK -> 1.5;     // fades faster than any specialist
             case PISTOL -> 2.0;   // fades past mid-range
         };
     }
@@ -249,6 +253,8 @@ public class ClassSystemConfig {
             case SHOTGUN -> 0.5;  // 1-2 shells then pause
             case SNIPER -> 0.25;  // single aimed shots
             case HEAVY_MG -> 1.4;
+            case HEAVY -> 0.2;    // one tube at a time
+            case JACK -> 0.9;     // slightly shorter bursts than Rifleman
             case PISTOL -> 0.4;   // short taps, mostly singles
         };
     }
@@ -260,6 +266,8 @@ public class ClassSystemConfig {
             case SHOTGUN -> 1.3;  // pump-action feel
             case SNIPER -> 4.0;   // deliberate but not sluggish - ~2-3s shots
             case HEAVY_MG -> 0.65;
+            case HEAVY -> 5.0;    // reload, shoulder, fire - deliberate pace
+            case JACK -> 1.15;    // a beat slower than the Rifleman
             case PISTOL -> 0.7;   // snappy semi-auto cadence
         };
     }
@@ -272,6 +280,8 @@ public class ClassSystemConfig {
             case SHOTGUN -> 12.0; // charges into shotgun range
             case SNIPER -> 105.0; // beyond shoot range -> never advances
             case HEAVY_MG -> 55.0;// plants itself mid-field and suppresses
+            case HEAVY -> 42.0;   // blast standoff - far enough not to splash
+            case JACK -> 45.0;    // flexible mid-range
             case PISTOL -> 30.0;  // works mid-range, keeps moving
         };
     }
@@ -283,6 +293,8 @@ public class ClassSystemConfig {
             case SHOTGUN -> 0.3;  // holds fire beyond ~27 blocks
             case SNIPER -> 1.25;  // engages out to ~112 blocks
             case HEAVY_MG -> 1.0;
+            case HEAVY -> 0.8;    // lobbing far costs accuracy anyway
+            case JACK -> 0.8;     // ~72 blocks - solid but not sniper reach
             case PISTOL -> 0.5;   // engages inside ~45 blocks
         };
     }
@@ -294,6 +306,8 @@ public class ClassSystemConfig {
             case SHOTGUN -> 1.2;  // rushes the target
             case SNIPER -> 1.0;   // rarely moves anyway
             case HEAVY_MG -> 0.9; // lumbers into position
+            case HEAVY -> 0.85;   // carrying a tube is heavy work
+            case JACK -> 1.0;     // baseline mobility
             case PISTOL -> 1.1;   // light on its feet, keeps closing
         };
     }
@@ -313,6 +327,7 @@ public class ClassSystemConfig {
             case SHOTGUN -> 0.5;  // impatient - wants the door now
             case SNIPER -> 3.0;   // waits the target out
             case HEAVY_MG -> 2.0; // plants and lets the target come
+            case HEAVY -> 1.5;    // holds a firing spot a while
             case PISTOL -> 0.8;
             default -> 1.0;      // RIFLE baseline
         };
@@ -332,6 +347,7 @@ public class ClassSystemConfig {
             case SMG -> 1.1;
             case SHOTGUN -> 1.2;  // full sprint into the room
             case HEAVY_MG -> 0.9;
+            case HEAVY -> 0.9;    // lumbers on the rush too
             default -> 1.0;
         };
     }
@@ -339,6 +355,7 @@ public class ClassSystemConfig {
     private static double classKiteDistanceDefault(WeaponClass cls) {
         return switch (cls) {
             case SNIPER -> 20.0;  // back-pedals out of ~20 blocks, keeps standoff
+            case HEAVY -> 16.0;   // own blast radius - never fires point blank
             default -> 0.0;       // everyone else holds their ground
         };
     }
@@ -347,7 +364,7 @@ public class ClassSystemConfig {
         return switch (cls) {
             // Hold-position classes never charge on flank timeout - the mixin
             // re-arms a fresh flank arc instead of letting them charge.
-            case SNIPER, HEAVY_MG -> false;
+            case SNIPER, HEAVY_MG, HEAVY -> false;
             default -> true;
         };
     }

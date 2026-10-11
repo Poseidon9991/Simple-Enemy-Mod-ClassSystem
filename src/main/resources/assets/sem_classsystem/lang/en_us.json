@@ -22,5 +22,13 @@
   "item.sem_classsystem.bhq_rifle_spawn_egg": "BHQ Rifleman Spawn Egg",
   "item.sem_classsystem.bhq_shotgun_spawn_egg": "BHQ Sweeper Spawn Egg",
   "item.sem_classsystem.bhq_sniper_spawn_egg": "BHQ Camper Spawn Egg",
-  "item.sem_classsystem.bhq_heavy_mg_spawn_egg": "BHQ Suppressor Spawn Egg"
+  "item.sem_classsystem.bhq_heavy_mg_spawn_egg": "BHQ Suppressor Spawn Egg",
+  "item.sem_classsystem.ru_heavy_spawn_egg": "RU Demolisher Spawn Egg",
+  "item.sem_classsystem.ru_jack_spawn_egg": "RU Jack Spawn Egg",
+  "item.sem_classsystem.us_heavy_spawn_egg": "US Demolisher Spawn Egg",
+  "item.sem_classsystem.us_jack_spawn_egg": "US Jack Spawn Egg",
+  "item.sem_classsystem.pmc_heavy_spawn_egg": "PMC Demolisher Spawn Egg",
+  "item.sem_classsystem.pmc_jack_spawn_egg": "PMC Jack Spawn Egg",
+  "item.sem_classsystem.bhq_heavy_spawn_egg": "BHQ Demolisher Spawn Egg",
+  "item.sem_classsystem.bhq_jack_spawn_egg": "BHQ Jack Spawn Egg"
 }

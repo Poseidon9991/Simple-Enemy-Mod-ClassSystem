@@ -78,6 +78,9 @@ public final class ClassLoadouts {
                         case "shotgun" -> WeaponClass.SHOTGUN;
                         case "sniper" -> WeaponClass.SNIPER;
                         case "mg" -> WeaponClass.HEAVY_MG;
+                        // Every launcher shares TaCZ's single "rpg" type -
+                        // RPGs and grenade launchers both land on HEAVY.
+                        case "rpg" -> WeaponClass.HEAVY;
                         case "pistol" -> WeaponClass.PISTOL;
                         default -> null;
                     };
