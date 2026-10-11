@@ -111,6 +111,26 @@ public final class SemcsRegistries {
     public static final RegistryObject<Item> SF911_BOOTS = ITEMS.register("sf911_boots",
             () -> new BhqArmorItem("sf911_boots", ArmorItem.Type.BOOTS));
 
+    // ---- GRK (Gendarmerie Royale Kambodja) set ------------------------------
+    public static final RegistryObject<Item> GRK_HELMET = ITEMS.register("grk_helmet",
+            () -> new BhqArmorItem("grk_helmet", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> GRK_VEST = ITEMS.register("grk_vest",
+            () -> new BhqArmorItem("grk_vest", ArmorItem.Type.CHESTPLATE));
+    public static final RegistryObject<Item> GRK_PANTS = ITEMS.register("grk_pants",
+            () -> new BhqArmorItem("grk_pants", ArmorItem.Type.LEGGINGS));
+    public static final RegistryObject<Item> GRK_BOOTS = ITEMS.register("grk_boots",
+            () -> new BhqArmorItem("grk_boots", ArmorItem.Type.BOOTS));
+
+    // ---- RAF (Royal Armed Forces) set ---------------------------------------
+    public static final RegistryObject<Item> RAF_HELMET = ITEMS.register("raf_helmet",
+            () -> new BhqArmorItem("raf_helmet", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> RAF_VEST = ITEMS.register("raf_vest",
+            () -> new BhqArmorItem("raf_vest", ArmorItem.Type.CHESTPLATE));
+    public static final RegistryObject<Item> RAF_PANTS = ITEMS.register("raf_pants",
+            () -> new BhqArmorItem("raf_pants", ArmorItem.Type.LEGGINGS));
+    public static final RegistryObject<Item> RAF_BOOTS = ITEMS.register("raf_boots",
+            () -> new BhqArmorItem("raf_boots", ArmorItem.Type.BOOTS));
+
     // Spawn egg uses SEM's RoleSpawnEggItem so eggs spawn with the same
     // FRIENDLY_DEFAULT role SEM's own PMC egg assigns.
     // Colors: tactical black shell + Cambodian-flag red spots.
@@ -175,6 +195,14 @@ public final class SemcsRegistries {
                         output.accept(SF911_VEST.get());
                         output.accept(SF911_PANTS.get());
                         output.accept(SF911_BOOTS.get());
+                        output.accept(GRK_HELMET.get());
+                        output.accept(GRK_VEST.get());
+                        output.accept(GRK_PANTS.get());
+                        output.accept(GRK_BOOTS.get());
+                        output.accept(RAF_HELMET.get());
+                        output.accept(RAF_VEST.get());
+                        output.accept(RAF_PANTS.get());
+                        output.accept(RAF_BOOTS.get());
                         output.accept(BHQ_UNIT_SPAWN_EGG.get());
                         for (RegistryObject<Item> egg : CLASS_SPAWN_EGGS) {
                             output.accept(egg.get());
