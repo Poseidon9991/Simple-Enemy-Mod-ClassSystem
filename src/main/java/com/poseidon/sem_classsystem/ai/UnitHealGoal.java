@@ -95,6 +95,9 @@ public class UnitHealGoal extends Goal {
         inv.setStackInSlot(slot, stack);
         this.unit.swing(InteractionHand.OFF_HAND);
         this.healCooldown = ClassSystemConfig.healCooldownTicks();
+        // one line per use - proves the goal found + consumed an item
+        com.poseidon.sem_classsystem.SemClassSystem.LOGGER.info(
+                "{} used heal item {}", this.unit.getName().getString(), stack);
     }
 
     // First storage slot holding a tagged heal item, -1 when none.

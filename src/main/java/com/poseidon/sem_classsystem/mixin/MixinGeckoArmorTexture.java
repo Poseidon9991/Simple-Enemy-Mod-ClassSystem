@@ -37,6 +37,9 @@ public abstract class MixinGeckoArmorTexture {
     private static final ResourceLocation EMPTY_TEXTURE =
             ResourceLocation.parse("sem_classsystem:textures/models/armor/semcs_empty.png");
     private static final Map<ResourceLocation, Boolean> TEX_EXISTS = new ConcurrentHashMap<>();
+    // unique paths already logged once - proves the swap is firing
+    private static final java.util.Set<ResourceLocation> SWAP_LOGGED =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     // remap=false: getArmorResource is a SEM-internal method name.
     @Inject(method = "getArmorResource", at = @At("RETURN"), cancellable = true, remap = false)
@@ -49,6 +52,10 @@ public abstract class MixinGeckoArmorTexture {
         boolean exists = TEX_EXISTS.computeIfAbsent(texture, loc ->
                 Minecraft.getInstance().getResourceManager().getResource(loc).isPresent());
         if (!exists) {
+            if (SWAP_LOGGED.add(texture)) {
+                com.poseidon.sem_classsystem.SemClassSystem.LOGGER.info(
+                        "Swapped missing armor texture {} for the empty texture", texture);
+            }
             cir.setReturnValue(EMPTY_TEXTURE);
         }
     }

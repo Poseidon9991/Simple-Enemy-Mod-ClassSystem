@@ -23,6 +23,15 @@ public class UnitMeleeGoal extends MeleeAttackGoal {
     }
 
     @Override
+    public void start() {
+        // one line per engagement - proves the goal actually activated
+        com.poseidon.sem_classsystem.SemClassSystem.LOGGER.info(
+                "{} starts melee with {}", this.mob.getName().getString(),
+                String.valueOf(this.mob.getTarget()));
+        super.start();
+    }
+
+    @Override
     public boolean canUse() {
         return ClassSystemConfig.meleeAttackEnabled()
                 && WeaponClassSupport.isMeleeWeapon(this.mob.getMainHandItem())

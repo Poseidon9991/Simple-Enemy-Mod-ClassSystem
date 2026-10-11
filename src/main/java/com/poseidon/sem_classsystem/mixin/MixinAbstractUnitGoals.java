@@ -26,10 +26,12 @@ public abstract class MixinAbstractUnitGoals {
     // remap=false: addGoals is a SEM-internal name.
     @Inject(method = "addGoals", at = @At("TAIL"), remap = false)
     private void semcs$addItemGoals(PathfinderMob mob, CallbackInfo ci) {
-        if (!(mob instanceof AbstractUnit)) {
+        if (!(mob instanceof AbstractUnit unit)) {
             return;
         }
         mob.goalSelector.addGoal(3, new UnitMeleeGoal(mob));
         mob.goalSelector.addGoal(6, new UnitHealGoal(mob));
+        // so /semcs debug can prove goal injection happened for this unit
+        com.poseidon.sem_classsystem.ai.UnitDebugSupport.GOAL_UNITS.add(unit);
     }
 }
