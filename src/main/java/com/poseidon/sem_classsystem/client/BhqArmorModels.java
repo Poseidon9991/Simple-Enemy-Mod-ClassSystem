@@ -5,6 +5,7 @@ import com.poseidon.sem_classsystem.SemClassSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
+import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeDeformation;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
@@ -38,6 +39,16 @@ public final class BhqArmorModels {
     public static final ModelLayerLocation LEGS = location("legs");
     public static final ModelLayerLocation FEET = location("feet");
 
+    // Marker subclass so the UniversalArmorLayer mixin can recognise our
+    // models: SEM inflates head-slot parts x1.28 to make helmets wrap the
+    // head, but for the cap that drags the brim/crown/ears off the head and
+    // across the face. The mixin restores scale 1.0 for this model only.
+    public static final class BhqArmorModel extends HumanoidModel<LivingEntity> {
+        public BhqArmorModel(ModelPart root) {
+            super(root);
+        }
+    }
+
     // Baked lazily on first use - the entity model set exists by then.
     private static HumanoidModel<LivingEntity> headModel;
     private static HumanoidModel<LivingEntity> chestModel;
@@ -58,13 +69,13 @@ public final class BhqArmorModels {
         var set = Minecraft.getInstance().getEntityModels();
         return switch (field) {
             case "head" -> headModel != null ? headModel
-                    : (headModel = new HumanoidModel<>(set.bakeLayer(loc)));
+                    : (headModel = new BhqArmorModel(set.bakeLayer(loc)));
             case "chest" -> chestModel != null ? chestModel
-                    : (chestModel = new HumanoidModel<>(set.bakeLayer(loc)));
+                    : (chestModel = new BhqArmorModel(set.bakeLayer(loc)));
             case "legs" -> legsModel != null ? legsModel
-                    : (legsModel = new HumanoidModel<>(set.bakeLayer(loc)));
+                    : (legsModel = new BhqArmorModel(set.bakeLayer(loc)));
             default -> feetModel != null ? feetModel
-                    : (feetModel = new HumanoidModel<>(set.bakeLayer(loc)));
+                    : (feetModel = new BhqArmorModel(set.bakeLayer(loc)));
         };
     }
 
@@ -77,11 +88,11 @@ public final class BhqArmorModels {
         return PartPose.ZERO;
     }
 
-    private static CubeListBuilder box(int u, int v, int x, int y, int z, int w, int h, int d) {
+    private static CubeListBuilder box(int u, int v, float x, float y, float z, float w, float h, float d) {
         return CubeListBuilder.create().texOffs(u, v).addBox(x, y, z, w, h, d);
     }
 
-    private static CubeListBuilder mirrored(int u, int v, int x, int y, int z, int w, int h, int d) {
+    private static CubeListBuilder mirrored(int u, int v, float x, float y, float z, float w, float h, float d) {
         return CubeListBuilder.create().texOffs(u, v).mirror().addBox(x, y, z, w, h, d);
     }
 
@@ -104,12 +115,18 @@ public final class BhqArmorModels {
         MeshDefinition mesh = new MeshDefinition();
         PartDefinition root = bareSkeleton(mesh);
         PartDefinition head = root.getChild("head");
-        head.addOrReplaceChild("brim", box(64, 0, -4, -5, -9, 8, 1, 4), none());
-        head.addOrReplaceChild("crown", box(64, 6, -3, -10, -3, 6, 1, 6), none());
-        head.addOrReplaceChild("strap", box(96, 0, -3, -6, 5, 6, 2, 1), none());
-        head.addOrReplaceChild("velcro", box(96, 4, -2, -11, -2, 4, 1, 3), none());
-        head.addOrReplaceChild("ear_r", box(64, 44, 4, -4, -1, 2, 3, 2), none());
-        head.addOrReplaceChild("ear_l", mirrored(64, 44, 4, -4, -1, 2, 3, 2), none());
+        // Positions hug the 8x8x8 head (faces at y=-8, z=+-4, x=+-4) with a
+        // ~0.05 inset on mating faces so no quads sit coplanar (the armor
+        // render type is no-cull, so coplanar faces would z-fight). Box dims
+        // match the atlas - only positions move.
+        head.addOrReplaceChild("brim", box(64, 0, -4, -6.5F, -7.95F, 8, 1, 4), none());
+        head.addOrReplaceChild("crown", box(64, 6, -3, -9.05F, -3, 6, 1, 6), none());
+        head.addOrReplaceChild("strap", box(96, 0, -3, -6, 4.05F, 6, 2, 1), none());
+        head.addOrReplaceChild("velcro", box(96, 4, -2, -9.9F, -2, 4, 1, 3), none());
+        head.addOrReplaceChild("ear_r", box(64, 44, 4.05F, -4.5F, -1, 2, 3, 2), none());
+        // .mirror() flips texture only - the left cup needs its own x or it
+        // stacks on top of the right one.
+        head.addOrReplaceChild("ear_l", mirrored(64, 44, -6.05F, -4.5F, -1, 2, 3, 2), none());
         return LayerDefinition.create(mesh, 128, 64);
     }
 
