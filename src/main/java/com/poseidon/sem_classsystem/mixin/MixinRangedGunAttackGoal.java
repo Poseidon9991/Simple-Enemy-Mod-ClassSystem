@@ -13,6 +13,7 @@ import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ShootResult;
 import com.tacz.guns.api.item.IGun;
+import com.tacz.guns.entity.EntityKineticBullet;
 import com.tacz.guns.resource.pojo.data.gun.BulletData;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
@@ -99,6 +100,22 @@ public abstract class MixinRangedGunAttackGoal {
     // Successful shots since the Camper last displaced - reposition trigger.
     @Unique
     private int semcs$shotsSinceMove = 0;
+
+    // ---- launcher fire correction ------------------------------------------
+    // Demolishers (and Jacks holding launchers) bracket their fire like a
+    // real mortar/GL crew: after each shot we follow the shell entity until
+    // it lands, measure how far short/long it fell along the target line,
+    // and fold that error into the next shot's aim height. First rounds
+    // straddle, later rounds walk onto the target.
+    @Unique
+    private EntityKineticBullet semcs$trackedShell;
+    // Learned aim-height correction in blocks - persists across shots while
+    // the same target is engaged, reset when the target changes.
+    @Unique
+    private double semcs$aimAdjustY = 0.0;
+    // The target the current correction was learned against.
+    @Unique
+    private Entity semcs$adjustTarget = null;
 
     // TAIL of the constructor: runs right after SEM stored the global
     // AiShootingConfig burst/cooldown values into the finals above -
@@ -268,7 +285,11 @@ public abstract class MixinRangedGunAttackGoal {
         // motion (jumps/falls) moves the aim point vertically
         double leadY = entity.onGround() ? 0.0 : delta.y * t * leadScale;
         double drop = Math.min(0.5 * bullet.getGravity() * t * t, dropCap);
-        return pos.add(delta.x * t * leadScale, leadY + drop, delta.z * t * leadScale);
+        // Fold in the learned fire correction - starts at 0 and walks in
+        // each time a tracked shell lands short or long (see observeFire).
+        double adjust = launcher && this.semcs$adjustTarget == entity
+                ? this.semcs$aimAdjustY : 0.0;
+        return pos.add(delta.x * t * leadScale, leadY + drop + adjust, delta.z * t * leadScale);
     }
 
     // How perfectly each class predicts intercepts: monsters move dumb and
@@ -362,6 +383,12 @@ public abstract class MixinRangedGunAttackGoal {
             this.semcs$shotsSinceMove = 0;
             semcs$tryDisplace();
         }
+        // Start tracking the shell that just left the tube - observeFire()
+        // scores its landing point on the next ticks.
+        if (result == ShootResult.SUCCESS
+                && (cls == WeaponClass.HEAVY || cls == WeaponClass.JACK)) {
+            semcs$trackNewestShell();
+        }
         return result;
     }
 
@@ -385,6 +412,64 @@ public abstract class MixinRangedGunAttackGoal {
         }
         double danger = bullet.getExplosionData().getRadius() + 2.0;
         return this.mob.distanceTo(this.target) < Math.min(danger, 20.0);
+    }
+
+    // ---- fire correction ----------------------------------------------------
+    // After a successful launcher shot, find the shell entity we just fired
+    // (owner = this unit, newest in a small box around us) and remember it.
+    @Unique
+    private void semcs$trackNewestShell() {
+        EntityKineticBullet newest = null;
+        // Owner match preferred; a shell 3 ticks old inside arm's reach is
+        // ours even if TaCZ skipped setOwner on some addon gun's projectile.
+        for (EntityKineticBullet b : this.mob.level().getEntitiesOfClass(
+                EntityKineticBullet.class, this.mob.getBoundingBox().inflate(6.0),
+                e -> e != this.semcs$trackedShell
+                        && (e.getOwner() == this.mob || e.tickCount <= 3))) {
+            if (newest == null || b.tickCount < newest.tickCount) {
+                newest = b;
+            }
+        }
+        if (newest != null) {
+            this.semcs$trackedShell = newest;
+        }
+    }
+
+    // Every tick: if the tracked shell is gone it has landed (impact, fuse
+    // or despawn - its last position is close enough). Score it against the
+    // target line: how far SHORT (behind the target from our side) or LONG
+    // the impact was, and push the aim-height correction by a fraction of
+    // the error. Brackets walk onto the target in 2-3 shots.
+    @Inject(method = "tick", at = @At("HEAD"))
+    private void semcs$observeFire(CallbackInfo ci) {
+        if (this.target != this.semcs$adjustTarget) {
+            this.semcs$adjustTarget = this.target;
+            this.semcs$aimAdjustY = 0.0;
+            this.semcs$trackedShell = null;
+            return;
+        }
+        EntityKineticBullet shell = this.semcs$trackedShell;
+        if (shell == null || shell.isAlive() || this.target == null) {
+            return;
+        }
+        this.semcs$trackedShell = null;
+        // Project impact onto the horizontal shooter->target axis:
+        // positive error = the shell fell short of the target.
+        double tx = this.target.getX() - this.mob.getX();
+        double tz = this.target.getZ() - this.mob.getZ();
+        double axisLen = Math.sqrt(tx * tx + tz * tz);
+        if (axisLen < 1.0) {
+            return;
+        }
+        Vec3 impact = shell.position();
+        double along = ((impact.x - this.mob.getX()) * tx
+                + (impact.z - this.mob.getZ()) * tz) / axisLen;
+        double err = axisLen - along;
+        WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
+        double gain = cls == WeaponClass.HEAVY ? 0.35 : 0.2;
+        this.semcs$aimAdjustY = Math.max(-15.0,
+                Math.min(15.0, this.semcs$aimAdjustY
+                        + Math.max(-4.0, Math.min(4.0, err * gain))));
     }
 
     // Picks a new firing point on the same range-ring around the target,
