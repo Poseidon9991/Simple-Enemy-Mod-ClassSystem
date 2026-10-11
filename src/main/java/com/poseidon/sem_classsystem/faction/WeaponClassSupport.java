@@ -4,8 +4,10 @@ package com.poseidon.sem_classsystem.faction;
 
 import com.poseidon.sem_classsystem.bridge.IClassifiedUnit;
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
+import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.item.IGun;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -163,6 +165,67 @@ public final class WeaponClassSupport {
             unit.setCustomName(null);
             unit.setCustomNameVisible(false);
         }
+    }
+
+    // ---- jack-of-all-trades stance ------------------------------------------
+    // Jack fights at whatever range suits the gun in its hands instead of
+    // one fixed band - a shotgun Jack closes in, a marksman Jack stands off.
+    // The mixins call these when the effective class is JACK.
+
+    // TaCZ weapon type of the held gun ("rifle", "rpg", ...), null for
+    // non-guns / unresolvable ids.
+    @Nullable
+    public static String heldGunType(LivingEntity living) {
+        ItemStack held = living.getMainHandItem();
+        IGun iGun = IGun.getIGunOrNull(held);
+        if (iGun == null) {
+            return null;
+        }
+        ResourceLocation gunId = iGun.getGunId(held);
+        return gunId == null ? null
+                : TimelessAPI.getCommonGunIndex(gunId)
+                        .map(com.tacz.guns.resource.index.CommonGunIndex::getType)
+                        .orElse(null);
+    }
+
+    // Preferred fighting distance per held weapon type - the Rifleman value
+    // is the default for unmapped/exotic types.
+    public static double jackEngageDistance(@Nullable String gunType) {
+        if (gunType == null) return 45.0;
+        return switch (gunType) {
+            case "shotgun" -> 14.0;
+            case "smg" -> 25.0;
+            case "sniper" -> 90.0;
+            case "mg" -> 50.0;
+            case "rpg" -> 42.0;
+            case "pistol" -> 25.0;
+            default -> 45.0;    // rifle & friends
+        };
+    }
+
+    // Max-fire-distance multiplier per held weapon type (scales SEM's ~90).
+    public static double jackShootDistance(@Nullable String gunType) {
+        if (gunType == null) return 0.8;
+        return switch (gunType) {
+            case "shotgun" -> 0.35;
+            case "smg" -> 0.55;
+            case "sniper" -> 1.15;
+            case "mg" -> 1.0;
+            case "rpg" -> 0.8;
+            case "pistol" -> 0.5;
+            default -> 0.8;
+        };
+    }
+
+    // Approach speed per held weapon type - rush in with CQB guns, plant
+    // with crew-served ones.
+    public static double jackApproachSpeed(@Nullable String gunType) {
+        if (gunType == null) return 1.0;
+        return switch (gunType) {
+            case "shotgun" -> 1.15;
+            case "mg", "rpg" -> 0.9;
+            default -> 1.0;
+        };
     }
 
     // ---- recruit preference ------------------------------------------------

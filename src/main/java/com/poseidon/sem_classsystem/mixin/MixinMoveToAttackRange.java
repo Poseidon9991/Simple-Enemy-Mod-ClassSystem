@@ -37,6 +37,9 @@ public abstract class MixinMoveToAttackRange {
     // Which class the goal was last tuned for (re-class support)
     @Unique
     private WeaponClass semcs$tunedClass = null;
+    // Jack retunes on gun swaps too - this remembers the held gun's type.
+    @Unique
+    private String semcs$tunedGunType = null;
     // Constructor originals - retunes always start from these, never from
     // already-scaled values
     @Unique
@@ -70,15 +73,31 @@ public abstract class MixinMoveToAttackRange {
         // movement tuning for the sidearm's - it keeps advancing mid-range
         // instead of planting/rushing for its real class.
         WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
-        if (cls == null || cls == this.semcs$tunedClass) {
+        if (cls == null) {
+            return;
+        }
+        // Jack's stance follows the weapon in its hands, so a gun SWAP must
+        // retune even though the class didn't change. Everyone else only
+        // retunes when the effective class changes.
+        String gunType = cls == WeaponClass.JACK
+                ? WeaponClassSupport.heldGunType(this.mob) : null;
+        if (cls == this.semcs$tunedClass
+                && java.util.Objects.equals(gunType, this.semcs$tunedGunType)) {
             return;
         }
         this.semcs$tunedClass = cls;
+        this.semcs$tunedGunType = gunType;
 
         // Preferred fighting distance in blocks - a Sweeper walks in close,
         // a Camper's value exceeds its shoot range so it holds position.
-        this.attackRange = ClassSystemConfig.classEngageDistance(cls);
-        this.speed = this.semcs$origSpeed * ClassSystemConfig.classApproachSpeed(cls);
+        // Jack reads it off the held gun's type: shotgun Jack closes in,
+        // marksman Jack stands off.
+        this.attackRange = cls == WeaponClass.JACK
+                ? WeaponClassSupport.jackEngageDistance(gunType)
+                : ClassSystemConfig.classEngageDistance(cls);
+        this.speed = this.semcs$origSpeed * (cls == WeaponClass.JACK
+                ? WeaponClassSupport.jackApproachSpeed(gunType)
+                : ClassSystemConfig.classApproachSpeed(cls));
     }
 
     // ---- vertical FOV boost ------------------------------------------------

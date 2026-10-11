@@ -70,6 +70,9 @@ public abstract class MixinRangedGunAttackGoal {
     // same class does nothing, but a class CHANGE must retune.
     @Unique
     private WeaponClass semcs$tunedClass = null;
+    // Jack retunes when the held gun's type changes, not just the class.
+    @Unique
+    private String semcs$tunedGunType = null;
 
     // The constructor's original burst/cooldown values, captured once.
     // Tuning always computes original x multiplier - never multiplies an
@@ -149,10 +152,19 @@ public abstract class MixinRangedGunAttackGoal {
         // a subclass gun (pistol sidearm) fights with that gun's tuning.
         // null -> leave SEM defaults untouched.
         WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
-        if (cls == null || cls == this.semcs$tunedClass) {
-            return;   // no class yet, or already tuned for this class
+        if (cls == null) {
+            return;
+        }
+        // Jack fights at whatever range suits the gun in its hands - a gun
+        // swap retunes even when the class stays the same.
+        String gunType = cls == WeaponClass.JACK
+                ? WeaponClassSupport.heldGunType(this.mob) : null;
+        if (cls == this.semcs$tunedClass
+                && java.util.Objects.equals(gunType, this.semcs$tunedGunType)) {
+            return;   // already tuned for this class (+ gun, for Jack)
         }
         this.semcs$tunedClass = cls;
+        this.semcs$tunedGunType = gunType;
 
         // --- burst length (min 1 shot, max >= min) ---
         double burst = ClassSystemConfig.classBurst(cls);
@@ -175,7 +187,9 @@ public abstract class MixinRangedGunAttackGoal {
 
         // --- max shooting distance (how far the unit will fire from) ---
         // Field stores distance SQUARED, so the multiplier gets squared too.
-        double shootMult = ClassSystemConfig.classShootDistance(cls);
+        double shootMult = cls == WeaponClass.JACK
+                ? WeaponClassSupport.jackShootDistance(gunType)
+                : ClassSystemConfig.classShootDistance(cls);
         this.MAX_SHOOT_DISTANCE_SQR = (float) (this.semcs$origShootSqr * shootMult * shootMult);
     }
 
@@ -262,6 +276,14 @@ public abstract class MixinRangedGunAttackGoal {
         if (cls == WeaponClass.JACK && !launcher) {
             return pos;
         }
+        // Splash wants the middle of the crowd, not the nearest chest - if
+        // the target has friends standing close, aim at the group centroid.
+        if (launcher) {
+            Vec3 centroid = semcs$clusterCentroid(entity);
+            if (centroid != null) {
+                pos = new Vec3(centroid.x, pos.y, centroid.z);
+            }
+        }
         BulletData bullet = index.getBulletData();
         if (bullet == null || bullet.getSpeed() <= 0) {
             return pos;
@@ -289,7 +311,13 @@ public abstract class MixinRangedGunAttackGoal {
         // each time a tracked shell lands short or long (see observeFire).
         double adjust = launcher && this.semcs$adjustTarget == entity
                 ? this.semcs$aimAdjustY : 0.0;
-        return pos.add(delta.x * t * leadScale, leadY + drop + adjust, delta.z * t * leadScale);
+        // Indirect fire: no line of sight -> throw the arc higher so the
+        // shell clears whatever is between us (roofs, walls). The bracket
+        // correction refines it from there.
+        double lob = launcher
+                && !this.mob.getSensing().hasLineOfSight(entity) ? 10.0 : 0.0;
+        return pos.add(delta.x * t * leadScale,
+                leadY + drop + adjust + lob, delta.z * t * leadScale);
     }
 
     // How perfectly each class predicts intercepts: monsters move dumb and
@@ -338,6 +366,69 @@ public abstract class MixinRangedGunAttackGoal {
             IGunOperator.fromLivingEntity(this.mob).aim(true);
             this.semcs$aiming = true;
         }
+    }
+
+    // Centroid of the target's nearby buddies (players, monsters, other
+    // factions - anything that isn't this unit's own faction) - splash
+    // rounds land where they hurt the most. null when the target stands
+    // alone: aim stays on the target itself.
+    @Unique
+    private Vec3 semcs$clusterCentroid(LivingEntity target) {
+        var ownFaction = com.poseidon.sem_classsystem.faction.UnitClass.of(this.mob);
+        java.util.List<LivingEntity> crowd = target.level().getEntitiesOfClass(
+                LivingEntity.class, target.getBoundingBox().inflate(5.0),
+                e -> e.isAlive() && e != this.mob && e != target
+                        && com.poseidon.sem_classsystem.faction.UnitClass.of(e) != ownFaction);
+        if (crowd.size() < 2) {
+            return null;   // one bystander is not a cluster - aim at target
+        }
+        double cx = target.getX(), cz = target.getZ();
+        for (LivingEntity e : crowd) {
+            cx += e.getX();
+            cz += e.getZ();
+        }
+        int n = crowd.size() + 1;
+        return new Vec3(cx / n, target.getY(), cz / n);
+    }
+
+    // ---- demolisher indirect fire -------------------------------------------
+    // SEM refuses to engage or keep firing without line of sight. A grenade
+    // launcher exists to break exactly that rule: a Demolisher (or Jack
+    // carrying a lobber) may fire BLIND - the ballistic prediction aims the
+    // arc and the fire-correction loop walks impacts onto the target.
+    // Flat shooters keep the LoS rule - an RPG fired through a wall just
+    // digs a hole in it. remap=true: Sensing is vanilla.
+    @Redirect(method = {"canUse", "tick", "handleBurstFiringState"},
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/world/entity/ai/sensing/Sensing;hasLineOfSight(Lnet/minecraft/world/entity/Entity;)Z"))
+    private boolean semcs$indirectFire(
+            net.minecraft.world.entity.ai.sensing.Sensing sensing, Entity entity) {
+        if (sensing.hasLineOfSight(entity)) {
+            return true;
+        }
+        return entity == this.target && semcs$heldIsLobber();
+    }
+
+    // Is the held weapon a LOBBER - an rpg-typed gun with enough gravity and
+    // low enough muzzle speed that it genuinely arcs (MGL/m320 etc.)? Flat
+    // RPGs (high speed, low gravity) return false - they need line of sight.
+    @Unique
+    private boolean semcs$heldIsLobber() {
+        WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
+        if (cls != WeaponClass.HEAVY && cls != WeaponClass.JACK) {
+            return false;
+        }
+        ItemStack gun = this.mob.getMainHandItem();
+        IGun iGun = IGun.getIGunOrNull(gun);
+        ResourceLocation gunId = iGun == null ? null : iGun.getGunId(gun);
+        var index = gunId == null ? null
+                : TimelessAPI.getCommonGunIndex(gunId).orElse(null);
+        if (index == null || !"rpg".equals(index.getType())) {
+            return false;
+        }
+        BulletData bullet = index.getBulletData();
+        return bullet != null && bullet.getGravity() >= 0.05F
+                && bullet.getSpeed() > 0.0F && bullet.getSpeed() <= 260.0F;
     }
 
     // ---- vertical FOV boost ------------------------------------------------
