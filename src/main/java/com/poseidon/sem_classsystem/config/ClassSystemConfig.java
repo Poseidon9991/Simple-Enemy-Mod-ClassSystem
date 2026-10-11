@@ -153,13 +153,7 @@ public class ClassSystemConfig {
                                     "the target gets closer than this the unit back-pedals instead",
                                     "of holding position. 0 disables it; Campers use it to keep",
                                     "sniper standoff instead of standing still as enemies close in.")
-                            .defineInRange("tacticalKiteDistance", classKiteDistanceDefault(cls), 0.0, 96.0),
-                    BUILDER.comment(
-                                    "Go-prone distance in blocks - past this range a stationary",
-                                    "unit lies flat to fire (smaller silhouette, braced shot).",
-                                    "0 disables prone; between crouch range and prone distance",
-                                    "the unit kneels instead. Snipers and machine-gunners use it.")
-                            .defineInRange("proneDistance", classProneDistanceDefault(cls), 0.0, 200.0)
+                            .defineInRange("tacticalKiteDistance", classKiteDistanceDefault(cls), 0.0, 96.0)
             );
 
             CLASS_ENTRIES.put(cls, entry);
@@ -392,16 +386,6 @@ public class ClassSystemConfig {
         };
     }
 
-    // Prone is reserved for the planted classes - everyone else kneels or
-    // stands; a unit only goes prone past this distance and while not moving.
-    private static double classProneDistanceDefault(WeaponClass cls) {
-        return switch (cls) {
-            case SNIPER -> 45.0;    // prone for the long shots
-            case HEAVY_MG -> 55.0;  // braces the gun at range
-            default -> 0.0;
-        };
-    }
-
     // Called once from the mod constructor while Forge loads us
     public static void register() {
         // Type.COMMON -> config/sem_classsystem-common.toml (global, all worlds).
@@ -526,11 +510,6 @@ public class ClassSystemConfig {
         return safeGet(CLASS_ENTRIES.get(cls).kiteDistance, 0.0);
     }
 
-    // Distance past which a stationary unit of this class goes prone (0 = never)
-    public static double classProneDistance(WeaponClass cls) {
-        return safeGet(CLASS_ENTRIES.get(cls).proneDistance, 0.0);
-    }
-
     // ================= Compat accessors =================
 
     // Should village defenders (unit_defenders tag) never target this faction?
@@ -588,7 +567,6 @@ public class ClassSystemConfig {
                               ForgeConfigSpec.BooleanValue forcedRush,
                               ForgeConfigSpec.DoubleValue retreatHealthMultiplier,
                               ForgeConfigSpec.DoubleValue closeRangeMultiplier,
-                              ForgeConfigSpec.DoubleValue kiteDistance,
-                              ForgeConfigSpec.DoubleValue proneDistance) {
+                              ForgeConfigSpec.DoubleValue kiteDistance) {
     }
 }

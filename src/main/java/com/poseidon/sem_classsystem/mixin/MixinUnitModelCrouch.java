@@ -6,7 +6,6 @@ package com.poseidon.sem_classsystem.mixin;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.Pose;
 import net.nekoyuni.SimpleEnemyMod.entity.client.pmc_unit.PmcUnitModel;
 import net.nekoyuni.SimpleEnemyMod.entity.client.ru_unit.RUunitModel;
 import net.nekoyuni.SimpleEnemyMod.entity.client.us_unit.USunitModel;
@@ -39,9 +38,6 @@ public abstract class MixinUnitModelCrouch {
     @Shadow(remap = false) @Final private ModelPart leftArm;
     @Shadow(remap = false) @Final private ModelPart rightLeg;
     @Shadow(remap = false) @Final private ModelPart leftLeg;
-    // Rig root: head/body/arms/legs all hang under it - one transform moves
-    // the whole soldier (and any gear layers riding those parts).
-    @Shadow(remap = false) @Final private ModelPart unit;
 
     // TAIL of setupAnim: SEM resets every part's pose, runs the keyframe
     // animations and the procedural aim layers - we then add the kneel
@@ -50,24 +46,8 @@ public abstract class MixinUnitModelCrouch {
     private void semcs$applyKneelPose(Entity entity, float limbSwing, float limbSwingAmount,
                                       float ageInTicks, float netHeadYaw, float headPitch,
                                       CallbackInfo ci) {
-        // Sneak flag off, dying (death anim owns the pose) or prone
-        // (SWIMMING pose - the renderer owns the silhouette): stand down.
+        // Sneak flag off, dying (death anim owns the pose): stand down.
         if (!(entity instanceof LivingEntity living) || !living.isAlive()) {
-            return;
-        }
-
-        // PRONE: the fire goal sets Pose.SWIMMING as our prone flag. Positive
-        // xRot leans the rig forward, so a full half-turn lays the model
-        // flat on its belly, head leading toward the aim direction. Then a
-        // small lift so the body hugs the ground instead of clipping it.
-        if (living.getPose() == Pose.SWIMMING) {
-            // Pivot is at the feet: after the half-turn the body extends
-            // ~1.5 blocks ahead - pull back so the torso sits over the
-            // entity (that's where the prone hitbox lives), and lift a
-            // couple px so the back doesn't z-fight the floor.
-            this.unit.xRot += (float) (Math.PI / 2.0);
-            this.unit.y -= 3.0F;
-            this.unit.z -= 10.0F;
             return;
         }
 
