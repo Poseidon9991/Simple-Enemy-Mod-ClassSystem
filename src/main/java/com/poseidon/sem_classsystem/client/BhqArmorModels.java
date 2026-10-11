@@ -75,12 +75,15 @@ public final class BhqArmorModels {
         PartDefinition root = mesh.getRoot();
 
         // CAP - brim at the cap's lower edge, raised crown, rear adjuster
-        // strap, velcro patch on the crown
+        // strap, velcro patch on the crown, ear defenders over both ears
+        // (they clip INTO the head shell so no face is coplanar)
         PartDefinition head = root.getChild("head");
         head.addOrReplaceChild("brim", box(64, 0, -4, -5, -9, 8, 1, 4), none());
         head.addOrReplaceChild("crown", box(64, 6, -3, -10, -3, 6, 1, 6), none());
         head.addOrReplaceChild("strap", box(96, 0, -3, -6, 5, 6, 2, 1), none());
         head.addOrReplaceChild("velcro", box(96, 4, -2, -11, -2, 4, 1, 3), none());
+        head.addOrReplaceChild("ear_r", box(64, 44, 4, -4, -1, 2, 3, 2), none());
+        head.addOrReplaceChild("ear_l", mirrored(64, 44, 4, -4, -1, 2, 3, 2), none());
 
         // VEST - front plate, three mag pouches, cummerbund belt, radio pack
         PartDefinition body = root.getChild("body");
@@ -95,12 +98,19 @@ public final class BhqArmorModels {
         root.getChild("right_arm").addOrReplaceChild("pad", box(64, 24, -4, -4, -3, 6, 2, 6), none());
         root.getChild("left_arm").addOrReplaceChild("pad", mirrored(64, 24, -2, -4, -3, 6, 2, 6), none());
 
-        // BOOTS - wider lugged sole that reaches past the shell, toe bumper.
+        // BOOTS - lugged sole that reaches past the shell, toe bumper,
+        // cross-lace strip on the shin, heel bumper, rear pull loop.
         // Widths are 5 (not 6) so the two soles never overlap and z-fight.
         root.getChild("right_leg").addOrReplaceChild("sole", box(64, 34, -3, 12, -4, 5, 1, 8), none());
         root.getChild("left_leg").addOrReplaceChild("sole", mirrored(64, 34, -2, 12, -4, 5, 1, 8), none());
         root.getChild("right_leg").addOrReplaceChild("toe", box(96, 34, -2, 10, -5, 4, 3, 1), none());
         root.getChild("left_leg").addOrReplaceChild("toe", mirrored(96, 34, -2, 10, -5, 4, 3, 1), none());
+        root.getChild("right_leg").addOrReplaceChild("lace", box(96, 44, -1, 6, -4, 2, 6, 2), none());
+        root.getChild("left_leg").addOrReplaceChild("lace", mirrored(96, 44, -1, 6, -4, 2, 6, 2), none());
+        root.getChild("right_leg").addOrReplaceChild("heel", box(103, 44, -2, 9, 2, 4, 3, 2), none());
+        root.getChild("left_leg").addOrReplaceChild("heel", mirrored(103, 44, -2, 9, 2, 4, 3, 2), none());
+        root.getChild("right_leg").addOrReplaceChild("tab", box(96, 52, -1, 8, 2, 2, 2, 2), none());
+        root.getChild("left_leg").addOrReplaceChild("tab", mirrored(96, 52, -1, 8, 2, 2, 2, 2), none());
 
         return LayerDefinition.create(mesh, 128, 64);
     }
@@ -111,12 +121,17 @@ public final class BhqArmorModels {
         PartDefinition root = mesh.getRoot();
 
         root.getChild("body").addOrReplaceChild("belt", box(64, 10, -5, 10, -3, 10, 2, 6), none());
+        root.getChild("body").addOrReplaceChild("loop_l", box(88, 6, -3, 10, 2, 2, 1, 2), none());
+        root.getChild("body").addOrReplaceChild("loop_r", box(88, 6, 1, 10, 2, 2, 1, 2), none());
 
-        // cargo pocket on the OUTER thigh, knee pad on the front of each knee
+        // cargo pocket on the OUTER thigh, knee pad on the front of each
+        // knee, strap ring buckled just below the pad
         root.getChild("right_leg").addOrReplaceChild("pocket", box(64, 0, -4, 2, -2, 2, 4, 4), none());
         root.getChild("left_leg").addOrReplaceChild("pocket", mirrored(64, 0, 2, 2, -2, 2, 4, 4), none());
         root.getChild("right_leg").addOrReplaceChild("kneepad", box(80, 0, -2, 5, -3, 4, 3, 1), none());
         root.getChild("left_leg").addOrReplaceChild("kneepad", mirrored(80, 0, -2, 5, -3, 4, 3, 1), none());
+        root.getChild("right_leg").addOrReplaceChild("kneestrap", box(88, 0, -3, 9, -2, 6, 1, 4), none());
+        root.getChild("left_leg").addOrReplaceChild("kneestrap", mirrored(88, 0, -3, 9, -2, 6, 1, 4), none());
 
         return LayerDefinition.create(mesh, 128, 64);
     }
