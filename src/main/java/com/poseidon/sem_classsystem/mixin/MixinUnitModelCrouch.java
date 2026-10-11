@@ -1,4 +1,4 @@
-// Client-side mixin - poses a crouch when a unit is sneaking.
+// Client-side mixin - poses a kneel when a unit is sneaking.
 // Registered in the "client" section of the mixin config: model classes
 // only exist on the client, so this must never load on a server.
 package com.poseidon.sem_classsystem.mixin;
@@ -6,6 +6,7 @@ package com.poseidon.sem_classsystem.mixin;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Pose;
 import net.nekoyuni.SimpleEnemyMod.entity.client.pmc_unit.PmcUnitModel;
 import net.nekoyuni.SimpleEnemyMod.entity.client.ru_unit.RUunitModel;
 import net.nekoyuni.SimpleEnemyMod.entity.client.us_unit.USunitModel;
@@ -19,12 +20,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // All three SEM unit models share the same field names (verified identical),
 // and BHQ reuses PmcUnitModel - so one multi-target mixin covers every unit.
 // The server sets the shared sneak flag on the entity (RangedGunAttackGoal
-// mixin); here we read it and bend the model into a waist-lean crouch.
+// mixin); here we read it and pose a marksman's kneel.
 //
-// We shift POSITIONS only and leave rotations alone: SEM's procedural aim
-// writes head/arm rotations every frame from the look direction, so keeping
-// them untouched means the gun and eyes stay glued to the target while the
-// torso leans - exactly how a real firing crouch looks.
+// The kneel: left leg folds back so the knee/shin lies on the ground,
+// right leg swings forward so the foot plants ahead - classic one-knee
+// firing stance. Torso keeps a small forward lean and everything rides
+// down ~5px so the folded silhouette stays grounded. Rotations on arms and
+// head stay SEM's procedural aim - the gun and eyes keep tracking the
+// target while the legs do the work.
 @Mixin({PmcUnitModel.class, RUunitModel.class, USunitModel.class})
 public abstract class MixinUnitModelCrouch {
 
@@ -34,31 +37,68 @@ public abstract class MixinUnitModelCrouch {
     @Shadow(remap = false) @Final private ModelPart body;
     @Shadow(remap = false) @Final private ModelPart rightArm;
     @Shadow(remap = false) @Final private ModelPart leftArm;
+    @Shadow(remap = false) @Final private ModelPart rightLeg;
+    @Shadow(remap = false) @Final private ModelPart leftLeg;
+    // Rig root: head/body/arms/legs all hang under it - one transform moves
+    // the whole soldier (and any gear layers riding those parts).
+    @Shadow(remap = false) @Final private ModelPart unit;
 
     // TAIL of setupAnim: SEM resets every part's pose, runs the keyframe
-    // animations and the procedural aim layers - we then add the crouch
-    // offsets on top so the pose composes with idle/aim instead of fighting.
+    // animations and the procedural aim layers - we then add the kneel
+    // on top so it composes with idle/aim instead of fighting it.
     @Inject(method = "setupAnim", at = @At("TAIL"))
-    private void semcs$applyCrouchPose(Entity entity, float limbSwing, float limbSwingAmount,
-                                       float ageInTicks, float netHeadYaw, float headPitch,
-                                       CallbackInfo ci) {
-        // Sneak flag off, or the entity is dying (death anim owns the pose)
-        if (!(entity instanceof LivingEntity living)
-                || !living.isShiftKeyDown()
-                || !living.isAlive()) {
+    private void semcs$applyKneelPose(Entity entity, float limbSwing, float limbSwingAmount,
+                                      float ageInTicks, float netHeadYaw, float headPitch,
+                                      CallbackInfo ci) {
+        // Sneak flag off, dying (death anim owns the pose) or prone
+        // (SWIMMING pose - the renderer owns the silhouette): stand down.
+        if (!(entity instanceof LivingEntity living) || !living.isAlive()) {
             return;
         }
 
-        // Torso leans forward at the waist (vanilla-sneak style). The chest
-        // is a sibling part - pitching it alone detaches it visually, so the
-        // head and arms get shifted down/forward to ride the lean.
-        this.body.xRot += 0.45F;
-        this.body.y += 2.0F;
-        this.head.y += 3.6F;
-        this.head.z += 1.2F;
-        this.rightArm.y += 3.2F;
-        this.rightArm.z += 1.2F;
-        this.leftArm.y += 3.2F;
-        this.leftArm.z += 1.2F;
+        // PRONE: the fire goal sets Pose.SWIMMING as our prone flag. Positive
+        // xRot leans the rig forward, so a full half-turn lays the model
+        // flat on its belly, head leading toward the aim direction. Then a
+        // small lift so the body hugs the ground instead of clipping it.
+        if (living.getPose() == Pose.SWIMMING) {
+            // Pivot is at the feet: after the half-turn the body extends
+            // ~1.5 blocks ahead - pull back so the torso sits over the
+            // entity (that's where the prone hitbox lives), and lift a
+            // couple px so the back doesn't z-fight the floor.
+            this.unit.xRot += (float) (Math.PI / 2.0);
+            this.unit.y -= 3.0F;
+            this.unit.z -= 10.0F;
+            return;
+        }
+
+        // KNEEL below - only when the sneak flag is ours.
+        if (!living.isShiftKeyDown()) {
+            return;
+        }
+
+        float drop = 5.0F;   // how far the whole rig rides down (px)
+
+        // Torso leans forward a touch - steady kneel, not a bow.
+        this.body.xRot += 0.22F;
+        this.body.y += drop;
+
+        // Head and arms ride the torso down and slightly forward - aim
+        // stays attached to the body, not floating above it.
+        this.head.y += drop + 2.0F;
+        this.head.z += 0.6F;
+        this.rightArm.y += drop + 1.8F;
+        this.rightArm.z += 0.6F;
+        this.leftArm.y += drop + 1.8F;
+        this.leftArm.z += 0.6F;
+
+        // Right leg: knee driven forward and down - the planted foot.
+        this.rightLeg.xRot += -1.15F;
+        this.rightLeg.y += drop + 0.6F;
+        this.rightLeg.z -= 1.2F;
+
+        // Left leg: folded back under - the knee and shin on the ground.
+        this.leftLeg.xRot += 1.35F;
+        this.leftLeg.y += drop + 0.8F;
+        this.leftLeg.z += 1.0F;
     }
 }

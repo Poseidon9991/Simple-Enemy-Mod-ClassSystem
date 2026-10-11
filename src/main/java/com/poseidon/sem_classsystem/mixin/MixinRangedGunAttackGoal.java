@@ -100,6 +100,11 @@ public abstract class MixinRangedGunAttackGoal {
     @Unique
     private boolean semcs$aiming = false;
 
+    // True while WE hold the unit in the prone (SWIMMING) pose - released in
+    // stop()/start() transitions we own only.
+    @Unique
+    private boolean semcs$prone = false;
+
     // Successful shots since the Camper last displaced - reposition trigger.
     @Unique
     private int semcs$shotsSinceMove = 0;
@@ -361,10 +366,51 @@ public abstract class MixinRangedGunAttackGoal {
         if (this.mob.tickCount % 5 != 0) {
             return;
         }
+        semcs$updateStance();
         if (WeaponClassSupport.get(this.mob) == WeaponClass.SNIPER
                 && WeaponClassSupport.getEffective(this.mob) == WeaponClass.SNIPER) {
             IGunOperator.fromLivingEntity(this.mob).aim(true);
             this.semcs$aiming = true;
+        }
+    }
+
+    // ---- stance selection ---------------------------------------------------
+    // Three firing stances for classes with crouchWhileFiring:
+    //   STAND -> close range or while moving (already SEM default)
+    //   KNEEL -> mid range, the crouchWhileFiring class pose
+    //   PRONE -> past the class's proneDistance AND planted (nav done,
+    //            on the ground): flat on the belly, smallest silhouette.
+    // Prone rides the synced SWIMMING pose so the client model and the
+    // hitbox both know about it; KNEEL is the vanilla sneak flag.
+    @Unique
+    private void semcs$updateStance() {
+        WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
+        if (cls == null || !ClassSystemConfig.classCrouchWhileFiring(cls)) {
+            return;
+        }
+        double proneDist = ClassSystemConfig.classProneDistance(cls);
+        boolean wantProne = proneDist > 0.0 && this.target != null
+                && this.mob.distanceTo(this.target) > proneDist
+                && this.mob.onGround()
+                && this.mob.getNavigation().isDone();
+        if (wantProne) {
+            if (this.mob.getPose() != net.minecraft.world.entity.Pose.SWIMMING) {
+                this.mob.setPose(net.minecraft.world.entity.Pose.SWIMMING);
+            }
+            if (this.semcs$crouching) {
+                this.mob.setShiftKeyDown(false);
+                this.semcs$crouching = false;
+            }
+            this.semcs$prone = true;
+        } else {
+            if (this.semcs$prone) {
+                this.mob.setPose(net.minecraft.world.entity.Pose.STANDING);
+                this.semcs$prone = false;
+            }
+            if (!this.semcs$crouching) {
+                this.mob.setShiftKeyDown(true);
+                this.semcs$crouching = true;
+            }
         }
     }
 
@@ -603,6 +649,10 @@ public abstract class MixinRangedGunAttackGoal {
         if (this.semcs$crouching) {
             this.mob.setShiftKeyDown(false);
             this.semcs$crouching = false;
+        }
+        if (this.semcs$prone) {
+            this.mob.setPose(net.minecraft.world.entity.Pose.STANDING);
+            this.semcs$prone = false;
         }
         if (this.semcs$aiming) {
             IGunOperator.fromLivingEntity(this.mob).aim(false);
