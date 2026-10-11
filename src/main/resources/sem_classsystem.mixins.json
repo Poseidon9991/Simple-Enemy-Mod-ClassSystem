@@ -17,10 +17,10 @@
     "MixinTacticalManagerGoal",
     "MixinUnitAmmoReserve",
     "MixinUnitInventoryHandler",
-    "MixinUnitProneDimensions",
     "MixinWeaponEquippers"
   ],
   "client": [
+    "MixinGeckoArmorTexture",
     "MixinUniversalArmorLayer",
     "MixinUnitModelCrouch"
   ],
