@@ -1,8 +1,4 @@
 {
-  "heal_items": [
-    "survival_instinct:bandage",
-    "survival_instinct:medkit_bag"
-  ],
   "classes": {
     "smg": {
       "vector45": {

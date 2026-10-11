@@ -42,8 +42,6 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
 
     // factionId -> weapon class -> loadout pool (empty until a world loads)
     private static Map<String, Map<WeaponClass, List<UnitLoadout>>> LOADOUTS = Collections.emptyMap();
-    // factionId -> spawn-grant medical item ids ("heal_items" array).
-    private static Map<String, List<ResourceLocation>> HEAL_ITEMS = Collections.emptyMap();
     // gunId -> owning class, flattened from LOADOUTS at load time.
     // inferClass runs inside the per-tick canUse evaluation of every armed
     // unit - keep it O(1) instead of re-scanning all tables every call.
@@ -69,7 +67,6 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
     protected void apply(Map<ResourceLocation, JsonElement> files, ResourceManager resourceManager,
                          ProfilerFiller profiler) {
         Map<String, Map<WeaponClass, List<UnitLoadout>>> table = new HashMap<>();
-        Map<String, List<ResourceLocation>> healTable = new HashMap<>();
 
         for (Map.Entry<ResourceLocation, JsonElement> file : files.entrySet()) {
             String path = file.getKey().getPath();                    // "class_loadouts/ru_units"
@@ -77,16 +74,6 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
 
             try {
                 JsonObject root = file.getValue().getAsJsonObject();
-
-                // Optional "heal_items": ["modid:item", ...] - spawn-grant
-                // medical supplies for this faction's units.
-                if (root.has("heal_items") && root.get("heal_items").isJsonArray()) {
-                    List<ResourceLocation> items = new ArrayList<>();
-                    for (JsonElement el : root.getAsJsonArray("heal_items")) {
-                        items.add(ResourceLocation.parse(el.getAsString()));
-                    }
-                    healTable.put(factionId, items);
-                }
 
                 if (!root.has("classes") || !root.get("classes").isJsonObject()) {
                     SemClassSystem.LOGGER.warn("class_loadouts file {} is missing the 'classes' object - skipped",
@@ -128,7 +115,6 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
         }
 
         LOADOUTS = table;
-        HEAL_ITEMS = healTable;
         Map<ResourceLocation, WeaponClass> gunIndex = new HashMap<>();
         for (Map<WeaponClass, List<UnitLoadout>> byClass : table.values()) {
             for (Map.Entry<WeaponClass, List<UnitLoadout>> e : byClass.entrySet()) {
@@ -198,30 +184,5 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
     @Nullable
     public static WeaponClass classOf(ResourceLocation gunId) {
         return GUN_TO_CLASS.get(gunId);
-    }
-
-    // Random medical item id from a faction's heal_items pool; null when
-    // the faction has no pool or every entry is a missing mod id.
-    @Nullable
-    public static ResourceLocation pickHealItem(String factionId,
-                                                net.minecraft.util.RandomSource random) {
-        List<ResourceLocation> pool = HEAL_ITEMS.get(factionId);
-        if (pool == null || pool.isEmpty()) {
-            return null;
-        }
-        // Items CAN be validated here - unlike guns, ordinary items live in
-        // Forge's registry which is fully populated at datapack time.
-        List<ResourceLocation> valid = new ArrayList<>(pool.size());
-        for (ResourceLocation id : pool) {
-            if (net.minecraftforge.registries.ForgeRegistries.ITEMS.containsKey(id)) {
-                valid.add(id);
-            } else if (WARNED_GUNS.add(id)) {
-                SemClassSystem.LOGGER.warn("heal item '{}' is not installed - skipping while spawning", id);
-            }
-        }
-        if (valid.isEmpty()) {
-            return null;
-        }
-        return valid.get(random.nextInt(valid.size()));
     }
 }

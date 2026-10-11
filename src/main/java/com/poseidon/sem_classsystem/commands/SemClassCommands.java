@@ -84,40 +84,7 @@ public final class SemClassCommands {
                         .then(Commands.argument("targets", EntityArgument.entities())
                                 .then(Commands.argument("class", StringArgumentType.word())
                                         .suggests(CLASS_SUGGEST)
-                                        .executes(SemClassCommands::reclassUnits))))
-
-                // ---- /semcs debug - diagnose the nearest unit ----
-                .then(Commands.literal("debug")
-                        .executes(SemClassCommands::debugNearestUnit)));
-    }
-
-    // ---- debug --------------------------------------------------------
-
-    // /semcs debug - runtime report for the closest SEM unit (within 16
-    // blocks): goal injection, class, melee gate, heal item scan.
-    private static int debugNearestUnit(CommandContext<CommandSourceStack> ctx) {
-        Player player = playerOrNull(ctx);
-        if (player == null) return 0;
-
-        AbstractUnit nearest = null;
-        double best = 16.0 * 16.0;
-        for (AbstractUnit unit : player.level().getEntitiesOfClass(AbstractUnit.class,
-                player.getBoundingBox().inflate(16.0))) {
-            double d = unit.distanceToSqr(player);
-            if (d < best) {
-                best = d;
-                nearest = unit;
-            }
-        }
-        if (nearest == null) {
-            ctx.getSource().sendFailure(Component.literal(
-                    "No SEM unit within 16 blocks"));
-            return 0;
-        }
-        for (String line : com.poseidon.sem_classsystem.ai.UnitDebugSupport.report(nearest)) {
-            player.sendSystemMessage(Component.literal(line));
-        }
-        return 1;
+                                        .executes(SemClassCommands::reclassUnits)))));
     }
 
     // ---- recruit_class ------------------------------------------------

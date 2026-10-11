@@ -1,9 +1,4 @@
 {
-  "heal_items": [
-    "survival_instinct:medkit_bag",
-    "survival_instinct:morphine_injector",
-    "survival_instinct:bandage"
-  ],
   "classes": {
     "smg": {
       "hk_mp5a5": {
