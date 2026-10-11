@@ -6,10 +6,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.model.geom.ModelPart;
 import net.nekoyuni.SimpleEnemyMod.compat.geckolib.internal.GeckoArmorLayerImpl;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Map;
@@ -58,5 +60,20 @@ public abstract class MixinGeckoArmorTexture {
             }
             cir.setReturnValue(EMPTY_TEXTURE);
         }
+    }
+
+    // Must match MixinUniversalArmorLayer.ARMOR_SCALE - this layer is the
+    // other armor path (gecko/modded pieces) and hard-resets every synced
+    // part to 1.0, which left modded armor looking small next to the
+    // scaled vanilla pieces.
+    private static final float ARMOR_SCALE = 1.5F;
+
+    // remap=false: SEM-internal method name.
+    @Inject(method = "copyPartWithGlobalOffset", at = @At("RETURN"), remap = false)
+    private void semcs$scaleGeckoArmorPart(ModelPart source, ModelPart target,
+                                           float pX, float pY, float pZ,
+                                           float rX, float rY, float rZ,
+                                           boolean preserveVisibility, CallbackInfo ci) {
+        target.xScale = target.yScale = target.zScale = ARMOR_SCALE;
     }
 }
