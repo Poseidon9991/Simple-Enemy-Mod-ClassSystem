@@ -56,29 +56,16 @@ public abstract class MixinUnitModelCrouch {
             return;
         }
 
-        float drop = 5.0F;   // how far the whole rig rides down (px)
-
-        // Torso leans forward a touch - steady kneel, not a bow.
-        this.body.xRot += 0.22F;
-        this.body.y += drop;
-
-        // Head and arms ride the torso down and slightly forward - aim
-        // stays attached to the body, not floating above it.
-        this.head.y += drop + 2.0F;
-        this.head.z += 0.6F;
-        this.rightArm.y += drop + 1.8F;
-        this.rightArm.z += 0.6F;
-        this.leftArm.y += drop + 1.8F;
-        this.leftArm.z += 0.6F;
-
-        // Right leg: knee driven forward and down - the planted foot.
-        this.rightLeg.xRot += -1.15F;
-        this.rightLeg.y += drop + 0.6F;
-        this.rightLeg.z -= 1.2F;
-
-        // Left leg: folded back under - the knee and shin on the ground.
-        this.leftLeg.xRot += 1.35F;
-        this.leftLeg.y += drop + 0.8F;
-        this.leftLeg.z += 1.0F;
+        // Torso leans forward at the waist (vanilla-sneak style). The chest
+        // is a sibling part - pitching it alone detaches it visually, so the
+        // head and arms get shifted down/forward to ride the lean.
+        this.body.xRot += 0.45F;
+        this.body.y += 2.0F;
+        this.head.y += 3.6F;
+        this.head.z += 1.2F;
+        this.rightArm.y += 3.2F;
+        this.rightArm.z += 1.2F;
+        this.leftArm.y += 3.2F;
+        this.leftArm.z += 1.2F;
     }
 }

@@ -20,15 +20,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(UniversalArmorLayer.class)
 public abstract class MixinUniversalArmorLayer {
 
+    // Unit skin + its painted-gear overlay sits proud of a 1.0 armor shell,
+    // so flat armor disappears inside the body. A mild uniform bump clears
+    // the skin without SEM's bloated ~x2 inflation.
+    private static final float ARMOR_SCALE = 1.2F;
+
     @Inject(method = "applyManualScale", at = @At("HEAD"), cancellable = true, remap = false)
     private void semcs$playerScaleArmor(HumanoidModel<LivingEntity> armorModel,
                                         EquipmentSlot slot, CallbackInfo ci) {
         // Scale persists on the shared baked model across renders - snap
-        // back to 1.0 in case anything else wrote it.
+        // it back to ours in case anything else wrote it.
         for (ModelPart part : new ModelPart[]{armorModel.head, armorModel.hat,
                 armorModel.body, armorModel.rightArm, armorModel.leftArm,
                 armorModel.rightLeg, armorModel.leftLeg}) {
-            part.xScale = part.yScale = part.zScale = 1.0F;
+            part.xScale = part.yScale = part.zScale = ARMOR_SCALE;
         }
         ci.cancel();
     }
