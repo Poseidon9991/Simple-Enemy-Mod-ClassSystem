@@ -443,16 +443,18 @@ public abstract class MixinRangedGunAttackGoal {
     // carrying a lobber) may fire BLIND - the ballistic prediction aims the
     // arc and the fire-correction loop walks impacts onto the target.
     // Flat shooters keep the LoS rule - an RPG fired through a wall just
-    // digs a hole in it. remap=true: Sensing is vanilla.
-    @Redirect(method = {"canUse", "tick", "handleBurstFiringState"},
-            at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/world/entity/ai/sensing/Sensing;hasLineOfSight(Lnet/minecraft/world/entity/Entity;)Z"))
-    private boolean semcs$indirectFire(
-            net.minecraft.world.entity.ai.sensing.Sensing sensing, Entity entity) {
-        if (sensing.hasLineOfSight(entity)) {
-            return true;
+    // digs a hole in it.
+    //
+    // The goal's LoS gates all funnel through its own private cached
+    // helpers (rough = foliage-transparent, clear = strict). HEAD-injecting
+    // them covers every caller - canUse, tick, burst - at once.
+    // remap=false: SEM-internal method names, same in dev and production.
+    @Inject(method = {"getCachedRoughLineOfSight", "getCachedClearLineOfSight"},
+            at = @At("HEAD"), cancellable = true, remap = false)
+    private void semcs$indirectFire(LivingEntity entity, CallbackInfoReturnable<Boolean> cir) {
+        if (entity == this.target && semcs$heldIsLobber()) {
+            cir.setReturnValue(true);
         }
-        return entity == this.target && semcs$heldIsLobber();
     }
 
     // Is the held weapon a LOBBER - an rpg-typed gun with enough gravity and
