@@ -77,23 +77,6 @@ public final class SemcsRegistries {
             () -> new BlockItem(BHQ_RECRUIT_TABLE.get(), new Item.Properties())
     );
 
-    // ---- BHQ armor set ------------------------------------------------------
-    // The signature kit fresh BHQ operators wear: cap (with BHQ logo), plate
-    // vest, combat pants, tactical boots. Elite tier between iron and
-    // diamond; renders on units AND players via BhqArmorItem.getArmorTexture.
-    public static final RegistryObject<Item> BHQ_CAP = ITEMS.register(
-            "bhq_cap", () -> new com.poseidon.sem_classsystem.item.BhqArmorItem(
-                    net.minecraft.world.item.ArmorItem.Type.HELMET, new Item.Properties()));
-    public static final RegistryObject<Item> BHQ_VEST = ITEMS.register(
-            "bhq_vest", () -> new com.poseidon.sem_classsystem.item.BhqArmorItem(
-                    net.minecraft.world.item.ArmorItem.Type.CHESTPLATE, new Item.Properties()));
-    public static final RegistryObject<Item> BHQ_LEGGINGS = ITEMS.register(
-            "bhq_leggings", () -> new com.poseidon.sem_classsystem.item.BhqArmorItem(
-                    net.minecraft.world.item.ArmorItem.Type.LEGGINGS, new Item.Properties()));
-    public static final RegistryObject<Item> BHQ_BOOTS = ITEMS.register(
-            "bhq_boots", () -> new com.poseidon.sem_classsystem.item.BhqArmorItem(
-                    net.minecraft.world.item.ArmorItem.Type.BOOTS, new Item.Properties()));
-
     // Spawn egg uses SEM's RoleSpawnEggItem so eggs spawn with the same
     // FRIENDLY_DEFAULT role SEM's own PMC egg assigns.
     // Colors: tactical black shell + Cambodian-flag red spots.
@@ -183,12 +166,6 @@ public final class SemcsRegistries {
         public static void addCreative(BuildCreativeModeTabContentsEvent event) {
             if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
                 event.accept(BHQ_RECRUIT_TABLE_ITEM.get());
-            }
-            if (event.getTabKey() == CreativeModeTabs.COMBAT) {
-                event.accept(BHQ_CAP.get());
-                event.accept(BHQ_VEST.get());
-                event.accept(BHQ_LEGGINGS.get());
-                event.accept(BHQ_BOOTS.get());
             }
             if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
                 event.accept(BHQ_UNIT_SPAWN_EGG.get());
