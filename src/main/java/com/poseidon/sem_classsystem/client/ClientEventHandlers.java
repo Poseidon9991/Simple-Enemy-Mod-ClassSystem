@@ -28,6 +28,12 @@ public final class ClientEventHandlers {
     }
 
     @SubscribeEvent
+    public static void onRegisterLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
+        event.registerLayerDefinition(BhqArmorModels.OUTER, BhqArmorModels::createOuter);
+        event.registerLayerDefinition(BhqArmorModels.INNER, BhqArmorModels::createInner);
+    }
+
+    @SubscribeEvent
     public static void onAddLayers(EntityRenderersEvent.AddLayers event) {
         // tacz_sewv attaches its armor/holster layers to a fixed list of entity
         // types that predates this addon - add them to BHQ ourselves so its

@@ -56,7 +56,7 @@ public abstract class MixinMoveToAttackRange {
 
     // canUse runs every evaluation - retune here too so a re-classed unit
     // (e.g. /semcs class) updates its preferred distance mid-fight.
-    @Inject(method = "canUse", at = @At("HEAD"))
+    @Inject(method = "canUse", at = @At("HEAD"), cancellable = true)
     private void semcs$retuneOnUse(CallbackInfoReturnable<Boolean> cir) {
         // Holding a melee weapon? This goal's whole job is gun spacing -
         // stand down and let UnitMeleeGoal own the approach.

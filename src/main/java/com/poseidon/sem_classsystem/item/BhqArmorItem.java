@@ -30,4 +30,21 @@ public class BhqArmorItem extends ArmorItem {
         int layer = slot == EquipmentSlot.LEGS ? 2 : 1;
         return SemClassSystem.MODID + ":textures/models/armor/bhq_layer_" + layer + ".png";
     }
+
+    // Swap vanilla's flat armor shell for the 3D BHQ model. Both ArmorLayer
+    // (players) and SEM's UniversalArmorLayer (units) fetch the model through
+    // Forge's getHumanoidArmorModel hook, so one override covers everyone.
+    // The anonymous class only loads on the client - this method is never
+    // called on a dedicated server.
+    @Override
+    public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
+        consumer.accept(new net.minecraftforge.client.extensions.common.IClientItemExtensions() {
+            @Override
+            public net.minecraft.client.model.HumanoidModel<?> getHumanoidArmorModel(
+                    net.minecraft.world.entity.LivingEntity entity, ItemStack stack,
+                    EquipmentSlot slot, net.minecraft.client.model.HumanoidModel<?> original) {
+                return com.poseidon.sem_classsystem.client.BhqArmorModels.forSlot(slot);
+            }
+        });
+    }
 }
