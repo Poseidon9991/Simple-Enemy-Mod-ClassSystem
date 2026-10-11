@@ -90,15 +90,26 @@ public final class SemcsRegistries {
     // GeckoLib pieces - each owns its geo model + texture. Cap and helmet
     // are both helmet slot: soft cap vs ballistic shell.
     public static final RegistryObject<Item> BHQ_CAP = ITEMS.register("bhq_cap",
-            () -> new BhqArmorItem("cap", ArmorItem.Type.HELMET));
+            () -> new BhqArmorItem("bhq_cap", ArmorItem.Type.HELMET));
     public static final RegistryObject<Item> BHQ_HELMET = ITEMS.register("bhq_helmet",
-            () -> new BhqArmorItem("helmet", ArmorItem.Type.HELMET));
+            () -> new BhqArmorItem("bhq_helmet", ArmorItem.Type.HELMET));
     public static final RegistryObject<Item> BHQ_VEST = ITEMS.register("bhq_vest",
-            () -> new BhqArmorItem("vest", ArmorItem.Type.CHESTPLATE));
+            () -> new BhqArmorItem("bhq_vest", ArmorItem.Type.CHESTPLATE));
     public static final RegistryObject<Item> BHQ_LEGGINGS = ITEMS.register("bhq_leggings",
-            () -> new BhqArmorItem("leggings", ArmorItem.Type.LEGGINGS));
+            () -> new BhqArmorItem("bhq_leggings", ArmorItem.Type.LEGGINGS));
     public static final RegistryObject<Item> BHQ_BOOTS = ITEMS.register("bhq_boots",
-            () -> new BhqArmorItem("boots", ArmorItem.Type.BOOTS));
+            () -> new BhqArmorItem("bhq_boots", ArmorItem.Type.BOOTS));
+
+    // ---- 911 Special Forces set --------------------------------------------
+    // Cambodia's counter-terror unit: red beret + tiger-stripe kit.
+    public static final RegistryObject<Item> SF911_BERET = ITEMS.register("sf911_beret",
+            () -> new BhqArmorItem("sf911_beret", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> SF911_VEST = ITEMS.register("sf911_vest",
+            () -> new BhqArmorItem("sf911_vest", ArmorItem.Type.CHESTPLATE));
+    public static final RegistryObject<Item> SF911_PANTS = ITEMS.register("sf911_pants",
+            () -> new BhqArmorItem("sf911_pants", ArmorItem.Type.LEGGINGS));
+    public static final RegistryObject<Item> SF911_BOOTS = ITEMS.register("sf911_boots",
+            () -> new BhqArmorItem("sf911_boots", ArmorItem.Type.BOOTS));
 
     // Spawn egg uses SEM's RoleSpawnEggItem so eggs spawn with the same
     // FRIENDLY_DEFAULT role SEM's own PMC egg assigns.
@@ -160,6 +171,10 @@ public final class SemcsRegistries {
                         output.accept(BHQ_VEST.get());
                         output.accept(BHQ_LEGGINGS.get());
                         output.accept(BHQ_BOOTS.get());
+                        output.accept(SF911_BERET.get());
+                        output.accept(SF911_VEST.get());
+                        output.accept(SF911_PANTS.get());
+                        output.accept(SF911_BOOTS.get());
                         output.accept(BHQ_UNIT_SPAWN_EGG.get());
                         for (RegistryObject<Item> egg : CLASS_SPAWN_EGGS) {
                             output.accept(egg.get());

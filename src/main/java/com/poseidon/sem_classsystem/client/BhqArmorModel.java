@@ -13,13 +13,13 @@ public class BhqArmorModel extends GeoModel<BhqArmorItem> {
     @Override
     public ResourceLocation getModelResource(BhqArmorItem item) {
         return ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID,
-                "geo/bhq_" + item.piece() + ".geo.json");
+                "geo/" + item.piece() + ".geo.json");
     }
 
     @Override
     public ResourceLocation getTextureResource(BhqArmorItem item) {
         return ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID,
-                "textures/models/armor/bhq_" + item.piece() + ".png");
+                "textures/models/armor/" + item.piece() + ".png");
     }
 
     @Override
