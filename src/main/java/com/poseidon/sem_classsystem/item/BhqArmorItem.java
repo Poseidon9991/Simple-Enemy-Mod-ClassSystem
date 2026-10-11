@@ -48,6 +48,9 @@ public class BhqArmorItem extends ArmorItem implements GeoItem {
                 if (this.renderer == null) {
                     this.renderer = new GeoArmorRenderer<>(new BhqArmorModel());
                 }
+                // Required on the vanilla render path (ZeroContact does the
+                // same): populates entity/stack/slot or renderToBuffer NPEs.
+                this.renderer.prepForRender(entity, stack, slot, base);
                 return this.renderer;
             }
         });
