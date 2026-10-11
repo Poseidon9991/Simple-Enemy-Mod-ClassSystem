@@ -23,7 +23,7 @@ public abstract class MixinUniversalArmorLayer {
     // Unit skin + its painted-gear overlay sits proud of a 1.0 armor shell,
     // so flat armor disappears inside the body. A mild uniform bump clears
     // the skin without SEM's bloated ~x2 inflation.
-    private static final float ARMOR_SCALE = 1.2F;
+    private static final float ARMOR_SCALE = 1.5F;
 
     @Inject(method = "applyManualScale", at = @At("HEAD"), cancellable = true, remap = false)
     private void semcs$playerScaleArmor(HumanoidModel<LivingEntity> armorModel,
