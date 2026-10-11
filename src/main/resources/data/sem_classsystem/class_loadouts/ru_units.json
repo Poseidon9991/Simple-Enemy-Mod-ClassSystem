@@ -1,4 +1,8 @@
 {
+  "heal_items": [
+    "survival_instinct:homemade_bandage",
+    "survival_instinct:bandage"
+  ],
   "classes": {
     "smg": {
       "uzi": {

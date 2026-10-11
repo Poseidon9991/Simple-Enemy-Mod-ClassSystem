@@ -32,6 +32,11 @@ public class ClassSystemConfig {
             new EnumMap<>(UnitClass.class);
     // BHQ recruit table price (assigned inside the static block below)
     private static ForgeConfigSpec.IntValue BHQ_RECRUIT_PRICE;
+    // Unit item-usage values (assigned inside the static block below)
+    private static ForgeConfigSpec.DoubleValue HEAL_BELOW;
+    private static ForgeConfigSpec.IntValue HEAL_COOLDOWN;
+    private static ForgeConfigSpec.IntValue SPAWN_HEAL_COUNT;
+    private static ForgeConfigSpec.BooleanValue MELEE_ENABLED;
 
     // static {} runs once at class load - defines ALL keys before register()
     static {
@@ -189,6 +194,31 @@ public class ClassSystemConfig {
                     .define(key, def));
         }
         BUILDER.pop();   // close [compat]
+
+        // ================= Unit item usage =================
+        BUILDER.push("unit_items");
+        BUILDER.comment(
+                "Units using ordinary items - medical supplies and melee weapons.",
+                "Self-heal: a unit below healBelowFraction health consumes one",
+                "item tagged sem_classsystem:unit_healing from its storage",
+                "slots (6+), running that item's own use effect (Survival",
+                "Instinct medkits, bandages, injectors work out of the box).",
+                "Melee: a unit whose main hand holds a non-gun item with",
+                "attack damage uses vanilla melee attack instead of gun AI.");
+        HEAL_BELOW = BUILDER
+                .comment("Health fraction under which a unit uses a healing item")
+                .defineInRange("healBelowFraction", 0.55, 0.0, 1.0);
+        HEAL_COOLDOWN = BUILDER
+                .comment("Ticks before a unit may consume another healing item")
+                .defineInRange("healCooldownTicks", 300, 0, 12000);
+        SPAWN_HEAL_COUNT = BUILDER
+                .comment("How many items from the faction's heal_items pool a unit",
+                        "spawns carrying (restockable via the equipment GUI)")
+                .defineInRange("spawnHealItems", 2, 0, 8);
+        MELEE_ENABLED = BUILDER
+                .comment("Units holding non-gun melee weapons actually attack with them")
+                .define("meleeAttackEnabled", true);
+        BUILDER.pop();   // close [unit_items]
 
         // ================= BHQ recruit table =================
         BUILDER.push("bhq_recruit");
@@ -541,6 +571,44 @@ public class ClassSystemConfig {
             return v.get();
         } catch (IllegalStateException notLoadedYet) {
             return unitClass == UnitClass.PMC_UNIT || unitClass == UnitClass.BHQ_UNIT;
+        }
+    }
+
+    // ================= Unit item accessors =================
+
+    // Health fraction under which a unit consumes a healing item
+    public static double healBelowFraction() {
+        try {
+            return HEAL_BELOW.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 0.55;
+        }
+    }
+
+    // Minimum ticks between a unit's healing item uses
+    public static int healCooldownTicks() {
+        try {
+            return HEAL_COOLDOWN.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 300;
+        }
+    }
+
+    // Heal items a freshly spawned unit carries (restockable via GUI)
+    public static int spawnHealItems() {
+        try {
+            return SPAWN_HEAL_COUNT.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 2;
+        }
+    }
+
+    // May units fight with held melee weapons?
+    public static boolean meleeAttackEnabled() {
+        try {
+            return MELEE_ENABLED.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return true;
         }
     }
 

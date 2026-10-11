@@ -172,6 +172,29 @@ public final class WeaponClassSupport {
     // one fixed band - a shotgun Jack closes in, a marksman Jack stands off.
     // The mixins call these when the effective class is JACK.
 
+    // Is this stack a melee weapon a unit can fight with? True for any
+    // non-gun item that adds real ATTACK_DAMAGE in the main hand
+    // (SwordItem, axes, Survival Instinct bats/maces/hammers). Guns are
+    // excluded twice over - AbstractGunItem and the IGun NBT interface.
+    // Shared by UnitMeleeGoal (attack gate) and MixinMoveToAttackRange
+    // (skips gun-spacing movement while a melee weapon is held).
+    public static boolean isMeleeWeapon(ItemStack stack) {
+        if (stack.isEmpty()
+                || stack.getItem() instanceof com.tacz.guns.api.item.gun.AbstractGunItem
+                || IGun.getIGunOrNull(stack) != null) {
+            return false;
+        }
+        var modifiers = stack.getAttributeModifiers(
+                net.minecraft.world.entity.EquipmentSlot.MAINHAND)
+                .get(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
+        for (var modifier : modifiers) {
+            if (modifier.getAmount() > 0.0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // TaCZ weapon type of the held gun ("rifle", "rpg", ...), null for
     // non-guns / unresolvable ids.
     @Nullable

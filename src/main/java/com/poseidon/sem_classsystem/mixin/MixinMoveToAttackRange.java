@@ -58,6 +58,13 @@ public abstract class MixinMoveToAttackRange {
     // (e.g. /semcs class) updates its preferred distance mid-fight.
     @Inject(method = "canUse", at = @At("HEAD"))
     private void semcs$retuneOnUse(CallbackInfoReturnable<Boolean> cir) {
+        // Holding a melee weapon? This goal's whole job is gun spacing -
+        // stand down and let UnitMeleeGoal own the approach.
+        if (ClassSystemConfig.meleeAttackEnabled()
+                && WeaponClassSupport.isMeleeWeapon(this.mob.getMainHandItem())) {
+            cir.setReturnValue(false);
+            return;
+        }
         semcs$applyTuning();
     }
 

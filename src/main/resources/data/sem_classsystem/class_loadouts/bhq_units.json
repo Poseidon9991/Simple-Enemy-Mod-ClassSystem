@@ -1,5 +1,10 @@
 {
   "comment": "BHQ operator loadouts. Guns whose id is not installed are skipped at load - dragonuv_svd joins only when the maxstuff gunpack is present.",
+  "heal_items": [
+    "survival_instinct:survival_medkit",
+    "survival_instinct:medkit_bag",
+    "survival_instinct:adrenaline_injector"
+  ],
   "classes": {
     "smg": {
       "mp5": {

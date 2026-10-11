@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    "survival_instinct:survival_medkit",
+    "survival_instinct:medkit_bag",
+    "survival_instinct:bandage",
+    "survival_instinct:homemade_bandage",
+    "survival_instinct:blood_syringe",
+    "survival_instinct:morphine_syringe",
+    "survival_instinct:morphine_injector",
+    "survival_instinct:adrenaline_syringe",
+    "survival_instinct:adrenaline_injector",
+    "survival_instinct:analgesic",
+    "survival_instinct:antibiotics",
+    "survival_instinct:alcohol_wipes"
+  ]
+}
