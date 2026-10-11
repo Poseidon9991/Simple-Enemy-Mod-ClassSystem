@@ -54,3 +54,11 @@ mandatory=true
 versionRange="[1.20.1-0.1.5-beta,1.20.1-0.1.6]"
 ordering="BEFORE"
 side="BOTH"
+# GeckoLib - required: BHQ armor items are GeoItems rendered by
+# GeoArmorRenderer, and SEM routes gecko armor through its own layer.
+[[dependencies.sem_classsystem]]
+modId="geckolib"
+mandatory=true
+versionRange="[4,)"
+ordering="NONE"
+side="BOTH"

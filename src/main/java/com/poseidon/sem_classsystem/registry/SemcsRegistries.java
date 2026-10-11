@@ -5,12 +5,18 @@ import com.poseidon.sem_classsystem.SemClassSystem;
 import com.poseidon.sem_classsystem.block.BhqRecruitTableBlock;
 import com.poseidon.sem_classsystem.entity.BhqUnitEntity;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
+import com.poseidon.sem_classsystem.item.BhqArmorItem;
 import com.poseidon.sem_classsystem.item.ClassSpawnEggItem;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -51,6 +57,9 @@ public final class SemcsRegistries {
     public static final DeferredRegister<Item> ITEMS =
             DeferredRegister.create(ForgeRegistries.ITEMS, SemClassSystem.MODID);
 
+    public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
+            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, SemClassSystem.MODID);
+
     // ---- BHQ unit ---------------------------------------------------------
     // Same physical box + tracking range SEM uses for pmcunit so hitboxes,
     // pathing and rendering behave identically.
@@ -76,6 +85,20 @@ public final class SemcsRegistries {
             "bhq_recruit_table",
             () -> new BlockItem(BHQ_RECRUIT_TABLE.get(), new Item.Properties())
     );
+
+    // ---- BHQ armor set -----------------------------------------------------
+    // GeckoLib pieces - each owns its geo model + texture. Cap and helmet
+    // are both helmet slot: soft cap vs ballistic shell.
+    public static final RegistryObject<Item> BHQ_CAP = ITEMS.register("bhq_cap",
+            () -> new BhqArmorItem("cap", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> BHQ_HELMET = ITEMS.register("bhq_helmet",
+            () -> new BhqArmorItem("helmet", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> BHQ_VEST = ITEMS.register("bhq_vest",
+            () -> new BhqArmorItem("vest", ArmorItem.Type.CHESTPLATE));
+    public static final RegistryObject<Item> BHQ_LEGGINGS = ITEMS.register("bhq_leggings",
+            () -> new BhqArmorItem("leggings", ArmorItem.Type.LEGGINGS));
+    public static final RegistryObject<Item> BHQ_BOOTS = ITEMS.register("bhq_boots",
+            () -> new BhqArmorItem("boots", ArmorItem.Type.BOOTS));
 
     // Spawn egg uses SEM's RoleSpawnEggItem so eggs spawn with the same
     // FRIENDLY_DEFAULT role SEM's own PMC egg assigns.
@@ -122,6 +145,28 @@ public final class SemcsRegistries {
         CLASS_SPAWN_EGGS = Collections.unmodifiableList(eggs);
     }
 
+    // Own creative tab - everything this mod adds, one place. Items also
+    // stay in the vanilla tabs below (functional block + spawn eggs) so
+    // they show up where players already look.
+    public static final RegistryObject<CreativeModeTab> SEMCS_TAB = CREATIVE_TABS.register(
+            "semcs",
+            () -> CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.sem_classsystem"))
+                    .icon(() -> new ItemStack(BHQ_RECRUIT_TABLE_ITEM.get()))
+                    .displayItems((params, output) -> {
+                        output.accept(BHQ_RECRUIT_TABLE_ITEM.get());
+                        output.accept(BHQ_CAP.get());
+                        output.accept(BHQ_HELMET.get());
+                        output.accept(BHQ_VEST.get());
+                        output.accept(BHQ_LEGGINGS.get());
+                        output.accept(BHQ_BOOTS.get());
+                        output.accept(BHQ_UNIT_SPAWN_EGG.get());
+                        for (RegistryObject<Item> egg : CLASS_SPAWN_EGGS) {
+                            output.accept(egg.get());
+                        }
+                    })
+                    .build());
+
     // Registers one egg per main weapon class for a faction. Item id looks
     // like "pmc_heavy_mg_spawn_egg".
     private static List<RegistryObject<Item>> registerClassEggs(
@@ -143,6 +188,7 @@ public final class SemcsRegistries {
         ENTITY_TYPES.register(bus);
         BLOCKS.register(bus);
         ITEMS.register(bus);
+        CREATIVE_TABS.register(bus);
     }
 
     // Forge asks every entity type for its attribute table at startup.

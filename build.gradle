@@ -143,6 +143,10 @@ dependencies {
     // tooltip plugin; wthit only loads the class when present.
     implementation files('libs/wthit.jar')
 
+    // GeckoLib — required dependency: BHQ armor items implement GeoItem and
+    // render through GeoArmorRenderer; present in the pack's mods folder.
+    implementation files('libs/geckolib-forge-1.20.1-4.8.4.jar')
+
 }
 
 // ==================== RESOURCE PROCESSING ====================
