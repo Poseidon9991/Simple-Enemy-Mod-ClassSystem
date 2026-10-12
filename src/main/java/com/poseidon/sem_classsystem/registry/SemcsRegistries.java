@@ -131,6 +131,36 @@ public final class SemcsRegistries {
     public static final RegistryObject<Item> RAF_BOOTS = ITEMS.register("raf_boots",
             () -> new BhqArmorItem("raf_boots", ArmorItem.Type.BOOTS));
 
+    // ---- Camper (sniper) set -----------------------------------------------
+    public static final RegistryObject<Item> CAMPER_HELMET = ITEMS.register("camper_helmet",
+            () -> new BhqArmorItem("camper_helmet", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> CAMPER_VEST = ITEMS.register("camper_vest",
+            () -> new BhqArmorItem("camper_vest", ArmorItem.Type.CHESTPLATE));
+    public static final RegistryObject<Item> CAMPER_PANTS = ITEMS.register("camper_pants",
+            () -> new BhqArmorItem("camper_pants", ArmorItem.Type.LEGGINGS));
+    public static final RegistryObject<Item> CAMPER_BOOTS = ITEMS.register("camper_boots",
+            () -> new BhqArmorItem("camper_boots", ArmorItem.Type.BOOTS));
+
+    // ---- Suppressor (heavy MG) set -----------------------------------------
+    public static final RegistryObject<Item> SUPPRESSOR_HELMET = ITEMS.register("suppressor_helmet",
+            () -> new BhqArmorItem("suppressor_helmet", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> SUPPRESSOR_VEST = ITEMS.register("suppressor_vest",
+            () -> new BhqArmorItem("suppressor_vest", ArmorItem.Type.CHESTPLATE));
+    public static final RegistryObject<Item> SUPPRESSOR_PANTS = ITEMS.register("suppressor_pants",
+            () -> new BhqArmorItem("suppressor_pants", ArmorItem.Type.LEGGINGS));
+    public static final RegistryObject<Item> SUPPRESSOR_BOOTS = ITEMS.register("suppressor_boots",
+            () -> new BhqArmorItem("suppressor_boots", ArmorItem.Type.BOOTS));
+
+    // ---- Demolisher (ordnance) set -----------------------------------------
+    public static final RegistryObject<Item> DEMOLISHER_HELMET = ITEMS.register("demolisher_helmet",
+            () -> new BhqArmorItem("demolisher_helmet", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> DEMOLISHER_VEST = ITEMS.register("demolisher_vest",
+            () -> new BhqArmorItem("demolisher_vest", ArmorItem.Type.CHESTPLATE));
+    public static final RegistryObject<Item> DEMOLISHER_PANTS = ITEMS.register("demolisher_pants",
+            () -> new BhqArmorItem("demolisher_pants", ArmorItem.Type.LEGGINGS));
+    public static final RegistryObject<Item> DEMOLISHER_BOOTS = ITEMS.register("demolisher_boots",
+            () -> new BhqArmorItem("demolisher_boots", ArmorItem.Type.BOOTS));
+
     // Spawn egg uses SEM's RoleSpawnEggItem so eggs spawn with the same
     // FRIENDLY_DEFAULT role SEM's own PMC egg assigns.
     // Colors: tactical black shell + Cambodian-flag red spots.
@@ -203,6 +233,18 @@ public final class SemcsRegistries {
                         output.accept(RAF_VEST.get());
                         output.accept(RAF_PANTS.get());
                         output.accept(RAF_BOOTS.get());
+                        output.accept(CAMPER_HELMET.get());
+                        output.accept(CAMPER_VEST.get());
+                        output.accept(CAMPER_PANTS.get());
+                        output.accept(CAMPER_BOOTS.get());
+                        output.accept(SUPPRESSOR_HELMET.get());
+                        output.accept(SUPPRESSOR_VEST.get());
+                        output.accept(SUPPRESSOR_PANTS.get());
+                        output.accept(SUPPRESSOR_BOOTS.get());
+                        output.accept(DEMOLISHER_HELMET.get());
+                        output.accept(DEMOLISHER_VEST.get());
+                        output.accept(DEMOLISHER_PANTS.get());
+                        output.accept(DEMOLISHER_BOOTS.get());
                         output.accept(BHQ_UNIT_SPAWN_EGG.get());
                         for (RegistryObject<Item> egg : CLASS_SPAWN_EGGS) {
                             output.accept(egg.get());
