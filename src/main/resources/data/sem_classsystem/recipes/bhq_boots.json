@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "P P",
+    "P S"
+  ],
+  "key": {
+    "P": {
+      "item": "minecraft:iron_ingot"
+    },
+    "S": {
+      "item": "minecraft:diamond"
+    }
+  },
+  "result": {
+    "item": "sem_classsystem:bhq_boots"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "PSP",
+    "P P"
+  ],
+  "key": {
+    "P": {
+      "item": "minecraft:diamond"
+    },
+    "S": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "result": {
+    "item": "sem_classsystem:demolisher_helmet"
+  }
+}

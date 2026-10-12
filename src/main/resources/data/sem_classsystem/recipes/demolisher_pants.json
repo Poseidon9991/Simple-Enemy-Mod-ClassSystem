@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "PPP",
+    "P S",
+    "P P"
+  ],
+  "key": {
+    "P": {
+      "item": "minecraft:diamond"
+    },
+    "S": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "result": {
+    "item": "sem_classsystem:demolisher_pants"
+  }
+}

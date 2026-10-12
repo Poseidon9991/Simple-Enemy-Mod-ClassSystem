@@ -5,6 +5,7 @@ import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ArmorMaterial;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.client.extensions.common.IClientItemExtensions;
 import org.jetbrains.annotations.NotNull;
@@ -27,8 +28,12 @@ public class BhqArmorItem extends ArmorItem implements GeoItem {
     private final String piece;
 
     public BhqArmorItem(String piece, ArmorItem.Type type) {
-        super(BhqArmorMaterial.INSTANCE, type, new Properties().stacksTo(1));
+        super(materialFor(piece), type, new Properties().stacksTo(1));
         this.piece = piece;
+    }
+
+    private static ArmorMaterial materialFor(String piece) {
+        return piece.startsWith("bhq_") ? BhqArmorMaterial.INSTANCE : SemcsArmorMaterial.forPiece(piece);
     }
 
     public String piece() {

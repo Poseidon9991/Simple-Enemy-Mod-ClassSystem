@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "P P",
+    "PSP",
+    "PPP"
+  ],
+  "key": {
+    "P": {
+      "item": "minecraft:string"
+    },
+    "S": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "item": "sem_classsystem:raf_vest"
+  }
+}

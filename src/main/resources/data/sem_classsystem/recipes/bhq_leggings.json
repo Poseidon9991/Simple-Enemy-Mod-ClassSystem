@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "PPP",
+    "P S",
+    "P P"
+  ],
+  "key": {
+    "P": {
+      "item": "minecraft:iron_ingot"
+    },
+    "S": {
+      "item": "minecraft:diamond"
+    }
+  },
+  "result": {
+    "item": "sem_classsystem:bhq_leggings"
+  }
+}
