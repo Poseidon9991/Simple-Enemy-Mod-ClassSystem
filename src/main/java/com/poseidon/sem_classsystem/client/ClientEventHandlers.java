@@ -2,7 +2,6 @@
 package com.poseidon.sem_classsystem.client;
 
 import com.poseidon.sem_classsystem.SemClassSystem;
-import com.poseidon.sem_classsystem.entity.BhqUnitEntity;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.model.HumanoidModel;
@@ -79,18 +78,6 @@ public final class ClientEventHandlers {
             attachCuriosLayer(event, ModEntities.USUNIT.get());
         }
 
-        // tacz_sewv attaches its armor/holster layers to a fixed list of entity
-        // types that predates this addon - add them to BHQ ourselves so its
-        // issued PMC armor actually renders. The isLoaded guard keeps
-        // SewvLayersCompat (and its sewv imports) from ever class-loading
-        // without the mod present.
-        if (!ModList.get().isLoaded("tacz_sewv")) {
-            return;
-        }
-        LivingEntityRenderer<BhqUnitEntity, ?> renderer = event.getRenderer(SemcsRegistries.BHQ_UNIT.get());
-        if (renderer != null) {
-            SewvLayersCompat.addLayers(renderer);
-        }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

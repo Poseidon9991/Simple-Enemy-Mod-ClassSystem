@@ -19,7 +19,7 @@ Parchment mappings, MixinGradle.
   - `data/ClassLoadoutManager.java` — datapack reload listener for
     `data/*/class_loadouts/*.json` (faction -> class -> gun pool)
   - `mixin/` — patches against SEM unit/AI/client classes; soft-dep gates
-    via `AbstractSoftDepMixinPlugin` (Curios, Xaero, SEWV)
+    via `AbstractSoftDepMixinPlugin` (Curios, Xaero)
   - `entity/ai/` — unit goals (medic, self-heal, melee, chunk duty,
     fallback, eat, sleep)
   - `needs/UnitNeeds.java` — hunger/energy/morale state on owned units
@@ -32,7 +32,7 @@ Parchment mappings, MixinGradle.
   - `client/` + `client/xaero/` — tablet/map UI; Xaero types must stay out
     of `client/` root so packets class-load without the map mod
   - `menu/`, `block/` — recruit tables (PMC + BHQ) and guard posts
-- `libs/` — local jars (SEM, TaCZ, GeckoLib, Curios, SEWV, Superb Warfare, WTHIT)
+- `libs/` — local jars (SEM, TaCZ, GeckoLib, Curios, Superb Warfare, WTHIT)
 
 ## Conventions
 

@@ -145,8 +145,6 @@ public abstract class MixinUnitAmmoReserve {
 
     @Unique
     private static void semcs$equipBuiltInArmor(LivingEntity entity, RandomSource random) {
-        entity.getPersistentData().putBoolean("sewv:armor_issued", true);
-
         WeaponClass cls = WeaponClassSupport.get(entity);
         Item helmet;
         Item vest;

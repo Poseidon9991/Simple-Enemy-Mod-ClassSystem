@@ -3,7 +3,7 @@
 > **Target Version:** Minecraft 1.20.1 | Forge 47.4.0+ | Java 17  
 > **Mappings:** Parchment 1.20.1 (2023.09.03)  
 > **Key Dependencies:** Simple Enemy Mod (SEM), Timeless and Classics Zero (TaCZ), GeckoLib 4  
-> **Soft Dependencies:** Curios API, Xaero's World Map / Minimap, Simple Enemy Weapon Variant (SEWV), WTHIT  
+> **Soft Dependencies:** Curios API, Xaero's World Map / Minimap, WTHIT  
 
 ---
 
@@ -69,7 +69,7 @@
 2. **Effective Class Resolution (`getEffective`)**:
    Soldiers have an assigned base role, but their real-time behavior adapts dynamically based on the weapon currently held (e.g., sidearm subclass behavior overlays when holding a pistol; Jack adapts to any weapon type).
 3. **Strict Separation of Soft Dependencies**:
-   Integrations with Curios, Xaero's World Map/Minimap, and SEWV are strictly gated behind `AbstractSoftDepMixinPlugin` and reflective/mod-loaded checks. If Xaero or Curios is missing, the mod runs with zero crashes or missing-class warnings.
+   Integrations with Curios and Xaero's World Map/Minimap are strictly gated behind `AbstractSoftDepMixinPlugin` and reflective/mod-loaded checks. If Xaero or Curios is missing, the mod runs with zero crashes or missing-class warnings.
 4. **Data-Driven Arsenal**:
    No gun IDs or attachment configurations are hardcoded. Everything is resolved through datapack JSONs (`data/*/class_loadouts/*.json`) loaded by `ClassLoadoutManager`.
 
@@ -460,13 +460,13 @@ Client                                                         Server
 ```
                        sem_classsystem
                               │
-         ┌────────────────────┼────────────────────┐
-         ▼                    ▼                    ▼
-   [Curios API]         [Xaero Maps]             [SEWV]
-         │                    │                    │
-  AbstractSoftDep       client/xaero/        MixinSewvGearLayers
-    MixinPlugin          Subpackage               (No-op if
-  (Skipped if missing) (ClassLoader safe)         unloaded)
+                ┌─────────────┴─────────────┐
+                ▼                           ▼
+         [Curios API]                 [Xaero Maps]
+                │                           │
+         AbstractSoftDep              client/xaero/
+           MixinPlugin                  Subpackage
+        (Skipped if missing)         (ClassLoader safe)
 ```
 
 ### Soft-Dep Rules

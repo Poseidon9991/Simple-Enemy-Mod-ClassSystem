@@ -31,7 +31,6 @@
     "MixinGeckoArmorTexture",
     "MixinGunLayerMeleeItem",
     "MixinHeadTrackingSmooth",
-    "MixinSewvGearLayers",
     "MixinUnitMeleeWeaponPose",
     "MixinUnitModelCrouch",
     "MixinUnitRenderProne",

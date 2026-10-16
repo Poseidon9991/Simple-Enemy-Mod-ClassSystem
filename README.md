@@ -52,7 +52,7 @@ This addon doesn't just pile features on top of Simple Enemy Mod — it **repair
 *   **Invisible melee weapons** — SEM's held-item renderer only draws guns (`AbstractGunItem`), so swords, axes, and knives in a unit's hand rendered as *nothing*. Melee and non-gun items now render correctly.
 *   **Melee units couldn't attack** — SEM had no melee combat goal at all; units holding melee weapons just stood there. Units now fight in CQB with bayonet/knife strikes when enemies close inside gun minimum range.
 *   **Broken Curios support** — SEM hardcoded a fixed 4-slot Curios layout that mismatched real Curios slot types. Replaced with dynamic, player-like Curios slots that adapt to every registered slot type and count.
-*   **Purple/black curio textures** — non-armor curios (Artifacts charms, rings, goggles) rendered as corrupted missing-texture armor on units. They're now filtered out of the armor suit layer, and SEWV's gear layer texture path is fixed.
+*   **Purple/black curio textures** — non-armor curios (Artifacts charms, rings, goggles) rendered as corrupted missing-texture armor on units. They're now filtered out of the armor suit layer.
 *   **Ammo corruption & misplaced reserves** — PMC reserve ammo was stuffed into equipment slots, and oversized stacks (>127 items) overflowed the inventory packet's signed byte and silently corrupted to empty stacks. Reserve ammo now lives in proper storage slots, split into legal stacks.
 *   **Armor clipping/vanishing on unit models** — vanilla and modded armor used player proportions on SEM's custom soldier models. Armor now renders fitted to the unit body.
 *   **Order/duty conflict** — a unit on chunk duty could ignore a fresh commander's order. New orders now always cancel standing duty cleanly.

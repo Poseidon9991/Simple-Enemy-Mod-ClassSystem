@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // Tilts the entire unit PoseStack at the TAIL of LivingEntityRenderer.setupRotations
 // when a SEM unit is prone. Because setupRotations runs on the master PoseStack
 // BEFORE the base model and BEFORE all RenderLayers (GeckoArmorLayerImpl,
-// UniversalArmorLayer, GunLayerRenderer, tacz_sewv gear layers), rotating here
+// UniversalArmorLayer, GunLayerRenderer), rotating here
 // keeps all 3D GeckoLib armor pieces and held guns 100% locked to the unit's body!
 @Mixin(LivingEntityRenderer.class)
 public abstract class MixinUnitRenderProne {
