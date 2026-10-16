@@ -28,7 +28,11 @@ public record UnitMarker(
         int ammoRounds,          // loose rounds + box contents + loaded mag
         boolean ammoInfinite,    // a creative/all-type ammo box is carried
         boolean hasFood,         // at least one edible item in inventory
-        boolean hasMedical       // at least one bandage/medkit/heal potion
+        boolean hasMedical,      // at least one bandage/medkit/heal potion
+        // --- [needs] stats; OWN units only, -1 when needs mode is off ---
+        int hunger,              // 0-20
+        int energy,              // 0-20
+        int morale               // 0-100
 ) {
 
     public enum Allegiance {

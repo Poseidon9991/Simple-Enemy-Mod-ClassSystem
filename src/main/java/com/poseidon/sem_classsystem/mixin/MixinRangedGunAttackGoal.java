@@ -890,6 +890,12 @@ public abstract class MixinRangedGunAttackGoal {
         semcs$applyTuning();
         // No class -> no restriction. JACK is the generalist - it fires
         // anything it can hold.
+        // [needs]: a starving unit is too weak to fight - holds fire until
+        // it finds food. (Melee stays allowed; desperation is desperation.)
+        if (com.poseidon.sem_classsystem.needs.UnitNeeds.refusesToFight(this.mob)) {
+            cir.setReturnValue(false);
+            return;
+        }
         WeaponClass cls = WeaponClassSupport.get(this.mob);
         if (cls == null || cls == WeaponClass.JACK) {
             return;

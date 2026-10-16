@@ -55,6 +55,9 @@ public class PacketSyncUnitMarkers {
             buf.writeBoolean(m.ammoInfinite());
             buf.writeBoolean(m.hasFood());
             buf.writeBoolean(m.hasMedical());
+            buf.writeByte(m.hunger());
+            buf.writeByte(m.energy());
+            buf.writeByte(m.morale());
         }
     }
 
@@ -100,7 +103,8 @@ public class PacketSyncUnitMarkers {
                     dutyChunkZ, route,
                     buf.readUtf(16), buf.readFloat(), buf.readFloat(),
                     buf.readByte(), buf.readVarInt(), buf.readBoolean(),
-                    buf.readBoolean(), buf.readBoolean()));
+                    buf.readBoolean(), buf.readBoolean(),
+                    buf.readByte(), buf.readByte(), buf.readByte()));
         }
         return new PacketSyncUnitMarkers(markers);
     }

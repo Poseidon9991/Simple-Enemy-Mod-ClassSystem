@@ -11,6 +11,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
+import com.poseidon.sem_classsystem.needs.UnitNeeds;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;
 
 import java.util.EnumSet;
@@ -247,6 +248,11 @@ public class UnitChunkDutyGoal extends Goal {
         // while the gun goal (LOOK only) still lets it fire. Every other
         // duty pauses the moment a fight starts.
         if (duty != DUTY_POST && this.unit.getTarget() != null) {
+            return false;
+        }
+        // [needs]: an exhausted or sleeping unit goes off-shift - even a
+        // posted guard abandons his spot to find a bunk (shift rotation).
+        if (UnitNeeds.needsRest(this.unit)) {
             return false;
         }
         String dim = this.unit.level().dimension().location().toString();

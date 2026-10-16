@@ -46,6 +46,16 @@ public class ClassSystemConfig {
     // Whether a new claim must touch an existing claim of the same player
     private static ForgeConfigSpec.BooleanValue REQUIRE_CONTIGUOUS_CLAIMS;
 
+    // ---- [needs]: hunger / energy / morale for owned units ------------
+    private static ForgeConfigSpec.BooleanValue NEEDS_ENABLED;
+    private static ForgeConfigSpec.IntValue HUNGER_DRAIN_TICKS;
+    private static ForgeConfigSpec.IntValue ENERGY_DRAIN_TICKS;
+    private static ForgeConfigSpec.DoubleValue COMBAT_DRAIN_MULTIPLIER;
+    private static ForgeConfigSpec.DoubleValue BHQ_DRAIN_MULTIPLIER;
+    private static ForgeConfigSpec.IntValue SLEEP_ENERGY_TICKS;
+    private static ForgeConfigSpec.IntValue STARVE_DAMAGE_TICKS;
+    private static ForgeConfigSpec.IntValue NEEDS_SEARCH_RADIUS;
+
     // static {} runs once at class load - defines ALL keys before register()
     static {
 
@@ -277,6 +287,51 @@ public class ClassSystemConfig {
                         "Unclaiming is never blocked; orphaned claims are legal.")
                 .define("requireContiguousClaims", true);
         BUILDER.pop();   // close [map]
+
+        // ================= UNIT NEEDS (hardcore survival mode) =================
+        BUILDER.push("needs");
+        BUILDER.comment(
+                "Unit needs system for OWNED units (recruited PMC + BHQ).",
+                "enabled = false keeps today's behaviour: units never get",
+                "hungry or tired. enabled = true turns on hardcore mode:",
+                "hunger (auto-eat from inventory or a stockpile container in",
+                "your claimed chunks, starve to death when empty), energy",
+                "(sleep on a bed inside your claims - day or night, only",
+                "while out of combat) and morale (low morale = worse aim",
+                "and a chance to break for cover when hurt).",
+                "RU/US field units are never affected. BHQ operators drain",
+                "slower - elite conditioning is part of what you pay for.");
+        NEEDS_ENABLED = BUILDER
+                .comment("Enable hunger/energy/morale for owned units")
+                .define("enabled", false);
+        HUNGER_DRAIN_TICKS = BUILDER
+                .comment("Ticks per -1 hunger (20 hunger max).",
+                        "3600 = a meal lasts ~60 minutes real time.")
+                .defineInRange("hungerDrainTicks", 3600, 200, 72000);
+        ENERGY_DRAIN_TICKS = BUILDER
+                .comment("Ticks per -1 energy (20 energy max) while awake.")
+                .defineInRange("energyDrainTicks", 2400, 200, 72000);
+        COMBAT_DRAIN_MULTIPLIER = BUILDER
+                .comment("Needs drain this much faster while the unit has",
+                        "a live combat target.")
+                .defineInRange("combatDrainMultiplier", 2.0, 1.0, 10.0);
+        BHQ_DRAIN_MULTIPLIER = BUILDER
+                .comment("BHQ operators drain hunger/energy at this fraction",
+                        "of the normal rate.")
+                .defineInRange("bhqDrainMultiplier", 0.6, 0.1, 1.0);
+        SLEEP_ENERGY_TICKS = BUILDER
+                .comment("Ticks per +1 energy while sleeping.",
+                        "300 = full rest in ~5 minutes.")
+                .defineInRange("sleepEnergyTicks", 300, 20, 24000);
+        STARVE_DAMAGE_TICKS = BUILDER
+                .comment("Ticks between 1-heart starvation hits at 0 hunger.",
+                        "The unit dies and drops its gear when HP runs out.")
+                .defineInRange("starveDamageTicks", 160, 20, 7200);
+        NEEDS_SEARCH_RADIUS = BUILDER
+                .comment("How far a unit searches for a bed or a stockpile",
+                        "container, limited to chunks claimed by its owner.")
+                .defineInRange("searchRadius", 48, 16, 128);
+        BUILDER.pop();   // close [needs]
 
         // Freeze the builder into the immutable spec Forge will register
         SPEC = BUILDER.build();
@@ -697,6 +752,65 @@ public class ClassSystemConfig {
             return BHQ_RECRUIT_PRICE.get();
         } catch (IllegalStateException notLoadedYet) {
             return 32;
+        }
+    }
+
+    // ================= Unit needs accessors ([needs] section) =================
+
+    // Master switch - false means units behave exactly like plain SEM.
+    public static boolean needsEnabled() {
+        try {
+            return NEEDS_ENABLED.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return false;
+        }
+    }
+
+    public static int hungerDrainTicks() {
+        try {
+            return HUNGER_DRAIN_TICKS.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 3600;
+        }
+    }
+
+    public static int energyDrainTicks() {
+        try {
+            return ENERGY_DRAIN_TICKS.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 2400;
+        }
+    }
+
+    public static double combatDrainMultiplier() {
+        return safeGet(COMBAT_DRAIN_MULTIPLIER, 2.0);
+    }
+
+    public static double bhqDrainMultiplier() {
+        return safeGet(BHQ_DRAIN_MULTIPLIER, 0.6);
+    }
+
+    public static int sleepEnergyTicks() {
+        try {
+            return SLEEP_ENERGY_TICKS.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 300;
+        }
+    }
+
+    public static int starveDamageTicks() {
+        try {
+            return STARVE_DAMAGE_TICKS.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 160;
+        }
+    }
+
+    public static int needsSearchRadius() {
+        try {
+            return NEEDS_SEARCH_RADIUS.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 48;
         }
     }
 

@@ -36,6 +36,9 @@ public class SemcsWailaPlugin implements IWailaPlugin {
     private static final String TAG_FACTION = "semcs_faction";
     private static final String TAG_NAME = "semcs_name";
     private static final String TAG_XP = "semcs_xp";
+    private static final String TAG_HUNGER = "semcs_hunger";
+    private static final String TAG_ENERGY = "semcs_energy";
+    private static final String TAG_MORALE = "semcs_morale";
 
     @Override
     public void register(IRegistrar registrar) {
@@ -64,6 +67,13 @@ public class SemcsWailaPlugin implements IWailaPlugin {
                 raw.putString(TAG_NAME, unit.getCustomName().getString());
             }
             raw.putInt(TAG_XP, UnitVeterancy.xp(unit));
+            // [needs] stats - owner-only info, synced only for owned units
+            if (unit instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity pmc
+                    && com.poseidon.sem_classsystem.needs.UnitNeeds.appliesTo(pmc)) {
+                raw.putInt(TAG_HUNGER, com.poseidon.sem_classsystem.needs.UnitNeeds.hunger(pmc));
+                raw.putInt(TAG_ENERGY, com.poseidon.sem_classsystem.needs.UnitNeeds.energy(pmc));
+                raw.putInt(TAG_MORALE, com.poseidon.sem_classsystem.needs.UnitNeeds.morale(pmc));
+            }
         }
     }
 
@@ -98,6 +108,13 @@ public class SemcsWailaPlugin implements IWailaPlugin {
             if (xp > 0) {
                 tooltip.addLine(Component.literal("Veterancy " + xp + " XP")
                         .withStyle(ChatFormatting.DARK_GREEN));
+            }
+            if (raw.contains(TAG_HUNGER)) {
+                tooltip.addLine(Component.literal(
+                        "Hunger " + raw.getInt(TAG_HUNGER) + "/20  "
+                                + "Energy " + raw.getInt(TAG_ENERGY) + "/20  "
+                                + "Morale " + raw.getInt(TAG_MORALE))
+                        .withStyle(ChatFormatting.GOLD));
             }
         }
     }

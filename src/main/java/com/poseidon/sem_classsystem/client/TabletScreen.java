@@ -182,6 +182,7 @@ public class TabletScreen extends Screen {
         int colMed = cx + 316;
         int colFood = cx + 348;
         int colStatus = cx + 386;
+        int colNeeds = cx + 430;
 
         g.drawString(this.font, "CALLSIGN", colName, cy, 0xFF5E7086, false);
         g.drawString(this.font, "CLASS", colClass, cy, 0xFF5E7086, false);
@@ -190,6 +191,7 @@ public class TabletScreen extends Screen {
         g.drawString(this.font, "MED", colMed, cy, 0xFF5E7086, false);
         g.drawString(this.font, "FOOD", colFood, cy, 0xFF5E7086, false);
         g.drawString(this.font, "STATUS", colStatus, cy, 0xFF5E7086, false);
+        g.drawString(this.font, "NEEDS", colNeeds, cy, 0xFF5E7086, false);
         cy += 11;
 
         int viewTop = cy;
@@ -233,6 +235,7 @@ public class TabletScreen extends Screen {
                         ry + 4, m.hasFood() ? 0xFFE3B86F : 0xFF4A5563, false);
                 g.drawString(this.font, statusLabel(m), colStatus, ry + 4,
                         m.dutyMode() != 0 ? 0xFFE3B86F : 0xFF8FA3B8, false);
+                renderNeeds(g, m, colNeeds, ry + 4);
             }
             ry += ROW_H;
         }
@@ -261,6 +264,26 @@ public class TabletScreen extends Screen {
         g.fill(x, y + 1, x + filled, y + 5, col);
         String hp = (int) m.health() + "/" + (int) m.maxHealth();
         g.drawString(this.font, hp, x + w + 4, y - 1, 0xFFB9C6D4, false);
+    }
+
+    // [needs] mode: three tiny vertical bars - hunger (amber), energy
+    // (teal), morale (green). Units show "-" when needs are disabled.
+    private void renderNeeds(GuiGraphics g, UnitMarker m, int x, int y) {
+        if (m.hunger() < 0) {
+            g.drawString(this.font, "-", x, y, 0xFF4A5563, false);
+            return;
+        }
+        needBar(g, x, y, m.hunger() / 20.0, 0xFFE3B86F);
+        needBar(g, x + 5, y, m.energy() / 20.0, 0xFF6FE3C1);
+        needBar(g, x + 10, y, m.morale() / 100.0, 0xFFA6E36F);
+    }
+
+    private static void needBar(GuiGraphics g, int x, int y, double frac, int color) {
+        int h = Math.max(0, Math.min(8, (int) Math.round(frac * 8)));
+        g.fill(x, y - 2, x + 3, y + 6, 0xFF0A0E14);                 // trough
+        if (h > 0) {
+            g.fill(x, y + 6 - h, x + 3, y + 6, color);              // fill from bottom
+        }
     }
 
     // TELEPORT app: multi-select units, then beam them to the player, the

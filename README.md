@@ -100,6 +100,19 @@ Pistols are not rolled at spawn — they are a **universal subclass** that any s
 
 ***
 
+## 🍖 Unit Needs — Hardcore Survival Mode (optional)
+
+Flip `[needs] enabled = true` in the config and your owned units become living soldiers with **hunger**, **energy**, and **morale** (off by default — units behave like plain SEM until you opt in). Applies to your recruited PMC + BHQ units only; wild RU/US patrols are untouched.
+
+*   **Hunger (0–20):** drains over time, twice as fast in combat. A hungry unit eats carried food on the spot (inventory, bags, Curios — the same scan as self-heal); with empty pockets it walks to the nearest **container inside your claimed chunks** (chest, barrel, guard-post storage) and pulls a ration.
+*   **Starvation:** at hunger 0 the unit is too weak to fire its gun, takes periodic starvation damage, and eventually **dies — dropping its gear** as items. Keep your pantry stocked.
+*   **Energy (0–20):** drains while awake. An exhausted unit claims a free **bed inside your claimed chunks** and sleeps — **day or night**, only while peaceful (no target, no active order). Guards go off-shift to rest and return when recharged, so posted units naturally rotate shifts. Wakes instantly when hurt.
+*   **Morale (0–100):** drops while starving/exhausted and when squadmates die nearby; rises on kills, meals, and rest. Low morale widens weapon spread (shaky aim), and shaken units can break for cover under fire instead of standing their ground.
+*   **BHQ perk:** elite operators drain hunger and energy 40% slower.
+*   **Visibility:** the Field Tablet squad roster gains a **NEEDS** column (three mini-bars), and WTHIT shows Hunger/Energy/Morale when looking at your units.
+
+***
+
 ## 🗺️ Squad Command & Map Control
 
 ### <img src="src/main/resources/assets/sem_classsystem/textures/item/squad_whistle.png" width="22"> Squad Rally Whistle
@@ -109,7 +122,7 @@ Pistols are not rolled at spawn — they are a **universal subclass** that any s
 
 ### <img src="src/main/resources/assets/sem_classsystem/textures/item/field_tablet.png" width="22"> Field Tablet (SEM-OS)
 
-A squad command PDA (glass pane + iron + redstone). Right-click boots the SEM-OS desktop; the Squad app lists every owned unit's health, ammo supply (including infinite creative ammo boxes), class, and food/medical status — all fed by server-synced data. Also includes a teleport app that recalls selected units to you or to a marked position.
+A squad command PDA (glass pane + iron + redstone). Right-click boots the SEM-OS desktop; the Squad app lists every owned unit's health, ammo supply (including infinite creative ammo boxes), class, food/medical status, and — with `[needs]` enabled — hunger/energy/morale bars — all fed by server-synced data. Also includes a teleport app that recalls selected units to you or to a marked position.
 
 ### 🏰 Chunk Claims, Duty & Guard Posts
 
@@ -314,6 +327,7 @@ Configuration is located globally in:
 *   `[bhq_recruit] price` — Recruit-item cost for a BHQ operator (default 32).
 *   `[night_raids]` — `enabled`, `chancePerNight`, `squadSizeMin`/`squadSizeMax`, `spawnDistance` for the night ambush events.
 *   `[map]` — `maxClaimedChunks` (default 64) and `requireContiguousClaims` for the chunk-claim system.
+*   `[needs]` — `enabled` (default `false`), `hungerDrainTicks`, `energyDrainTicks`, `combatDrainMultiplier`, `bhqDrainMultiplier`, `sleepEnergyTicks`, `starveDamageTicks`, `searchRadius` for the unit hunger/energy/morale system.
 
 ***
 

@@ -317,14 +317,30 @@ public class UnitSelfHealGoal extends Goal {
         }
     }
 
-    private record FoundConsumable(ItemStack preview, Supplier<ItemStack> consumeOne) {}
+    record FoundConsumable(ItemStack preview, Supplier<ItemStack> consumeOne) {}
 
-    private static FoundConsumable findConsumable(LivingEntity entity) {
+    static FoundConsumable findConsumable(LivingEntity entity) {
+        return findConsumable(entity, UnitSelfHealGoal::isHealOrFoodItem);
+    }
+
+    // Food-only variant for the hunger goal - bandages and buff
+    // potions do not count as rations.
+    static FoundConsumable findFood(LivingEntity entity) {
+        return findConsumable(entity, UnitSelfHealGoal::isFoodItem);
+    }
+
+    static boolean isFoodItem(ItemStack stack, LivingEntity entity) {
+        return !stack.isEmpty()
+                && (stack.isEdible() || stack.getFoodProperties(entity) != null);
+    }
+
+    private static FoundConsumable findConsumable(LivingEntity entity,
+            java.util.function.BiPredicate<ItemStack, LivingEntity> accepts) {
         // 1. Check unit's ITEM_HANDLER capability (slots 6..17 storage, slot 1 offhand, plus nested bags)
         var capOpt = entity.getCapability(ForgeCapabilities.ITEM_HANDLER).resolve();
         if (capOpt.isPresent()) {
             IItemHandler handler = capOpt.get();
-            FoundConsumable direct = scanHandler(handler, entity, true);
+            FoundConsumable direct = scanHandler(handler, entity, true, accepts);
             if (direct != null) {
                 return direct;
             }
@@ -334,7 +350,7 @@ public class UnitSelfHealGoal extends Goal {
         for (EquipmentSlot eqSlot : EquipmentSlot.values()) {
             ItemStack eqStack = entity.getItemBySlot(eqSlot);
             if (!eqStack.isEmpty()) {
-                FoundConsumable nested = scanNestedBag(eqStack, entity);
+                FoundConsumable nested = scanNestedBag(eqStack, entity, accepts);
                 if (nested != null) {
                     return nested;
                 }
@@ -342,7 +358,7 @@ public class UnitSelfHealGoal extends Goal {
         }
 
         // 3. Check Curios slots via reflection (supports badges/pouches/backpacks placed in Curios slots)
-        FoundConsumable fromCurios = scanCurios(entity);
+        FoundConsumable fromCurios = scanCurios(entity, accepts);
         if (fromCurios != null) {
             return fromCurios;
         }
@@ -362,7 +378,7 @@ public class UnitSelfHealGoal extends Goal {
         return null;
     }
 
-    private static FoundConsumable scanHandler(IItemHandler handler, LivingEntity entity, boolean skipMainHandAndArmor) {
+    private static FoundConsumable scanHandler(IItemHandler handler, LivingEntity entity, boolean skipMainHandAndArmor, java.util.function.BiPredicate<ItemStack, LivingEntity> accepts) {
         int slots = handler.getSlots();
         // Pass 1A: Prefer high-priority items (Golden Apples, Enchanted Golden Apples, Medkits) first
         for (int i = 0; i < slots; i++) {
@@ -380,7 +396,7 @@ public class UnitSelfHealGoal extends Goal {
                 continue;
             }
             ItemStack stack = handler.getStackInSlot(i);
-            if (isHealOrFoodItem(stack, entity)) {
+            if (accepts.test(stack, entity)) {
                 return createSlotConsumable(handler, i, stack);
             }
         }
@@ -388,7 +404,7 @@ public class UnitSelfHealGoal extends Goal {
         for (int i = 0; i < slots; i++) {
             ItemStack stack = handler.getStackInSlot(i);
             if (!stack.isEmpty()) {
-                FoundConsumable nested = scanNestedBag(stack, entity);
+                FoundConsumable nested = scanNestedBag(stack, entity, accepts);
                 if (nested != null) {
                     return nested;
                 }
@@ -410,11 +426,11 @@ public class UnitSelfHealGoal extends Goal {
         });
     }
 
-    private static FoundConsumable scanNestedBag(ItemStack containerStack, LivingEntity entity) {
+    private static FoundConsumable scanNestedBag(ItemStack containerStack, LivingEntity entity, java.util.function.BiPredicate<ItemStack, LivingEntity> accepts) {
         // A. Check if the bag/badge exposes ForgeCapabilities.ITEM_HANDLER
         var capOpt = containerStack.getCapability(ForgeCapabilities.ITEM_HANDLER, (Direction) null).resolve();
         if (capOpt.isPresent()) {
-            FoundConsumable res = scanHandler(capOpt.get(), entity, false);
+            FoundConsumable res = scanHandler(capOpt.get(), entity, false, accepts);
             if (res != null) {
                 return res;
             }
@@ -424,20 +440,20 @@ public class UnitSelfHealGoal extends Goal {
         if (tag == null) {
             return null;
         }
-        FoundConsumable fromDirectList = scanNbtItemList(tag, "Items", entity);
+        FoundConsumable fromDirectList = scanNbtItemList(tag, "Items", entity, accepts);
         if (fromDirectList != null) {
             return fromDirectList;
         }
         if (tag.contains("Inventory", Tag.TAG_COMPOUND)) {
             CompoundTag invTag = tag.getCompound("Inventory");
-            FoundConsumable fromInv = scanNbtItemList(invTag, "Items", entity);
+            FoundConsumable fromInv = scanNbtItemList(invTag, "Items", entity, accepts);
             if (fromInv != null) {
                 return fromInv;
             }
         }
         if (tag.contains("BlockEntityTag", Tag.TAG_COMPOUND)) {
             CompoundTag beTag = tag.getCompound("BlockEntityTag");
-            FoundConsumable fromBe = scanNbtItemList(beTag, "Items", entity);
+            FoundConsumable fromBe = scanNbtItemList(beTag, "Items", entity, accepts);
             if (fromBe != null) {
                 return fromBe;
             }
@@ -445,7 +461,7 @@ public class UnitSelfHealGoal extends Goal {
         return null;
     }
 
-    private static FoundConsumable scanNbtItemList(CompoundTag parent, String key, LivingEntity entity) {
+    private static FoundConsumable scanNbtItemList(CompoundTag parent, String key, LivingEntity entity, java.util.function.BiPredicate<ItemStack, LivingEntity> accepts) {
         if (!parent.contains(key, Tag.TAG_LIST)) {
             return null;
         }
@@ -453,7 +469,7 @@ public class UnitSelfHealGoal extends Goal {
         for (int i = 0; i < list.size(); i++) {
             CompoundTag itemTag = list.getCompound(i);
             ItemStack parsed = ItemStack.of(itemTag);
-            if (isHealOrFoodItem(parsed, entity)) {
+            if (accepts.test(parsed, entity)) {
                 final int idx = i;
                 return new FoundConsumable(parsed.copy(), () -> {
                     if (idx >= list.size()) return ItemStack.EMPTY;
@@ -478,7 +494,7 @@ public class UnitSelfHealGoal extends Goal {
         return null;
     }
 
-    private static FoundConsumable scanCurios(LivingEntity entity) {
+    private static FoundConsumable scanCurios(LivingEntity entity, java.util.function.BiPredicate<ItemStack, LivingEntity> accepts) {
         try {
             Class<?> apiCls = Class.forName("top.theillusivec4.curios.api.CuriosApi");
             var mGet = apiCls.getMethod("getCuriosInventory", LivingEntity.class);
@@ -489,7 +505,7 @@ public class UnitSelfHealGoal extends Goal {
                     var mEquipped = curiosHandler.getClass().getMethod("getEquippedCurios");
                     Object equipped = mEquipped.invoke(curiosHandler);
                     if (equipped instanceof IItemHandler itemHandler) {
-                        return scanHandler(itemHandler, entity, false);
+                        return scanHandler(itemHandler, entity, false, accepts);
                     }
                 }
             }

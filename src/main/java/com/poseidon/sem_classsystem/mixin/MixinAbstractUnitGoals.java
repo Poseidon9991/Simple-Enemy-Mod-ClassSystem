@@ -2,9 +2,11 @@
 package com.poseidon.sem_classsystem.mixin;
 
 import com.poseidon.sem_classsystem.entity.ai.UnitChunkDutyGoal;
+import com.poseidon.sem_classsystem.entity.ai.UnitEatGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitMedicHealGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitMeleeAttackGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitSelfHealGoal;
+import com.poseidon.sem_classsystem.entity.ai.UnitSleepGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitWeaponFallbackGoal;
 import net.minecraft.world.entity.PathfinderMob;
 import net.nekoyuni.SimpleEnemyMod.entity.ai.roles.AbstractFriendlyGoals;
@@ -33,6 +35,10 @@ public abstract class MixinAbstractUnitGoals {
         // CommanderOrderGoal's MOVE flag so a posted guard actually moves
         if (entity instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity pmc) {
             entity.goalSelector.addGoal(2, new UnitChunkDutyGoal(pmc));
+            // [needs]: sleep ties duty at 2 (duty self-yields to an exhausted
+            // unit) and eating sits under combat but above idle orders.
+            entity.goalSelector.addGoal(2, new UnitSleepGoal(pmc));
+            entity.goalSelector.addGoal(3, new UnitEatGoal(pmc));
         }
     }
 }

@@ -20,7 +20,12 @@ Parchment mappings, MixinGradle.
     `data/*/class_loadouts/*.json` (faction -> class -> gun pool)
   - `mixin/` — patches against SEM unit/AI/client classes; soft-dep gates
     via `AbstractSoftDepMixinPlugin` (Curios, Xaero, SEWV)
-  - `entity/ai/` — unit goals (medic, self-heal, melee, chunk duty, fallback)
+  - `entity/ai/` — unit goals (medic, self-heal, melee, chunk duty,
+    fallback, eat, sleep)
+  - `needs/UnitNeeds.java` — hunger/energy/morale state on owned units
+    (persistentData NBT); everything gates on `[needs].enabled` config,
+    default off = units behave like plain SEM. Drain uses elapsed
+    game-time so offline catch-up applies.
   - `network/` — Forge packets; decoders cap client-supplied counts
     (`PacketAssignRoute.MAX_UNITS` convention)
   - `world/` — SavedData (chunk claims, unit name registry)
@@ -28,7 +33,6 @@ Parchment mappings, MixinGradle.
     of `client/` root so packets class-load without the map mod
   - `menu/`, `block/` — recruit tables (PMC + BHQ) and guard posts
 - `libs/` — local jars (SEM, TaCZ, GeckoLib, Curios, SEWV, Superb Warfare, WTHIT)
-- `_gen_*.py` — one-off asset-generation scripts (dev tooling, not shipped)
 
 ## Conventions
 

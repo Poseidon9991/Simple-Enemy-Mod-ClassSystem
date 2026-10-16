@@ -133,12 +133,19 @@ public final class UnitMarkerTracker {
             // can read another player's unit logistics off the wire.
             int ammoRounds = 0;
             boolean ammoInfinite = false, hasFood = false, hasMedical = false;
+            int hunger = -1, energy = -1, morale = -1;
             if (allegiance == UnitMarker.Allegiance.OWN) {
                 int[] supplies = scanSupplies(unit);
                 ammoRounds = supplies[0];
                 ammoInfinite = supplies[1] != 0;
                 hasFood = supplies[2] != 0;
                 hasMedical = supplies[3] != 0;
+                if (unit instanceof PmcUnitEntity pmc
+                        && com.poseidon.sem_classsystem.needs.UnitNeeds.appliesTo(pmc)) {
+                    hunger = com.poseidon.sem_classsystem.needs.UnitNeeds.hunger(pmc);
+                    energy = com.poseidon.sem_classsystem.needs.UnitNeeds.energy(pmc);
+                    morale = com.poseidon.sem_classsystem.needs.UnitNeeds.morale(pmc);
+                }
             }
             out.add(new UnitMarker(
                     unit.getId(),
@@ -154,7 +161,8 @@ public final class UnitMarkerTracker {
                     UnitVeterancy.xp(unit) > 0 ? UnitVeterancy.rankTitle(unit) : "",
                     unit.getHealth(), unit.getMaxHealth(),
                     faction == null ? -1 : faction.ordinal(),
-                    ammoRounds, ammoInfinite, hasFood, hasMedical));
+                    ammoRounds, ammoInfinite, hasFood, hasMedical,
+                    hunger, energy, morale));
         }
         return out;
     }

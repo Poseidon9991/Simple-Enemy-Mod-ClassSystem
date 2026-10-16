@@ -77,6 +77,8 @@ public final class UnitClassAttributes {
         if (entity instanceof LivingEntity living) {
             base *= UnitVeterancy.spreadScale(living);
         }
+        // Low morale shakes the aim ([needs] mode only, 1.0 otherwise)
+        base *= com.poseidon.sem_classsystem.needs.UnitNeeds.spreadPenaltyScale(entity);
         return base;
     }
 }
