@@ -70,6 +70,10 @@ public final class UnitNeedsEvents {
             String line = starved
                     ? name + " starved to death"
                     : name + " was killed in action";
+            // Permanent KIA board entry - position + day for the intel app.
+            UnitEventLog.get(sl.getServer().overworld()).addCasualty(owner,
+                    line + " @ " + deadUnit.blockPosition().toShortString()
+                            + " d" + (sl.getDayTime() / 24000L));
             ServerPlayer ownerPlayer = sl.getServer().getPlayerList().getPlayer(owner);
             if (ownerPlayer != null) {
                 ownerPlayer.sendSystemMessage(Component.literal("[SEM] " + line

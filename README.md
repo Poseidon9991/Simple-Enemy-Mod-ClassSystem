@@ -170,7 +170,7 @@ A squad command PDA (glass pane + iron + redstone). Right-click boots the field 
 *   **CRIT filter:** one-key toggle that hides everything except wounded or critically-needs units — triage at a glance.
 *   **Batch orders:** select units by clicking rows (or **ALL**/**NONE**), then hit an order key — `FOLLOW`, `HOLD`, `WEDGE`, `COLUMN`, `FREE`, `CEASE` — applied to the whole selection through SEM's own order wire.
 
-Also includes a teleport app that recalls selected units to you or to a marked position, and an intel app with squad/claim stats and raid alerts.
+Also includes a teleport app that recalls selected units to you or to a marked position, and an intel app with squad/claim stats, raid alerts, and a persistent **casualty board** of your fallen units.
 
 ### 🏰 Chunk Claims, Duty & Guard Posts
 
@@ -198,8 +198,12 @@ When Xaero's World Map is installed, the map becomes a real RTS surface:
 *   **Night Raids:** Once per night each player rolls `chancePerNight` (default ~1 in 3); on success a hostile RU or US patrol spawns `spawnDistance` blocks away and hunts your position — with a map ping warning.
 *   **Squad Size Cap:** Recruitment is limited to `maxOwnedUnits` per player (default 32, `0` = unlimited) to keep servers balanced.
 *   **Downed-not-dead (`[downed]`):** A lethal hit collapses your owned unit instead of killing it — it drops prone, can't fight, and bleeds out after `bleedoutTicks` (default 60 s) unless stabilized. Revive by right-clicking with a medical item (bandage/medkit/heal potion) or sneak-clicking bare-handed for a weaker field stabilize; **medic-class units triage downed allies automatically**. Downed units show as `DOWNED` on the tablet roster and `!! DOWNED !!` in WTHIT. Behaviour mirrors PlayerRevive's player flow and never conflicts with it — that mod only touches players.
-*   **Field scavenging (`lootPickup`):** Out-of-combat owned units pick up nearby useful drops — ammo matching calibres their guns actually need, food, medical items, spare weapons and armour — into their storage. Junk stays on the ground; a full inventory leaves the drop.
-*   **Dismissal:** `/semcs dismiss <targets>` releases ownership (the units park on `HOLD_POSITION` and revert to wild PMCs — they can turn hostile, so dismiss from a distance). Frees your recruit cap without a firing squad.
+*   **Field scavenging (`lootPickup`):** Out-of-combat owned units pick up nearby useful drops — ammo matching calibres their guns actually need, food, medical items, spare weapons and armour — into their storage. Junk stays on the ground; a full inventory leaves the drop. Each salvage pings the owner with what was grabbed and where (throttled, so a loot trail doesn't spam chat).
+*   **Wounded fallback:** Injured-but-standing owned units break contact and fall back — preferring the medic, then a claimed bed, then the ration crate, then the squad lead — before re-engaging. Downed units skip this entirely (the downed system owns them).
+*   **Dismissal:** `/semcs dismiss <targets>` releases ownership (the units park on `HOLD_POSITION` and revert to wild PMCs — they can turn hostile, so dismiss from a distance). Frees your recruit cap without a firing squad. Mass dismissal (`@e` or multiple units) requires a literal `confirm` argument so one sloppy selector can't wipe your roster.
+*   **Squad groups:** `/semcs group <targets> <name>` tags units into fireteams; `/semcs order_group <name> <order>` issues a squad-wide order over SEM's own wire, `/semcs dismiss_group <name>` releases just that squad. The tag shows beside the callsign on the tablet roster (synced in the v5 marker protocol).
+*   **Casualty board:** the tablet **INTEL** app keeps a persistent KIA list — every owned unit death is recorded in overworld SavedData with name, killer, position and game-time, and synced to the client alongside the marker refresh. Offline players still get the same lines via the login report.
+*   **Voice barks:** `[needs].barks` radio chatter now plays SEM's own unit voice lines at the unit's position — owned PMC/BHQ units borrow the English `us_unit` set (routine need-barks use `alert` clips, critical states get `warning`). Quiet + NEUTRAL source, reads as radio chatter.
 
 ***
 
@@ -274,7 +278,10 @@ You have complete control over squad composition:
     *   `/semcs recruit_class [class|random]` — View or set your recruiting preference.
     *   `/semcs spawn <ru|us|pmc|bhq> <class>` — Admin command to spawn a specific faction specialist.
     *   `/semcs class <targets> <class>` — Admin command to instantly re-class living units (automatically updates gear).
-    *   `/semcs dismiss <targets>` — Release owned units (they go wild — keep your distance).
+    *   `/semcs dismiss <targets> [confirm]` — Release owned units (they go wild — keep your distance); multi-target dismissals need `confirm`.
+    *   `/semcs group <targets> <name>` — Tag units into a named squad.
+    *   `/semcs order_group <name> <follow|hold|...>` — Order a whole squad at once.
+    *   `/semcs dismiss_group <name>` — Release one squad only.
     *   `/semcs shift <targets> <day|night|auto>` — Assign a sleep schedule (see 🍖 Unit Needs).
 3.  **Creative Spawn Eggs & Dedicated Tab:**
     *   The mod registers its own **SEM Class System** creative tab (`itemGroup.sem_classsystem`) housing all armor, items, and eggs.

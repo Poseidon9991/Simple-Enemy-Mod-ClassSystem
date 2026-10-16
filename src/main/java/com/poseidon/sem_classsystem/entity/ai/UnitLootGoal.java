@@ -98,11 +98,13 @@ public class UnitLootGoal extends Goal {
         if (inv == null) {
             return;
         }
+        ItemStack original = drop.getItem().copy();
         ItemStack stack = drop.getItem();
         for (int slot = FIRST_STORAGE_SLOT; slot < inv.getSlots() && !stack.isEmpty(); slot++) {
             stack = inv.insertItem(slot, stack, false);
         }
-        if (stack.getCount() == drop.getItem().getCount()) {
+        int taken = original.getCount() - stack.getCount();
+        if (taken <= 0) {
             return;   // no room at all - leave it on the ground
         }
         if (stack.isEmpty()) {
@@ -113,6 +115,33 @@ public class UnitLootGoal extends Goal {
         this.unit.level().playSound(null, this.unit.blockPosition(),
                 SoundEvents.ITEM_PICKUP, SoundSource.NEUTRAL, 0.4F, 1.2F);
         this.unit.getNavigation().stop();
+        ItemStack takenStack = original.copy();
+        takenStack.setCount(taken);
+        pingOwner(takenStack);
+    }
+
+    // Salvage beacon: an actionbar ping so the commander knows the squad
+    // grabbed something. Throttled per unit - a loot room shouldn't spam.
+    private int lastPingTick = -10000;
+
+    private void pingOwner(ItemStack stack) {
+        if (this.unit.tickCount - this.lastPingTick < 200) {
+            return;
+        }
+        this.lastPingTick = this.unit.tickCount;
+        java.util.UUID owner = this.unit.getOwnerUUID();
+        if (owner == null || this.unit.getServer() == null) {
+            return;
+        }
+        net.minecraft.server.level.ServerPlayer player =
+                this.unit.getServer().getPlayerList().getPlayer(owner);
+        if (player != null) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                    this.unit.getDisplayName().getString() + " salvaged "
+                            + stack.getCount() + "x "
+                            + stack.getHoverName().getString())
+                    .withStyle(net.minecraft.ChatFormatting.YELLOW), true);
+        }
     }
 
     private ItemEntity findLoot() {

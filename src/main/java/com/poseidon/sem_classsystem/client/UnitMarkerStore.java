@@ -55,6 +55,19 @@ public final class UnitMarkerStore {
         return markers;
     }
 
+    // ---- casualty board ------------------------------------------------------
+
+    private static List<String> casualtyLines = List.of();
+
+    public static void acceptCasualties(List<String> lines) {
+        casualtyLines = List.copyOf(lines);
+    }
+
+    // Newest-last KIA lines for the tablet INTEL app.
+    public static List<String> casualties() {
+        return casualtyLines;
+    }
+
     @Nullable
     public static UnitMarker marker(int entityId) {
         return BY_ID.get(entityId);
@@ -191,5 +204,6 @@ public final class UnitMarkerStore {
         CLAIMS.clear();
         pingDimension = "";
         pingExpiry = -1;
+        casualtyLines = List.of();
     }
 }

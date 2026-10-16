@@ -317,7 +317,8 @@ public class TabletScreen extends Screen {
                 if (UnitMarkerStore.isSelected(m)) {
                     g.fill(cx - 2, ry, cx, ry + ROW_H - 1, COL_ACCENT);
                 }
-                String name = (m.rankTitle().isEmpty() ? "" : m.rankTitle() + " ")
+                String name = (m.squad().isEmpty() ? "" : "[" + m.squad() + "] ")
+                        + (m.rankTitle().isEmpty() ? "" : m.rankTitle() + " ")
                         + (m.name().isEmpty() ? "Unit #" + m.entityId() : m.name());
                 g.drawString(this.font, this.font.plainSubstrByWidth(name, 112),
                         colName, ry + 4, m.downed() ? COL_BAD : COL_TEXT, false);
@@ -606,6 +607,22 @@ public class TabletScreen extends Screen {
             g.drawString(this.font, "RAID ALERT:  hostiles at " + (int) ping[0]
                     + ", " + (int) ping[1] + " (~" + (int) dist + "m)",
                     x, y, COL_BAD, false);
+        }
+        y += line + 4;
+
+        // Casualty board - newest losses last.
+        List<String> kia = UnitMarkerStore.casualties();
+        g.drawString(this.font, "CASUALTIES:", x, y, COL_ACCENT_DIM, false);
+        y += 10;
+        if (kia.isEmpty()) {
+            g.drawString(this.font, "  none recorded", x, y, 0xFF4A5538, false);
+        } else {
+            int shown = 0;
+            for (int i = kia.size() - 1; i >= 0 && shown < 8; i--, shown++) {
+                g.drawString(this.font, this.font.plainSubstrByWidth(
+                        "x  " + kia.get(i), this.winW - 40), x, y, COL_SUB, false);
+                y += 10;
+            }
         }
     }
 

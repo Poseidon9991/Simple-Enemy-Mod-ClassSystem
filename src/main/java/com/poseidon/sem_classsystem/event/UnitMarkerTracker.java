@@ -12,6 +12,7 @@ import com.poseidon.sem_classsystem.network.PacketSyncUnitMarkers;
 import com.poseidon.sem_classsystem.network.SemcsNetwork;
 import com.poseidon.sem_classsystem.veterancy.UnitVeterancy;
 import com.poseidon.sem_classsystem.world.PlayerChunkClaims;
+import com.poseidon.sem_classsystem.world.UnitEventLog;
 import com.tacz.guns.api.item.IAmmo;
 import com.tacz.guns.api.item.IAmmoBox;
 import com.tacz.guns.api.item.IGun;
@@ -86,6 +87,16 @@ public final class UnitMarkerTracker {
             SemcsNetwork.CHANNEL.send(
                     PacketDistributor.PLAYER.with(() -> player),
                     new PacketSyncClaims(dim, entries));
+
+            // Casualty board for the tablet INTEL app - newest 12 lines.
+            List<String> kas = UnitEventLog.get(event.getServer().overworld())
+                    .casualties(player.getUUID());
+            if (!kas.isEmpty()) {
+                SemcsNetwork.CHANNEL.send(
+                        PacketDistributor.PLAYER.with(() -> player),
+                        new com.poseidon.sem_classsystem.network.PacketSyncIntel(
+                                kas.subList(Math.max(0, kas.size() - 12), kas.size())));
+            }
         }
     }
 
@@ -165,7 +176,10 @@ public final class UnitMarkerTracker {
                     ammoRounds, ammoInfinite, hasFood, hasMedical,
                     hunger, energy, morale, sleeping,
                     unit instanceof PmcUnitEntity pmc
-                            && com.poseidon.sem_classsystem.entity.DownedState.isDowned(pmc)));
+                            && com.poseidon.sem_classsystem.entity.DownedState.isDowned(pmc),
+                    unit instanceof PmcUnitEntity pmc
+                            && allegiance == UnitMarker.Allegiance.OWN
+                            ? com.poseidon.sem_classsystem.entity.Squads.squad(pmc) : ""));
         }
         return out;
     }

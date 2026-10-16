@@ -34,7 +34,8 @@ public record UnitMarker(
         int energy,              // 0-20
         int morale,              // 0-100
         boolean sleeping,        // unit is bunked down right now
-        boolean downed           // collapsed, awaiting revive (own units only)
+        boolean downed,          // collapsed, awaiting revive (own units only)
+        String squad             // fireteam tag ("alpha"), "" when unassigned
 ) {
 
     public enum Allegiance {

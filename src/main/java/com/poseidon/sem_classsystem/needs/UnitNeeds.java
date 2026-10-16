@@ -220,24 +220,39 @@ public final class UnitNeeds {
             return;
         }
         if ((fresh & BARK_STARVING) != 0) {
-            bark(unit, "* stomach growling - needs food NOW *");
+            bark(unit, "* stomach growling - needs food NOW *", true);
         } else if ((fresh & BARK_HUNGRY) != 0) {
-            bark(unit, "\"Running low on rations.\"");
+            bark(unit, "\"Running low on rations.\"", false);
         }
         if ((fresh & BARK_TIRED) != 0) {
-            bark(unit, "\"I need rack time soon.\"");
+            bark(unit, "\"I need rack time soon.\"", false);
         }
         if ((fresh & BARK_SHAKEN) != 0) {
-            bark(unit, "\"I'm losing it out here...\"");
+            bark(unit, "\"I'm losing it out here...\"", true);
         }
     }
 
-    // One bark = a gray italic radio line to the owner, if online.
-    private static void bark(PmcUnitEntity unit, String line) {
+    // SEM ships RU + US voice sets only; owned PMC/BHQ units read as
+    // western contractors so they borrow the US clips. Critical barks get
+    // the sharper "warning" line instead of a routine "alert".
+    private static final String[] VOICE_ALERT = {
+            "sound_us_unit_alert", "sound_us_unit_alert1", "sound_us_unit_alert2"};
+
+    // One bark = a gray italic radio line to the owner + a voice line at the
+    // unit's position (quiet - reads as radio chatter, not a shout).
+    private static void bark(PmcUnitEntity unit, String line, boolean critical) {
         java.util.UUID owner = unit.getOwnerUUID();
         if (owner == null || !(unit.level() instanceof net.minecraft.server.level.ServerLevel sl)) {
             return;
         }
+        String sound = critical ? "sound_us_unit_warning"
+                : VOICE_ALERT[unit.getRandom().nextInt(VOICE_ALERT.length)];
+        sl.playSound(null, unit.blockPosition(),
+                net.minecraft.sounds.SoundEvent.createVariableRangeEvent(
+                        net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+                                "simpleenemymod", sound)),
+                net.minecraft.sounds.SoundSource.NEUTRAL, 0.6F,
+                0.95F + unit.getRandom().nextFloat() * 0.1F);
         net.minecraft.server.level.ServerPlayer player = sl.getServer().getPlayerList().getPlayer(owner);
         if (player == null) {
             return;

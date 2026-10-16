@@ -104,13 +104,40 @@ public final class SemClassCommands {
                                         .suggests(SHIFT_SUGGEST)
                                         .executes(SemClassCommands::setShift))))
 
-                // ---- /semcs dismiss <targets> ----
+                // ---- /semcs dismiss <targets> [confirm] ----
                 // Release ownership: the unit goes back to being a wild PMC
                 // (SEM's unowned PMCs act as regular NPCs - hostile rules
                 // apply, so they can turn on you). Frees the recruit cap.
+                // Dismissing more than DISMISS_CONFIRM_AT units needs the
+                // literal "confirm" word - /semcs dismiss @e confirm.
                 .then(Commands.literal("dismiss")
                         .then(Commands.argument("targets", EntityArgument.entities())
-                                .executes(SemClassCommands::dismissUnits))));
+                                .executes(ctx -> dismissUnits(ctx, false))
+                                .then(Commands.literal("confirm")
+                                        .executes(ctx -> dismissUnits(ctx, true)))))
+
+                // ---- /semcs group <targets> <name|clear> ----
+                // Fireteams: tag owned units with a squad name (A, B, recon,
+                // whatever) - shows on the tablet roster and targets
+                // order_group / dismiss_group.
+                .then(Commands.literal("group")
+                        .then(Commands.argument("targets", EntityArgument.entities())
+                                .then(Commands.argument("name", StringArgumentType.word())
+                                        .executes(SemClassCommands::assignGroup))))
+
+                // ---- /semcs order_group <squad> <order> ----
+                .then(Commands.literal("order_group")
+                        .then(Commands.argument("squad", StringArgumentType.word())
+                                .then(Commands.argument("order", StringArgumentType.word())
+                                        .suggests(ORDER_SUGGEST)
+                                        .executes(SemClassCommands::orderGroup))))
+
+                // ---- /semcs dismiss_group <squad> [confirm] ----
+                .then(Commands.literal("dismiss_group")
+                        .then(Commands.argument("squad", StringArgumentType.word())
+                                .executes(ctx -> dismissGroup(ctx, false))
+                                .then(Commands.literal("confirm")
+                                        .executes(ctx -> dismissGroup(ctx, true))))));
     }
 
     // ---- recruit_class ------------------------------------------------
@@ -278,32 +305,156 @@ public final class SemClassCommands {
 
     // ---- dismiss -------------------------------------------------------
 
-    // /semcs dismiss <targets> - drops ownership so the recruit cap frees up.
-    // WARN the player: an ownerless PMC is a regular SEM unit again and can
-    // go hostile - dismiss from a distance if you want the unit alive.
-    private static int dismissUnits(CommandContext<CommandSourceStack> ctx) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+    // Above this many units at once, dismiss needs the trailing "confirm"
+    // literal - releasing a whole squad of now-hostile PMCs on a misclick
+    // is a bad day.
+    private static final int DISMISS_CONFIRM_AT = 5;
+
+    // /semcs dismiss <targets> [confirm] - drops ownership so the recruit
+    // cap frees up. WARN the player: an ownerless PMC is a regular SEM
+    // unit again and can go hostile - dismiss from a distance.
+    private static int dismissUnits(CommandContext<CommandSourceStack> ctx, boolean confirmed)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         CommandSourceStack src = ctx.getSource();
         Player player = playerOrNull(ctx);
         if (player == null) return 0;
 
-        int released = 0;
+        java.util.List<net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity> owned = new java.util.ArrayList<>();
         for (Entity entity : EntityArgument.getEntities(ctx, "targets")) {
             if (entity instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity pmc
                     && player.getUUID().equals(pmc.getOwnerUUID())) {
-                pmc.setOwner(null);
-                // Park them where they stand instead of resuming wild patrol
-                pmc.setOrder(net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType.HOLD_POSITION);
-                released++;
+                owned.add(pmc);
             }
         }
-        if (released == 0) {
+        if (owned.isEmpty()) {
             src.sendFailure(Component.literal("No owned units in the selected entities"));
             return 0;
         }
-        int finalReleased = released;
+        if (!confirmed && owned.size() > DISMISS_CONFIRM_AT) {
+            src.sendFailure(Component.literal("Refusing to dismiss " + owned.size()
+                    + " units at once - they turn wild and hostile. "
+                    + "Re-run with 'confirm': /semcs dismiss @e confirm"));
+            return 0;
+        }
+        for (var pmc : owned) {
+            pmc.setOwner(null);
+            // Park them where they stand instead of resuming wild patrol
+            pmc.setOrder(net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType.HOLD_POSITION);
+        }
         src.sendSuccess(() -> Component.literal(
-                "§eDismissed " + finalReleased + " unit(s) - they are wild PMCs now and can turn hostile"), true);
-        return released;
+                "§eDismissed " + owned.size() + " unit(s) - they are wild PMCs now and can turn hostile"), true);
+        return owned.size();
+    }
+
+    // ---- squads ---------------------------------------------------------
+
+    private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> ORDER_SUGGEST =
+            (ctx, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
+                    java.util.List.of("follow", "hold", "wedge", "column", "free", "cease"), b);
+
+    // /semcs group <targets> <name|clear> - tags owned units with a squad.
+    private static int assignGroup(CommandContext<CommandSourceStack> ctx)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        CommandSourceStack src = ctx.getSource();
+        Player player = playerOrNull(ctx);
+        if (player == null) return 0;
+        String name = StringArgumentType.getString(ctx, "name");
+
+        int tagged = 0;
+        for (Entity entity : EntityArgument.getEntities(ctx, "targets")) {
+            if (entity instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity pmc
+                    && player.getUUID().equals(pmc.getOwnerUUID())) {
+                com.poseidon.sem_classsystem.entity.Squads.setSquad(pmc, name);
+                tagged++;
+            }
+        }
+        if (tagged == 0) {
+            src.sendFailure(Component.literal("No owned units in the selected entities"));
+            return 0;
+        }
+        boolean cleared = name.equalsIgnoreCase("clear") || name.equalsIgnoreCase("none");
+        int finalTagged = tagged;
+        src.sendSuccess(() -> Component.literal(cleared
+                ? "§eCleared squad tag on " + finalTagged + " unit(s)"
+                : "§aAssigned " + finalTagged + " unit(s) to squad '" + name + "'"), true);
+        return tagged;
+    }
+
+    // All owned units in the given level matching the caller's squad tag.
+    private static java.util.List<net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity>
+    squadUnits(Player player, String squad) {
+        java.util.List<net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity> out = new java.util.ArrayList<>();
+        for (net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity e : player.level().getEntitiesOfClass(
+                net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity.class,
+                player.getBoundingBox().inflate(512.0))) {
+            if (player.getUUID().equals(e.getOwnerUUID())
+                    && squad.equalsIgnoreCase(
+                            com.poseidon.sem_classsystem.entity.Squads.squad(e))) {
+                out.add(e);
+            }
+        }
+        return out;
+    }
+
+    // /semcs order_group <squad> <order> - broadcast one SEM order to the
+    // whole fireteam.
+    private static int orderGroup(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        Player player = playerOrNull(ctx);
+        if (player == null) return 0;
+        String squad = StringArgumentType.getString(ctx, "squad");
+        net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType order =
+                switch (StringArgumentType.getString(ctx, "order").toLowerCase(java.util.Locale.ROOT)) {
+                    case "follow" -> net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType.FOLLOW_COMMANDER;
+                    case "hold" -> net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType.HOLD_POSITION;
+                    case "wedge" -> net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType.FORM_WEDGE;
+                    case "column" -> net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType.FORM_COLUMN;
+                    case "free" -> net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType.FREE_FIRE;
+                    case "cease" -> net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType.CEASE_FIRE;
+                    default -> null;
+                };
+        if (order == null) {
+            src.sendFailure(Component.literal(
+                    "Unknown order - use follow/hold/wedge/column/free/cease"));
+            return 0;
+        }
+        var units = squadUnits(player, squad);
+        if (units.isEmpty()) {
+            src.sendFailure(Component.literal("No owned units in squad '" + squad + "' here"));
+            return 0;
+        }
+        for (var unit : units) {
+            unit.setOrder(order);
+        }
+        net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType finalOrder = order;
+        src.sendSuccess(() -> Component.literal("§aSquad '" + squad + "' -> "
+                + finalOrder.name().replace('_', ' ') + " (" + units.size() + " unit(s))"), true);
+        return units.size();
+    }
+
+    // /semcs dismiss_group <squad> [confirm] - release the whole fireteam.
+    private static int dismissGroup(CommandContext<CommandSourceStack> ctx, boolean confirmed) {
+        CommandSourceStack src = ctx.getSource();
+        Player player = playerOrNull(ctx);
+        if (player == null) return 0;
+        String squad = StringArgumentType.getString(ctx, "squad");
+        var units = squadUnits(player, squad);
+        if (units.isEmpty()) {
+            src.sendFailure(Component.literal("No owned units in squad '" + squad + "' here"));
+            return 0;
+        }
+        if (!confirmed && units.size() > DISMISS_CONFIRM_AT) {
+            src.sendFailure(Component.literal("Refusing to dismiss " + units.size()
+                    + " units at once - re-run with 'confirm'"));
+            return 0;
+        }
+        for (var pmc : units) {
+            pmc.setOwner(null);
+            pmc.setOrder(net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType.HOLD_POSITION);
+        }
+        src.sendSuccess(() -> Component.literal("§eDismissed squad '" + squad
+                + "' - " + units.size() + " unit(s)"), true);
+        return units.size();
     }
 
     // byConfigKey accepts every constant including subclasses - commands may

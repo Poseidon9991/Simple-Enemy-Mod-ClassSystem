@@ -42,4 +42,9 @@ public final class ClientPacketHooks {
         UnitMarkerStore.acceptRaidPing(msg.dimension(), msg.x(), msg.z(),
                 Minecraft.getInstance().level.getGameTime() + 2400L);
     }
+
+    // Casualty board snapshot for the INTEL app.
+    public static void onCasualties(java.util.List<String> lines) {
+        UnitMarkerStore.acceptCasualties(lines);
+    }
 }

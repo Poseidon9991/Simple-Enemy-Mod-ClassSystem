@@ -25,6 +25,11 @@ public class UnitEventLog extends SavedData {
     private static final int MAX_LINES_PER_PLAYER = 40;
 
     private final Map<UUID, List<String>> pending = new HashMap<>();
+    // Persistent KIA board - never drained by the login report; the tablet's
+    // intel app reads the tail of it. Stored alongside pending in the same
+    // SavedData file under a "casualty:" prefixed key.
+    private static final int MAX_CASUALTIES_PER_PLAYER = 20;
+    private static final String CAS_PREFIX = "casualty:";
 
     public static UnitEventLog get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(
@@ -38,7 +43,11 @@ public class UnitEventLog extends SavedData {
             for (Tag t : tag.getList(key, Tag.TAG_STRING)) {
                 lines.add(t.getAsString());
             }
-            log.pending.put(UUID.fromString(key), lines);
+            if (key.startsWith(CAS_PREFIX)) {
+                log.casualties.put(UUID.fromString(key.substring(CAS_PREFIX.length())), lines);
+            } else {
+                log.pending.put(UUID.fromString(key), lines);
+            }
         }
         return log;
     }
@@ -51,6 +60,13 @@ public class UnitEventLog extends SavedData {
                 list.add(StringTag.valueOf(line));
             }
             tag.put(e.getKey().toString(), list);
+        }
+        for (Map.Entry<UUID, List<String>> e : this.casualties.entrySet()) {
+            ListTag list = new ListTag();
+            for (String line : e.getValue()) {
+                list.add(StringTag.valueOf(line));
+            }
+            tag.put(CAS_PREFIX + e.getKey().toString(), list);
         }
         return tag;
     }
@@ -73,5 +89,23 @@ public class UnitEventLog extends SavedData {
             setDirty();
         }
         return lines != null ? lines : List.of();
+    }
+
+    private final Map<UUID, List<String>> casualties = new HashMap<>();
+
+    // Record a permanent loss on the casualty board (KIA / bled out).
+    // Survives the login report drain - it is history, not a notification.
+    public void addCasualty(UUID player, String line) {
+        List<String> lines = this.casualties.computeIfAbsent(player, k -> new ArrayList<>());
+        if (lines.size() >= MAX_CASUALTIES_PER_PLAYER) {
+            lines.remove(0);
+        }
+        lines.add(line);
+        setDirty();
+    }
+
+    // Newest-last list of casualty lines for the tablet intel board.
+    public List<String> casualties(UUID player) {
+        return this.casualties.getOrDefault(player, List.of());
     }
 }

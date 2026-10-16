@@ -294,8 +294,9 @@ $$\text{Soldier Profile} = \text{UnitClass (Faction)} \times \text{WeaponClass (
 | **3** | `UnitEatGoal` | Owned PMC & BHQ | [needs] Hungry units eat carried food or pathfind to a stockpile container inside owner claims. |
 | **3** | `UnitResupplyGoal` | Owned PMC & BHQ | [needs] Units with a dry gun pull matching ammo from claimed stockpiles (up to 96 rounds/trip). |
 | **3** | `UnitAmmoBoxGoal` | Owned PMC & BHQ | Units with a dry gun draw matching rounds straight from a worn `tacz:ammo_box` curio (belt/back tag) - no needs gating, works in combat. |
+| **2** | `UnitWoundedGoal` | Owned PMC & BHQ | Under 30% HP and in combat: breaks contact toward medic → claimed bed → ration crate → squad lead; downed/downed-immune states skip it. |
 | **4** | `UnitMedicHealGoal` | Medic Only | Breaks combat to heal wounded squadmates within 24 blocks; triages downed allies first and revives them. |
-| **6** | `UnitLootGoal` | Owned PMC & BHQ | Scavenges nearby worthwhile drops (matching ammo, food, medical, guns, armour, ammo boxes) into storage slots while idle. |
+| **6** | `UnitLootGoal` | Owned PMC & BHQ | Scavenges nearby worthwhile drops (matching ammo, food, medical, guns, armour, ammo boxes) into storage slots while idle; pings the owner per pickup (throttled). |
 | **9** | `UnitWeaponFallbackGoal`| All Units | Swaps to backup pistol when primary magazine & reserve ammo run dry. |
 
 ### Class Tactical Implementations
@@ -341,8 +342,8 @@ An opt-in survival layer (`[needs] enabled`, default `false`) that gives **owned
 - **Shared stockpile search**: `StockpileSearch.findContainer/withdrawIntoUnit` locates `ITEM_HANDLER` block entities inside `PlayerChunkClaims` (loaded chunks only) and prefers `SupplyCrateBlockEntity` (the craftable Ration Crate pantry) at equal distance.
 - **Ammo resupply**: `UnitResupplyGoal` computes each carried gun's ammo id (`StockpileSearch.dryAmmoIds` — `TimelessAPI` gun index → `GunData.getAmmoId`) and stockpile-runs when a gun has zero matching rounds — the primary comes back after `UnitWeaponFallbackGoal` swapped to the sidearm. `UnitAmmoBoxGoal` is the decoupled wearable version: a `tacz:ammo_box` in a Curio `belt`/`back` slot (tag files at `data/curios/tags/items/`) feeds the dry gun in place via `IAmmoBox` — no needs config, no stockpile trip.
 - **Morale**: `UnitClassAttributes.spreadMultiplier` multiplies by `UnitNeeds.spreadPenaltyScale` (up to +60% spread at 0 morale); `UnitNeedsEvents` adds +4 on kills, -8 on nearby owned-ally deaths, and rolls a 35% `SEEK_COVER` break when a shaken unit is hurt.
-- **Barks & reports**: threshold crossings (hungry/starving/exhausted/shaken) radio the owner once per crossing via a bark bitmask in `UnitNeeds`; owned-unit deaths chat-notify the owner or file into `UnitEventLog` (overworld SavedData) for the login "squad report".
-- **Sync**: `UnitMarker` carries `hunger`/`energy`/`morale`/`sleeping`/`downed` (OWN allegiance only, `-1` when disabled) → tablet roster NEEDS column with a critical `!` marker + `Sleeping`/`DOWNED` status + WTHIT status line.
+- **Barks & reports**: threshold crossings (hungry/starving/exhausted/shaken) radio the owner once per crossing via a bark bitmask in `UnitNeeds`; `bark()` also plays a SEM unit voice line at the unit's position (`simpleenemymod:sound_us_unit_*` — PMC/BHQ borrow the English set; routine barks cycle `alert`/`alert1`/`alert2`, critical barks play `warning`, quiet NEUTRAL source). Owned-unit deaths chat-notify the owner or file into `UnitEventLog` (overworld SavedData) for the login "squad report" and the INTEL casualty board.
+- **Sync**: `UnitMarker` carries `hunger`/`energy`/`morale`/`sleeping`/`downed`/`squad` (OWN allegiance only, `-1` when disabled) → tablet roster NEEDS column with a critical `!` marker + `Sleeping`/`DOWNED` status + squad tag beside the callsign + WTHIT status line.
 
 ### Downed-Not-Dead System
 
@@ -356,7 +357,19 @@ An always-on survival layer for **owned** units (`[downed]` config, default enab
 
 ### Field Scavenging
 
-`UnitLootGoal` (priority 6 — below every duty/need) lets idle owned units walk to the nearest worthwhile `ItemEntity` within 8 blocks and store it in slots 6+. Pickup whitelist: ammo whose id matches a carried gun that's dry (`StockpileSearch.dryAmmoIds`), edible items, medical items (`UnitMarkerTracker.isMedicalItem`), guns, armour, ammo boxes. Respects pickup delay and inventory space — a full pack leaves the drop. `[needs]`-independent, `lootPickup` config key.
+`UnitLootGoal` (priority 6 — below every duty/need) lets idle owned units walk to the nearest worthwhile `ItemEntity` within 8 blocks and store it in slots 6+. Pickup whitelist: ammo whose id matches a carried gun that's dry (`StockpileSearch.dryAmmoIds`), edible items, medical items (`UnitMarkerTracker.isMedicalItem`), guns, armour, ammo boxes. Respects pickup delay and inventory space — a full pack leaves the drop. `[needs]`-independent, `lootPickup` config key. On a successful take it radios the owner with the stack name/count and position (the stack is copied *before* `discard()`/`setItem()` mutates the entity's copy; 1.20.1-safe `copy()`+`setCount`, no `copyWithCount`); pings share a per-unit cooldown so a loot trail doesn't spam.
+
+### Wounded Fallback
+
+`UnitWoundedGoal` (priority 2, owned only) fires when an engaged unit drops under 30% max HP: it clears the combat target and paths to the best rearward anchor — medic-class squadmate within 24 blocks → claimed bed → ration/supply crate → squad lead — then re-engages once healed or when the anchor is unreachable. Downed units are excluded (`DownedState` owns them), sleep/medic goals still outrank the retreat when they can act.
+
+### Squad Groups
+
+`entity/Squads.java` persists a short `semcs:squad` tag in unit persistentData. Commands: `/semcs group <targets> <name>` (tags owned units), `/semcs order_group <name> <order>` (loops SEM `PacketIssueOrder` over the matching squad — server re-validates ownership per unit), `/semcs dismiss_group <name>` (releases only that squad, same wild-PMC warning as dismiss). The tag rides `UnitMarker` (OWN allegiance only) so the tablet roster shows it beside the callsign.
+
+### Casualty Board (Intel Sync)
+
+`UnitEventLog` (overworld `SavedData`) keeps two per-owner lists: the existing *pending* offline-report lines drained on login, plus a persistent **casualty list** (`casualties/<uuid>` entries recording name, killer, block pos, game-time). `UnitNeedsEvents` appends to it on every owned-unit death. `PacketSyncIntel` (S2C, registered in `SemcsNetwork`, bounded decode) carries the owner's casualty lines inside `UnitMarkerTracker`'s 20-tick sync burst → `ClientPacketHooks.onIntel` → `UnitMarkerStore` → the tablet INTEL app's KIA board. Offline players still see the same lines via the login report; the board just doesn't forget them.
 
 ### Tablet Field Terminal
 
@@ -475,6 +488,7 @@ Client                                                         Server
 | `7` | `PacketGuardPostAction`| C $\to$ S | Binds/unbinds primary and reserve guards | Verifies distance and ownership |
 | `8` | `PacketReturnToPost` | C $\to$ S | Commands unit to break current order & return to post | Verifies ownership |
 | `9` | `PacketTeleportUnits` | C $\to$ S | Field tablet teleport order | Strict range, dimension & permission checks |
+| `10` | `PacketSyncIntel` | S $\to$ C | Streams the owner's casualty (KIA) board lines | Bounded decode; full list replacement |
 
 ---
 

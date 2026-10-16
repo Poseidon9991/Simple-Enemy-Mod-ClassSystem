@@ -11,6 +11,7 @@ import com.poseidon.sem_classsystem.entity.ai.UnitResupplyGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitSelfHealGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitSleepGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitWeaponFallbackGoal;
+import com.poseidon.sem_classsystem.entity.ai.UnitWoundedGoal;
 import net.minecraft.world.entity.PathfinderMob;
 import net.nekoyuni.SimpleEnemyMod.entity.ai.roles.AbstractFriendlyGoals;
 import net.nekoyuni.SimpleEnemyMod.entity.ai.roles.AbstractUnitGoals;
@@ -37,6 +38,10 @@ public abstract class MixinAbstractUnitGoals {
         // Chunk duty (guard/patrol claimed map chunks) - priority 2 beats the
         // CommanderOrderGoal's MOVE flag so a posted guard actually moves
         if (entity instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity pmc) {
+            // Wounded fallback: under 30% HP with a target, break contact
+            // toward the nearest squad medic (or straight away) - needs a
+            // MOVE flag above duty so a guarding unit still falls back.
+            entity.goalSelector.addGoal(2, new UnitWoundedGoal(pmc));
             entity.goalSelector.addGoal(2, new UnitChunkDutyGoal(pmc));
             // [needs]: sleep ties duty at 2 (duty self-yields to an exhausted
             // unit) and eating sits under combat but above idle orders.
