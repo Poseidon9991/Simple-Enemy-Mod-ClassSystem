@@ -162,9 +162,15 @@ Flip `[needs] enabled = true` in the config and your owned units become living s
 *   **Right-click:** Rally every unit you own within 64 blocks — they drop locks and fall in behind you (`FOLLOW_COMMANDER`), or into the whistle's current formation.
 *   **Sneak + right-click:** Cycle the march order — `FOLLOW` → `WEDGE` → `COLUMN` — and apply it immediately. Craftable from iron.
 
-### <img src="src/main/resources/assets/sem_classsystem/textures/item/field_tablet.png" width="22"> Field Tablet (SEM-OS)
+### <img src="src/main/resources/assets/sem_classsystem/textures/item/field_tablet.png" width="22"> Field Tablet (FIELD-LINK)
 
-A squad command PDA (glass pane + iron + redstone). Right-click boots the SEM-OS desktop; the Squad app lists every owned unit's health, ammo supply (including infinite creative ammo boxes), class, food/medical status, and — with `[needs]` enabled — hunger/energy/morale bars — all fed by server-synced data. Also includes a teleport app that recalls selected units to you or to a marked position.
+A squad command PDA (glass pane + iron + redstone). Right-click boots the field terminal — dark olive chassis, amber stencil UI, scanline display. The Squad app lists every owned unit's health, ammo supply (including infinite creative ammo boxes), class, food/medical status, and — with `[needs]` enabled — hunger/energy/morale bars — all fed by server-synced data:
+
+*   **Sortable roster:** click any column header (CALLSIGN / CLASS / HP / AMMO / STATUS / NEEDS) to sort ascending/descending.
+*   **CRIT filter:** one-key toggle that hides everything except wounded or critically-needs units — triage at a glance.
+*   **Batch orders:** select units by clicking rows (or **ALL**/**NONE**), then hit an order key — `FOLLOW`, `HOLD`, `WEDGE`, `COLUMN`, `FREE`, `CEASE` — applied to the whole selection through SEM's own order wire.
+
+Also includes a teleport app that recalls selected units to you or to a marked position, and an intel app with squad/claim stats and raid alerts.
 
 ### 🏰 Chunk Claims, Duty & Guard Posts
 
@@ -191,6 +197,9 @@ When Xaero's World Map is installed, the map becomes a real RTS surface:
 *   **Veterancy:** Units earn XP in combat and gain persistent rank titles (shown on markers and the tablet), stored in entity NBT.
 *   **Night Raids:** Once per night each player rolls `chancePerNight` (default ~1 in 3); on success a hostile RU or US patrol spawns `spawnDistance` blocks away and hunts your position — with a map ping warning.
 *   **Squad Size Cap:** Recruitment is limited to `maxOwnedUnits` per player (default 32, `0` = unlimited) to keep servers balanced.
+*   **Downed-not-dead (`[downed]`):** A lethal hit collapses your owned unit instead of killing it — it drops prone, can't fight, and bleeds out after `bleedoutTicks` (default 60 s) unless stabilized. Revive by right-clicking with a medical item (bandage/medkit/heal potion) or sneak-clicking bare-handed for a weaker field stabilize; **medic-class units triage downed allies automatically**. Downed units show as `DOWNED` on the tablet roster and `!! DOWNED !!` in WTHIT. Behaviour mirrors PlayerRevive's player flow and never conflicts with it — that mod only touches players.
+*   **Field scavenging (`lootPickup`):** Out-of-combat owned units pick up nearby useful drops — ammo matching calibres their guns actually need, food, medical items, spare weapons and armour — into their storage. Junk stays on the ground; a full inventory leaves the drop.
+*   **Dismissal:** `/semcs dismiss <targets>` releases ownership (the units park on `HOLD_POSITION` and revert to wild PMCs — they can turn hostile, so dismiss from a distance). Frees your recruit cap without a firing squad.
 
 ***
 
@@ -265,6 +274,8 @@ You have complete control over squad composition:
     *   `/semcs recruit_class [class|random]` — View or set your recruiting preference.
     *   `/semcs spawn <ru|us|pmc|bhq> <class>` — Admin command to spawn a specific faction specialist.
     *   `/semcs class <targets> <class>` — Admin command to instantly re-class living units (automatically updates gear).
+    *   `/semcs dismiss <targets>` — Release owned units (they go wild — keep your distance).
+    *   `/semcs shift <targets> <day|night|auto>` — Assign a sleep schedule (see 🍖 Unit Needs).
 3.  **Creative Spawn Eggs & Dedicated Tab:**
     *   The mod registers its own **SEM Class System** creative tab (`itemGroup.sem_classsystem`) housing all armor, items, and eggs.
     *   Includes **32 Class Spawn Eggs** (4 factions × 8 main classes, matching faction shell colors and class accent spots) plus the **BHQ Operator Spawn Egg**. Units spawned from class eggs immediately lock to that class and draw proper loadouts.

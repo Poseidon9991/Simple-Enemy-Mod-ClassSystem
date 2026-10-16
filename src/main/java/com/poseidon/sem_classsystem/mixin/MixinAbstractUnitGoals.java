@@ -4,6 +4,7 @@ package com.poseidon.sem_classsystem.mixin;
 import com.poseidon.sem_classsystem.entity.ai.UnitAmmoBoxGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitChunkDutyGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitEatGoal;
+import com.poseidon.sem_classsystem.entity.ai.UnitLootGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitMedicHealGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitMeleeAttackGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitResupplyGoal;
@@ -45,6 +46,8 @@ public abstract class MixinAbstractUnitGoals {
             entity.goalSelector.addGoal(3, new UnitResupplyGoal(pmc));
             // No needs gating: a worn TaCZ ammo box feeds a dry gun in place
             entity.goalSelector.addGoal(3, new UnitAmmoBoxGoal(pmc));
+            // Bottom priority: scavenge useful drops only when idle
+            entity.goalSelector.addGoal(6, new UnitLootGoal(pmc));
         }
     }
 }

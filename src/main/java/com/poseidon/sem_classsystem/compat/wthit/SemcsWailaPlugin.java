@@ -39,6 +39,7 @@ public class SemcsWailaPlugin implements IWailaPlugin {
     private static final String TAG_HUNGER = "semcs_hunger";
     private static final String TAG_ENERGY = "semcs_energy";
     private static final String TAG_MORALE = "semcs_morale";
+    private static final String TAG_DOWNED = "semcs_downed";
 
     @Override
     public void register(IRegistrar registrar) {
@@ -74,6 +75,11 @@ public class SemcsWailaPlugin implements IWailaPlugin {
                 raw.putInt(TAG_ENERGY, com.poseidon.sem_classsystem.needs.UnitNeeds.energy(pmc));
                 raw.putInt(TAG_MORALE, com.poseidon.sem_classsystem.needs.UnitNeeds.morale(pmc));
             }
+            // Downed state - everyone can see a collapsed unit needs aid
+            if (unit instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity pmc) {
+                raw.putBoolean(TAG_DOWNED,
+                        com.poseidon.sem_classsystem.entity.DownedState.isDowned(pmc));
+            }
         }
     }
 
@@ -108,6 +114,10 @@ public class SemcsWailaPlugin implements IWailaPlugin {
             if (xp > 0) {
                 tooltip.addLine(Component.literal("Veterancy " + xp + " XP")
                         .withStyle(ChatFormatting.DARK_GREEN));
+            }
+            if (raw.getBoolean(TAG_DOWNED)) {
+                tooltip.addLine(Component.literal("!! DOWNED - needs a medic !!")
+                        .withStyle(ChatFormatting.RED));
             }
             if (raw.contains(TAG_HUNGER)) {
                 tooltip.addLine(Component.literal(

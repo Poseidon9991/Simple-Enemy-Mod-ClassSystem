@@ -15,7 +15,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 @Mod.EventBusSubscriber(modid = SemClassSystem.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class SemcsNetwork {
 
-    private static final String VERSION = "3";
+    private static final String VERSION = "4";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID, "main"),

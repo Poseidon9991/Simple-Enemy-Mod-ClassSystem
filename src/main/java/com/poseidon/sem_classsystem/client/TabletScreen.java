@@ -20,23 +20,45 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-// A pocket OS: dark desktop, a taskbar, app icons. The Squad app is the
-// roster the Field Tablet exists for - every owned unit (any dimension)
-// with health, ammo reserve (or an infinity mark when the unit carries a
-// creative/all-type TaCZ ammo box), class, and food/medical supply chips.
-// Clicking a row toggles map selection so the roster and world map agree.
+// A field terminal, not a desktop: olive-drab device chrome, amber stencil
+// text, scanlines. The Squad app is the roster the Field Tablet exists for -
+// every owned unit (any dimension) with health, ammo reserve (or an infinity
+// mark when the unit carries a creative/all-type TaCZ ammo box), class, and
+// food/medical supply chips. Clicking a row toggles map selection so the
+// roster and world map agree; the order bar issues SEM orders to every
+// selected unit through SEM's own PacketIssueOrder wire.
 // All numbers arrive on the wire in UnitMarker; the client never scans
 // entity inventories itself.
 public class TabletScreen extends Screen {
 
     private enum App {SQUAD, TELEPORT, INTEL}
 
+    private enum SortField {NAME, CLASS, HP, AMMO, NEEDS, STATUS}
+
     private static final int TASKBAR_H = 20;
     private static final int ICON_SIZE = 30;
     private static final int ROW_H = 15;
 
+    // Field-tablet palette: dark olive chassis, khaki text, amber accents.
+    private static final int COL_BG_TOP = 0xFF0A0D07;
+    private static final int COL_BG_BOT = 0xFF151B0E;
+    private static final int COL_TASKBAR = 0xFF060804;
+    private static final int COL_ACCENT = 0xFFD8B36A;    // amber stencil
+    private static final int COL_ACCENT_DIM = 0xFF8A8F6A;
+    private static final int COL_PANEL = 0xFF12170C;
+    private static final int COL_PANEL_EDGE = 0xFF3E4428;
+    private static final int COL_TITLE = 0xFF1B2210;
+    private static final int COL_TEXT = 0xFFE4E8D8;
+    private static final int COL_SUB = 0xFFA8B08C;
+    private static final int COL_ROW_HOVER = 0xFF1E2A14;
+    private static final int COL_BAD = 0xFFC04A3A;
+    private static final int COL_OK = 0xFF6FAE4E;
+
     private App openApp = null;
     private int scroll = 0;
+    private SortField sortField = SortField.NAME;
+    private boolean sortAsc = true;
+    private boolean filterCrit = false;
 
     // Window geometry, refreshed each frame so hit tests use what was drawn.
     private int winX, winY, winW, winH;
@@ -49,8 +71,16 @@ public class TabletScreen extends Screen {
     private int rosterViewTop = 0;
     private int rosterViewH = 0;
 
+    // Click zones rebuilt during render each frame:
+    //   headerSorts  {x, y, w, sortFieldOrdinal}
+    //   orderButtons {x, y, w, orderOrdinal | -1 select-all | -2 clear}
+    //   critButton   {x, y, w, h} or null
+    private final List<int[]> headerSorts = new ArrayList<>();
+    private final List<int[]> orderButtons = new ArrayList<>();
+    private int[] critButton = null;
+
     public TabletScreen() {
-        super(Component.literal("SEM-OS"));
+        super(Component.literal("FIELD-LINK"));
     }
 
     @Override
@@ -63,13 +93,17 @@ public class TabletScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(g);
-        // Wallpaper - dark slate gradient with a faint survey grid.
-        g.fillGradient(0, 0, this.width, this.height, 0xFF0C1420, 0xFF182433);
+        // Chassis wallpaper - dark olive gradient with a faint survey grid.
+        g.fillGradient(0, 0, this.width, this.height, COL_BG_TOP, COL_BG_BOT);
         for (int x = 0; x < this.width; x += 40) {
-            g.fill(x, TASKBAR_H, x + 1, this.height, 0x10FFFFFF);
+            g.fill(x, TASKBAR_H, x + 1, this.height, 0x0CFFFFFF);
         }
         for (int y = TASKBAR_H; y < this.height; y += 40) {
-            g.fill(0, y, this.width, y + 1, 0x10FFFFFF);
+            g.fill(0, y, this.width, y + 1, 0x0CFFFFFF);
+        }
+        // Scanlines - cheap phosphor-screen texture across the whole display.
+        for (int y = TASKBAR_H + 2; y < this.height; y += 4) {
+            g.fill(0, y, this.width, y + 1, 0x08FFFFFF);
         }
 
         renderTaskbar(g);
@@ -85,8 +119,13 @@ public class TabletScreen extends Screen {
     }
 
     private void renderTaskbar(GuiGraphics g) {
-        g.fill(0, 0, this.width, TASKBAR_H, 0xFF0A0E14);
-        g.drawString(this.font, "SEM-OS", 6, 6, 0xFF6FE3C1, false);
+        g.fill(0, 0, this.width, TASKBAR_H, COL_TASKBAR);
+        g.drawString(this.font, "FIELD-LINK // SEM TACNET", 6, 6, COL_ACCENT, false);
+        // Status pips next to the title - pure chrome, no function.
+        g.fill(6 + this.font.width("FIELD-LINK // SEM TACNET") + 6, 8,
+                6 + this.font.width("FIELD-LINK // SEM TACNET") + 10, 10, COL_OK);
+        g.fill(6 + this.font.width("FIELD-LINK // SEM TACNET") + 12, 8,
+                6 + this.font.width("FIELD-LINK // SEM TACNET") + 16, 10, COL_ACCENT);
         Minecraft mc = Minecraft.getInstance();
         String right = mc.player == null ? "" : mc.player.getGameProfile().getName();
         if (mc.level != null) {
@@ -94,19 +133,19 @@ public class TabletScreen extends Screen {
             right = String.format("%02d:%02d  %s", t / 1000, (t % 1000) / 17, right);
         }
         g.drawString(this.font, right,
-                this.width - 6 - this.font.width(right), 6, 0xFF8FA3B8, false);
+                this.width - 6 - this.font.width(right), 6, COL_SUB, false);
     }
 
     private void renderIcons(GuiGraphics g, int mouseX, int mouseY) {
         int cx = this.width / 2;
         int cy = this.height / 2 - 30;
-        drawAppIcon(g, cx - 103, cy, mouseX, mouseY, 0xFF2E7D46, "Squad", () -> {
+        drawAppIcon(g, cx - 103, cy, mouseX, mouseY, 0xFF4A5A28, "Squad", () -> {
             // three squad chevrons
             g.fill(cx - 103 + 8, cy + 8, cx - 103 + 12, cy + 22, 0xFFDFF5E8);
             g.fill(cx - 103 + 13, cy + 8, cx - 103 + 17, cy + 22, 0xFFB8E4C8);
             g.fill(cx - 103 + 18, cy + 8, cx - 103 + 22, cy + 22, 0xFF8FD3AC);
         });
-        drawAppIcon(g, cx - 15, cy, mouseX, mouseY, 0xFF5B3A8E, "Teleport", () -> {
+        drawAppIcon(g, cx - 15, cy, mouseX, mouseY, 0xFF5A5230, "Teleport", () -> {
             // portal swirl: diamond ring + dot
             int ix = cx - 15;
             g.fill(ix + 13, cy + 7, ix + 17, cy + 11, 0xFFD8C8FF);
@@ -115,7 +154,7 @@ public class TabletScreen extends Screen {
             g.fill(ix + 13, cy + 15, ix + 17, cy + 19, 0xFFD8C8FF);
             g.fill(ix + 13, cy + 11, ix + 17, cy + 15, 0xFFF4ECFF);
         });
-        drawAppIcon(g, cx + 73, cy, mouseX, mouseY, 0xFF8A6A24, "Intel", () -> {
+        drawAppIcon(g, cx + 73, cy, mouseX, mouseY, 0xFF6B4A24, "Intel", () -> {
             // signal bars
             g.fill(cx + 73 + 6, cy + 16, cx + 73 + 10, cy + 22, 0xFFF5E6C0);
             g.fill(cx + 73 + 12, cy + 12, cx + 73 + 16, cy + 22, 0xFFF5E6C0);
@@ -133,25 +172,38 @@ public class TabletScreen extends Screen {
         glyph.run();
         g.drawCenteredString(this.font, label,
                 x + ICON_SIZE / 2, y + ICON_SIZE + 4,
-                hover ? 0xFFFFFFFF : 0xFFB9C6D4);
+                hover ? 0xFFFFFFFF : COL_SUB);
     }
 
-    // Window chrome shared by both apps; returns content origin via fields.
+    // Window chrome shared by the apps: a thick rugged bezel with corner
+    // screws, khaki title strip, hard red close key. Returns content origin
+    // via fields.
     private void openWindow(GuiGraphics g, String title) {
         this.winW = Math.min(560, this.width - 50);
         this.winH = Math.min(300, this.height - 70);
         this.winX = (this.width - this.winW) / 2;
         this.winY = (this.height - this.winH) / 2 + 8;
+        g.fill(this.winX - 2, this.winY - 2, this.winX + this.winW + 2,
+                this.winY + this.winH + 2, 0xFF2A2E1A);
         g.fill(this.winX - 1, this.winY - 1, this.winX + this.winW + 1,
-                this.winY + this.winH + 1, 0xFF3D4E63);
+                this.winY + this.winH + 1, COL_PANEL_EDGE);
         g.fill(this.winX, this.winY, this.winX + this.winW,
-                this.winY + this.winH, 0xFF141C28);
-        // title bar
-        g.fill(this.winX, this.winY, this.winX + this.winW, this.winY + 18, 0xFF1D2A3A);
-        g.drawString(this.font, title, this.winX + 8, this.winY + 5, 0xFF6FE3C1, false);
-        // close button
+                this.winY + this.winH, COL_PANEL);
+        // corner screws on the bezel
+        for (int sx : new int[]{this.winX - 1, this.winX + this.winW - 1}) {
+            for (int sy : new int[]{this.winY - 1, this.winY + this.winH - 1}) {
+                g.fill(sx, sy, sx + 2, sy + 2, 0xFF9AA27C);
+            }
+        }
+        // title strip
+        g.fill(this.winX, this.winY, this.winX + this.winW, this.winY + 18, COL_TITLE);
+        g.fill(this.winX, this.winY + 18, this.winX + this.winW, this.winY + 19,
+                0xFF2E351C);
+        g.drawString(this.font, title.toUpperCase(java.util.Locale.ROOT),
+                this.winX + 8, this.winY + 5, COL_ACCENT, false);
+        // close key
         int bx = this.winX + this.winW - 16;
-        g.fill(bx, this.winY + 4, bx + 12, this.winY + 14, 0xFF8A2F2F);
+        g.fill(bx, this.winY + 4, bx + 12, this.winY + 14, 0xFF7A2E24);
         g.drawCenteredString(this.font, "x", bx + 6, this.winY + 6, 0xFFFFFFFF);
     }
 
@@ -162,14 +214,55 @@ public class TabletScreen extends Screen {
                 own.add(m);
             }
         }
-        own.sort(Comparator.comparing(UnitMarker::name)
+        if (this.filterCrit) {
+            own.removeIf(m -> !isCritical(m));
+        }
+        Comparator<UnitMarker> cmp = switch (this.sortField) {
+            case CLASS -> Comparator.comparingInt(UnitMarker::classOrd);
+            case HP -> Comparator.comparingDouble(UnitMarker::healthFrac);
+            case AMMO -> Comparator.comparingInt(
+                    (UnitMarker m) -> m.ammoInfinite() ? Integer.MAX_VALUE : m.ammoRounds());
+            case NEEDS -> Comparator.comparingInt(this::needScore);
+            case STATUS -> Comparator.comparingInt(
+                    (UnitMarker m) -> (m.downed() ? -2 : 0) - m.dutyMode());
+            case NAME -> Comparator.comparing(UnitMarker::name);
+        };
+        own.sort((this.sortAsc ? cmp : cmp.reversed())
                 .thenComparingInt(UnitMarker::entityId));
         return own;
     }
 
+    // Needs floor: lowest of hunger/energy/morale (normalised), -1 counts
+    // as "no needs data" and sorts last.
+    private int needScore(UnitMarker m) {
+        if (m.hunger() < 0) {
+            return Integer.MAX_VALUE;
+        }
+        return Math.min(m.hunger(), Math.min(m.energy(), m.morale() / 5));
+    }
+
+    private static boolean isCritical(UnitMarker m) {
+        if (m.downed() || m.healthFrac() < 0.35F) {
+            return true;
+        }
+        return m.hunger() >= 0
+                && (m.hunger() <= 2 || m.energy() <= 1 || m.morale() < 25);
+    }
+
     private void renderSquad(GuiGraphics g, int mouseX, int mouseY) {
+        this.headerSorts.clear();
+        this.orderButtons.clear();
+        this.critButton = null;
         List<UnitMarker> units = ownedUnits();
-        openWindow(g, "Squad Roster - " + units.size() + " unit(s)");
+        int selected = 0;
+        for (UnitMarker m : units) {
+            if (UnitMarkerStore.isSelected(m)) {
+                selected++;
+            }
+        }
+        openWindow(g, "Squad Roster - " + units.size() + " unit(s)"
+                + (selected > 0 ? " - " + selected + " selected" : "")
+                + (this.filterCrit ? " [CRIT]" : ""));
 
         int cx = this.winX + 10;
         int cy = this.winY + 26;
@@ -184,18 +277,27 @@ public class TabletScreen extends Screen {
         int colStatus = cx + 386;
         int colNeeds = cx + 430;
 
-        g.drawString(this.font, "CALLSIGN", colName, cy, 0xFF5E7086, false);
-        g.drawString(this.font, "CLASS", colClass, cy, 0xFF5E7086, false);
-        g.drawString(this.font, "HP", colHp, cy, 0xFF5E7086, false);
-        g.drawString(this.font, "AMMO", colAmmo, cy, 0xFF5E7086, false);
-        g.drawString(this.font, "MED", colMed, cy, 0xFF5E7086, false);
-        g.drawString(this.font, "FOOD", colFood, cy, 0xFF5E7086, false);
-        g.drawString(this.font, "STATUS", colStatus, cy, 0xFF5E7086, false);
-        g.drawString(this.font, "NEEDS", colNeeds, cy, 0xFF5E7086, false);
+        // Sortable headers - click toggles field / direction, arrow shows state.
+        drawHeader(g, colName, cy, 112, "CALLSIGN", SortField.NAME);
+        drawHeader(g, colClass, cy, 60, "CLASS", SortField.CLASS);
+        drawHeader(g, colHp, cy, 82, "HP", SortField.HP);
+        drawHeader(g, colAmmo, cy, 44, "AMMO", SortField.AMMO);
+        g.drawString(this.font, "MED", colMed, cy, COL_ACCENT_DIM, false);
+        g.drawString(this.font, "FOOD", colFood, cy, COL_ACCENT_DIM, false);
+        drawHeader(g, colStatus, cy, 42, "STATUS", SortField.STATUS);
+        drawHeader(g, colNeeds, cy, 40, "NEEDS", SortField.NEEDS);
+        // CRIT filter toggle at the right edge of the header row
+        int fbx = this.winX + this.winW - 30;
+        boolean fHover = mouseX >= fbx && mouseX < fbx + 22 && mouseY >= cy - 2 && mouseY < cy + 9;
+        g.fill(fbx, cy - 2, fbx + 22, cy + 9,
+                this.filterCrit ? 0xFF7A2E24 : fHover ? 0xFF3A4030 : 0xFF232818);
+        g.drawCenteredString(this.font, "CRIT", fbx + 11, cy,
+                this.filterCrit ? 0xFFFFFFFF : COL_ACCENT_DIM);
+        this.critButton = new int[]{fbx, cy - 2, 22, 11};
         cy += 11;
 
         int viewTop = cy;
-        int viewH = this.winY + this.winH - 10 - viewTop;
+        int viewH = this.winY + this.winH - 30 - viewTop;   // 20px order bar + pad
         this.rosterViewTop = viewTop;
         this.rosterViewH = viewH;
         int contentH = units.size() * ROW_H;
@@ -210,31 +312,32 @@ public class TabletScreen extends Screen {
                         && mouseY >= ry && mouseY < ry + ROW_H
                         && mouseY >= viewTop && mouseY < viewTop + viewH;
                 if (hover) {
-                    g.fill(cx - 2, ry, cx + cw, ry + ROW_H - 1, 0xFF22344A);
+                    g.fill(cx - 2, ry, cx + cw, ry + ROW_H - 1, COL_ROW_HOVER);
                 }
                 if (UnitMarkerStore.isSelected(m)) {
-                    g.fill(cx - 2, ry, cx, ry + ROW_H - 1, 0xFF6FE3C1);
+                    g.fill(cx - 2, ry, cx, ry + ROW_H - 1, COL_ACCENT);
                 }
                 String name = (m.rankTitle().isEmpty() ? "" : m.rankTitle() + " ")
                         + (m.name().isEmpty() ? "Unit #" + m.entityId() : m.name());
                 g.drawString(this.font, this.font.plainSubstrByWidth(name, 112),
-                        colName, ry + 4, 0xFFE8F0F8, false);
+                        colName, ry + 4, m.downed() ? COL_BAD : COL_TEXT, false);
                 g.drawString(this.font, classLabel(m), colClass, ry + 4,
-                        0xFFB9C6D4, false);
+                        COL_SUB, false);
                 renderHp(g, m, colHp, ry + 4);
                 if (m.ammoInfinite()) {
-                    g.drawString(this.font, "INF", colAmmo, ry + 4, 0xFF6FE3C1, false);
+                    g.drawString(this.font, "INF", colAmmo, ry + 4, COL_ACCENT, false);
                 } else {
                     g.drawString(this.font, String.valueOf(m.ammoRounds()),
                             colAmmo, ry + 4,
-                            m.ammoRounds() > 0 ? 0xFFE8F0F8 : 0xFF8A4A4A, false);
+                            m.ammoRounds() > 0 ? COL_TEXT : COL_BAD, false);
                 }
                 g.drawString(this.font, m.hasMedical() ? "+" : "-", colMed,
-                        ry + 4, m.hasMedical() ? 0xFF6FE3C1 : 0xFF4A5563, false);
+                        ry + 4, m.hasMedical() ? COL_ACCENT : 0xFF4A5538, false);
                 g.drawString(this.font, m.hasFood() ? "*" : "-", colFood,
-                        ry + 4, m.hasFood() ? 0xFFE3B86F : 0xFF4A5563, false);
+                        ry + 4, m.hasFood() ? 0xFFE3B86F : 0xFF4A5538, false);
                 g.drawString(this.font, statusLabel(m), colStatus, ry + 4,
-                        m.dutyMode() != 0 ? 0xFFE3B86F : 0xFF8FA3B8, false);
+                        m.downed() ? COL_BAD
+                                : m.dutyMode() != 0 ? 0xFFE3B86F : COL_SUB, false);
                 renderNeeds(g, m, colNeeds, ry + 4);
             }
             ry += ROW_H;
@@ -243,16 +346,64 @@ public class TabletScreen extends Screen {
 
         if (units.isEmpty()) {
             g.drawCenteredString(this.font,
-                    "No units in this dimension - recruit or regroup here.",
-                    this.winX + this.winW / 2, viewTop + viewH / 2, 0xFF5E7086);
+                    this.filterCrit ? "No critical units."
+                            : "No units in this dimension - recruit or regroup here.",
+                    this.winX + this.winW / 2, viewTop + viewH / 2, COL_ACCENT_DIM);
         }
         if (maxScroll > 0) {
             int trackX = this.winX + this.winW - 6;
-            g.fill(trackX, viewTop, trackX + 3, viewTop + viewH, 0xFF0A0E14);
+            g.fill(trackX, viewTop, trackX + 3, viewTop + viewH, COL_TASKBAR);
             int thumbH = Math.max(12, viewH * viewH / contentH);
             int thumbY = viewTop + (viewH - thumbH) * this.scroll / maxScroll;
-            g.fill(trackX, thumbY, trackX + 3, thumbY + thumbH, 0xFF6FE3C1);
+            g.fill(trackX, thumbY, trackX + 3, thumbY + thumbH, COL_ACCENT);
         }
+
+        renderOrderBar(g, mouseX, mouseY);
+    }
+
+    // Header cell with sort arrow; registers its hit zone for mouseClicked.
+    private void drawHeader(GuiGraphics g, int x, int y, int w,
+                            String label, SortField field) {
+        boolean active = this.sortField == field;
+        String arrow = active ? (this.sortAsc ? " ^" : " v") : "";
+        g.drawString(this.font, label + arrow, x, y,
+                active ? COL_ACCENT : COL_ACCENT_DIM, false);
+        this.headerSorts.add(new int[]{x - 2, y - 2, w + 4, field.ordinal()});
+    }
+
+    // Bottom bar of the squad window: selection helpers on the left, SEM
+    // order keys on the right - every order rides SEM's PacketIssueOrder to
+    // each selected unit, same wire the world-map menu uses.
+    private void renderOrderBar(GuiGraphics g, int mouseX, int mouseY) {
+        int y = this.winY + this.winH - 22;
+        g.fill(this.winX + 4, y - 4, this.winX + this.winW - 4, y + 14, COL_TITLE);
+        int x = this.winX + 8;
+        drawBarButton(g, mouseX, mouseY, x, y, 34, "ALL", -1);
+        x += 38;
+        drawBarButton(g, mouseX, mouseY, x, y, 40, "NONE", -2);
+        x += 48;
+        g.drawString(this.font, "ORDERS:", x, y + 2, COL_ACCENT_DIM, false);
+        x += 46;
+        String[] labels = {"FOLLOW", "HOLD", "WEDGE", "COLUMN", "FREE", "CEASE"};
+        OrderType[] orders = {OrderType.FOLLOW_COMMANDER, OrderType.HOLD_POSITION,
+                OrderType.FORM_WEDGE, OrderType.FORM_COLUMN,
+                OrderType.FREE_FIRE, OrderType.CEASE_FIRE};
+        for (int i = 0; i < labels.length; i++) {
+            int w = this.font.width(labels[i]) + 10;
+            drawBarButton(g, mouseX, mouseY, x, y, w, labels[i], orders[i].ordinal());
+            x += w + 4;
+        }
+    }
+
+    private void drawBarButton(GuiGraphics g, int mouseX, int mouseY,
+                               int x, int y, int w, String label, int code) {
+        boolean hover = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + 12;
+        g.fill(x, y, x + w, y + 12,
+                hover ? 0xFF4A5230 : 0xFF232818);
+        g.fill(x, y + 11, x + w, y + 12, hover ? COL_ACCENT : 0xFF3A4030);
+        g.drawCenteredString(this.font, label, x + w / 2, y + 2,
+                hover ? COL_ACCENT : COL_SUB);
+        this.orderButtons.add(new int[]{x, y, w, code});
     }
 
     private void renderHp(GuiGraphics g, UnitMarker m, int x, int y) {
@@ -317,27 +468,28 @@ public class TabletScreen extends Screen {
         y += 18;
 
         // waypoint targets
-        g.drawString(this.font, "Waypoints:", cx, y, 0xFF5E7086, false);
+        g.drawString(this.font, "Waypoints:", cx, y, COL_ACCENT_DIM, false);
         y += 10;
         if (this.waypoints.isEmpty()) {
             g.drawString(this.font,
                     com.poseidon.sem_classsystem.client.xaero.SemcsWaypoints.available()
                             ? "- none in this dimension -"
                             : "- Xaero's Minimap not installed -",
-                    cx, y, 0xFF4A5563, false);
+                    cx, y, COL_ACCENT_DIM, false);
             y += 12;
         } else {
             for (int i = 0; i < this.waypoints.size(); i++) {
                 var wp = this.waypoints.get(i);
                 g.drawString(this.font, this.font.plainSubstrByWidth(wp.name(), 140),
-                        cx, y + 3, 0xFFE8F0F8, false);
+                        cx, y + 3, COL_TEXT, false);
                 g.drawString(this.font, wp.x() + ", " + wp.y() + ", " + wp.z(),
-                        cx + 150, y + 3, 0xFFB9C6D4, false);
+                        cx + 150, y + 3, COL_SUB, false);
                 int gx = cx + cw - 40;
                 boolean hov = mouseX >= gx && mouseX < gx + 36
                         && mouseY >= y && mouseY < y + 12;
-                g.fill(gx, y, gx + 36, y + 12, hov ? 0xFF6B4FA6 : 0xFF3A2A5E);
-                g.drawCenteredString(this.font, "GO", gx + 18, y + 2, 0xFFFFFFFF);
+                g.fill(gx, y, gx + 36, y + 12, hov ? 0xFF4A5230 : 0xFF232818);
+                g.drawCenteredString(this.font, "GO", gx + 18, y + 2,
+                        hov ? COL_ACCENT : COL_SUB);
                 this.tpTargets.add(new int[]{gx, y, 36, i});
                 y += 14;
             }
@@ -345,7 +497,7 @@ public class TabletScreen extends Screen {
         }
 
         // unit multi-select roster
-        g.drawString(this.font, "Units (click to select):", cx, y, 0xFF5E7086, false);
+        g.drawString(this.font, "Units (click to select):", cx, y, COL_ACCENT_DIM, false);
         y += 10;
         int viewTop = y;
         int viewH = this.winY + this.winH - 10 - viewTop;
@@ -364,21 +516,21 @@ public class TabletScreen extends Screen {
                         && mouseY >= ry && mouseY < ry + ROW_H
                         && mouseY >= viewTop && mouseY < viewTop + viewH;
                 if (hover) {
-                    g.fill(cx - 2, ry, cx + cw, ry + ROW_H - 1, 0xFF22344A);
+                    g.fill(cx - 2, ry, cx + cw, ry + ROW_H - 1, COL_ROW_HOVER);
                 }
                 // checkbox
                 g.fill(cx, ry + 3, cx + 8, ry + 11,
-                        sel ? 0xFF6FE3C1 : 0xFF2A3442);
+                        sel ? COL_ACCENT : 0xFF2A3018);
                 g.fill(cx + 1, ry + 4, cx + 7, ry + 10,
-                        sel ? 0xFF143326 : 0xFF141C28);
+                        sel ? 0xFF3A2F18 : COL_PANEL);
                 String name = (m.rankTitle().isEmpty() ? "" : m.rankTitle() + " ")
                         + (m.name().isEmpty() ? "Unit #" + m.entityId() : m.name());
                 g.drawString(this.font, this.font.plainSubstrByWidth(name, 160),
-                        cx + 14, ry + 3, sel ? 0xFF6FE3C1 : 0xFFE8F0F8, false);
+                        cx + 14, ry + 3, sel ? COL_ACCENT : COL_TEXT, false);
                 g.drawString(this.font, classLabel(m), cx + 190, ry + 3,
-                        0xFFB9C6D4, false);
+                        COL_SUB, false);
                 g.drawString(this.font, statusLabel(m), cx + cw - 60, ry + 3,
-                        0xFF8FA3B8, false);
+                        m.downed() ? COL_BAD : COL_SUB, false);
             }
             ry += ROW_H;
         }
@@ -386,22 +538,23 @@ public class TabletScreen extends Screen {
         if (units.isEmpty()) {
             g.drawCenteredString(this.font,
                     "No owned units in this dimension.",
-                    this.winX + this.winW / 2, viewTop + viewH / 2, 0xFF5E7086);
+                    this.winX + this.winW / 2, viewTop + viewH / 2, COL_ACCENT_DIM);
         }
         if (maxScroll > 0) {
             int trackX = this.winX + this.winW - 6;
-            g.fill(trackX, viewTop, trackX + 3, viewTop + viewH, 0xFF0A0E14);
+            g.fill(trackX, viewTop, trackX + 3, viewTop + viewH, COL_TASKBAR);
             int thumbH = Math.max(12, viewH * viewH / contentH);
             int thumbY = viewTop + (viewH - thumbH) * this.scroll / maxScroll;
-            g.fill(trackX, thumbY, trackX + 3, thumbY + thumbH, 0xFF6FE3C1);
+            g.fill(trackX, thumbY, trackX + 3, thumbY + thumbH, COL_ACCENT);
         }
     }
 
     private void drawTpButton(GuiGraphics g, int mouseX, int mouseY,
                               int x, int y, int w, String label, int code) {
         boolean hover = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + 14;
-        g.fill(x, y, x + w, y + 14, hover ? 0xFF6B4FA6 : 0xFF3A2A5E);
-        g.drawCenteredString(this.font, label, x + w / 2, y + 3, 0xFFFFFFFF);
+        g.fill(x, y, x + w, y + 14, hover ? 0xFF4A5230 : 0xFF232818);
+        g.drawCenteredString(this.font, label, x + w / 2, y + 3,
+                hover ? COL_ACCENT : 0xFFFFFFFF);
         this.tpTargets.add(new int[]{x, y, w, code});
     }
 
@@ -426,33 +579,33 @@ public class TabletScreen extends Screen {
 
         g.drawString(this.font, "Commander:  "
                 + (mc.player == null ? "?" : mc.player.getGameProfile().getName()),
-                x, y, 0xFFE8F0F8, false);
+                x, y, COL_TEXT, false);
         y += line;
         g.drawString(this.font, "Units active:  " + own.size() + " own / "
-                + spotted + " spotted contacts", x, y, 0xFFB9C6D4, false);
+                + spotted + " spotted contacts", x, y, COL_SUB, false);
         y += line;
         g.drawString(this.font, "Claims in " + dim + ":  " + claims + " / "
-                + ClassSystemConfig.maxClaimedChunks(), x, y, 0xFFB9C6D4, false);
+                + ClassSystemConfig.maxClaimedChunks(), x, y, COL_SUB, false);
         y += line;
         g.drawString(this.font, "Contiguous claims:  "
                 + (ClassSystemConfig.requireContiguousClaims() ? "enforced" : "off"),
-                x, y, 0xFFB9C6D4, false);
+                x, y, COL_SUB, false);
         y += line;
         g.drawString(this.font, "Map selection:  "
                 + UnitMarkerStore.selectedUnitIds().size() + " unit(s)",
-                x, y, 0xFFB9C6D4, false);
+                x, y, COL_SUB, false);
         y += line;
 
         double[] ping = mc.level == null ? null
                 : UnitMarkerStore.raidPing(dim, mc.level.getGameTime());
         if (ping == null) {
-            g.drawString(this.font, "Raid alert:  none", x, y, 0xFF8FA3B8, false);
+            g.drawString(this.font, "Raid alert:  none", x, y, COL_ACCENT_DIM, false);
         } else {
             double dist = mc.player == null ? 0
                     : Math.sqrt(mc.player.distanceToSqr(ping[0], mc.player.getY(), ping[1]));
             g.drawString(this.font, "RAID ALERT:  hostiles at " + (int) ping[0]
                     + ", " + (int) ping[1] + " (~" + (int) dist + "m)",
-                    x, y, 0xFFC0403A, false);
+                    x, y, COL_BAD, false);
         }
     }
 
@@ -488,6 +641,10 @@ public class TabletScreen extends Screen {
                         && mouseY >= this.winY + 4 && mouseY < this.winY + 14) {
                     UiSounds.click();
                     this.openApp = null;
+                    return true;
+                }
+                if (this.openApp == App.SQUAD
+                        && clickSquadChrome(mouseX, mouseY)) {
                     return true;
                 }
                 if (this.openApp == App.TELEPORT
@@ -549,6 +706,76 @@ public class TabletScreen extends Screen {
         return false;
     }
 
+    // Squad-app chrome clicks: sortable headers, the CRIT filter toggle,
+    // and the bottom bar (selection helpers + batch SEM orders).
+    private boolean clickSquadChrome(double mouseX, double mouseY) {
+        for (int[] h : this.headerSorts) {
+            if (mouseX >= h[0] && mouseX < h[0] + h[2]
+                    && mouseY >= h[1] && mouseY < h[1] + 11) {
+                SortField field = SortField.values()[h[3]];
+                if (this.sortField == field) {
+                    this.sortAsc = !this.sortAsc;
+                } else {
+                    this.sortField = field;
+                    this.sortAsc = true;
+                }
+                UiSounds.click();
+                return true;
+            }
+        }
+        if (this.critButton != null
+                && mouseX >= this.critButton[0]
+                && mouseX < this.critButton[0] + this.critButton[2]
+                && mouseY >= this.critButton[1]
+                && mouseY < this.critButton[1] + this.critButton[3]) {
+            this.filterCrit = !this.filterCrit;
+            this.scroll = 0;
+            UiSounds.click();
+            return true;
+        }
+        for (int[] b : this.orderButtons) {
+            if (mouseX < b[0] || mouseX >= b[0] + b[2]
+                    || mouseY < b[1] || mouseY >= b[1] + 12) {
+                continue;
+            }
+            if (b[3] == -1) {        // ALL
+                for (UnitMarker m : UnitMarkerStore.markers()) {
+                    if (m.allegiance() == UnitMarker.Allegiance.OWN) {
+                        UnitMarkerStore.addSelected(m);
+                    }
+                }
+            } else if (b[3] == -2) { // NONE
+                UnitMarkerStore.clearSelection();
+            } else {
+                issueOrder(OrderType.values()[b[3]]);
+            }
+            UiSounds.confirm();
+            return true;
+        }
+        return false;
+    }
+
+    // Broadcast one SEM order to every selected unit - same PacketIssueOrder
+    // wire the map's right-click menu uses (server validates ownership).
+    private void issueOrder(OrderType order) {
+        java.util.Set<Integer> ids = UnitMarkerStore.selectedUnitIds();
+        if (ids.isEmpty()) {
+            return;
+        }
+        for (int id : ids) {
+            net.nekoyuni.SimpleEnemyMod.network.ModNetworking.CHANNEL.sendToServer(
+                    new net.nekoyuni.SimpleEnemyMod.network.packets.PacketIssueOrder(
+                            id, order, net.minecraft.world.phys.Vec3.ZERO, 0, -1));
+        }
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) {
+            mc.player.displayClientMessage(Component.literal(
+                    "Order " + order.name().replace('_', ' ') + " -> "
+                            + ids.size() + " unit(s)")
+                    .withStyle(net.minecraft.ChatFormatting.GREEN), true);
+        }
+    }
+
     // Row click toggles that unit's map selection - roster and map stay in
     // sync because both read UnitMarkerStore.
     private boolean clickRosterRow(double mouseX, double mouseY) {
@@ -600,6 +827,9 @@ public class TabletScreen extends Screen {
     }
 
     private static String statusLabel(UnitMarker m) {
+        if (m.downed()) {
+            return "DOWNED";     // collapsed - needs a revive before bleedout
+        }
         if (m.sleeping()) {
             return "Sleeping";   // off-shift: bunked down on a claimed bed
         }

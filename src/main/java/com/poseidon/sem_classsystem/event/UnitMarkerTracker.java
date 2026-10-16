@@ -163,7 +163,9 @@ public final class UnitMarkerTracker {
                     unit.getHealth(), unit.getMaxHealth(),
                     faction == null ? -1 : faction.ordinal(),
                     ammoRounds, ammoInfinite, hasFood, hasMedical,
-                    hunger, energy, morale, sleeping));
+                    hunger, energy, morale, sleeping,
+                    unit instanceof PmcUnitEntity pmc
+                            && com.poseidon.sem_classsystem.entity.DownedState.isDowned(pmc)));
         }
         return out;
     }
@@ -219,7 +221,7 @@ public final class UnitMarkerTracker {
         return new int[]{rounds, infinite, food, med};
     }
 
-    private static boolean isMedicalItem(ItemStack stack) {
+    public static boolean isMedicalItem(ItemStack stack) {
         if (stack.getItem() instanceof PotionItem) {
             for (MobEffectInstance eff : PotionUtils.getMobEffects(stack)) {
                 if (eff.getEffect() == MobEffects.HEAL

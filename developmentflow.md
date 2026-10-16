@@ -127,13 +127,16 @@ com.poseidon.sem_classsystem/
 │       ├── UnitAmmoBoxGoal.java        # Ammo: worn tacz:ammo_box curio feed
 │       ├── UnitMedicHealGoal.java      # Medic triage & healing behavior
 │       ├── UnitMeleeAttackGoal.java    # Bayonet/knife CQB fallback
+│       ├── UnitLootGoal.java           # Post-battle scavenge of useful drops
 │       ├── UnitSelfHealGoal.java       # Autonomous bandaging/food consumption
 │       ├── UnitSleepGoal.java          # Energy: claims beds inside owner claims
 │       └── UnitWeaponFallbackGoal.java # Empty-mag sidearm swapping
+│   ├── DownedState.java                # Downed-not-dead NBT state helpers
 ├── event/                              # Forge bus event subscribers
 │   ├── GuardPostEvents.java            # Billet promotion & fallback checks
 │   ├── NightRaidEvents.java            # Ambush raid scheduling director
 │   ├── UnitBackupCall.java             # Squad wounded distress alerts (<25% HP)
+│   ├── UnitDownedEvents.java           # Downed/bleedout/revive hooks (game bus)
 │   ├── UnitEffectsEvents.java          # Unit gunfire VFX (muzzle flash, impact sparks)
 │   ├── UnitMarkerTracker.java          # Server-to-client marker sync director
 │   ├── UnitNeedsEvents.java            # [needs] drain tick, morale & wake hooks
@@ -291,7 +294,8 @@ $$\text{Soldier Profile} = \text{UnitClass (Faction)} \times \text{WeaponClass (
 | **3** | `UnitEatGoal` | Owned PMC & BHQ | [needs] Hungry units eat carried food or pathfind to a stockpile container inside owner claims. |
 | **3** | `UnitResupplyGoal` | Owned PMC & BHQ | [needs] Units with a dry gun pull matching ammo from claimed stockpiles (up to 96 rounds/trip). |
 | **3** | `UnitAmmoBoxGoal` | Owned PMC & BHQ | Units with a dry gun draw matching rounds straight from a worn `tacz:ammo_box` curio (belt/back tag) - no needs gating, works in combat. |
-| **4** | `UnitMedicHealGoal` | Medic Only | Breaks combat to heal wounded squadmates within 24 blocks. |
+| **4** | `UnitMedicHealGoal` | Medic Only | Breaks combat to heal wounded squadmates within 24 blocks; triages downed allies first and revives them. |
+| **6** | `UnitLootGoal` | Owned PMC & BHQ | Scavenges nearby worthwhile drops (matching ammo, food, medical, guns, armour, ammo boxes) into storage slots while idle. |
 | **9** | `UnitWeaponFallbackGoal`| All Units | Swaps to backup pistol when primary magazine & reserve ammo run dry. |
 
 ### Class Tactical Implementations
@@ -338,7 +342,25 @@ An opt-in survival layer (`[needs] enabled`, default `false`) that gives **owned
 - **Ammo resupply**: `UnitResupplyGoal` computes each carried gun's ammo id (`StockpileSearch.dryAmmoIds` — `TimelessAPI` gun index → `GunData.getAmmoId`) and stockpile-runs when a gun has zero matching rounds — the primary comes back after `UnitWeaponFallbackGoal` swapped to the sidearm. `UnitAmmoBoxGoal` is the decoupled wearable version: a `tacz:ammo_box` in a Curio `belt`/`back` slot (tag files at `data/curios/tags/items/`) feeds the dry gun in place via `IAmmoBox` — no needs config, no stockpile trip.
 - **Morale**: `UnitClassAttributes.spreadMultiplier` multiplies by `UnitNeeds.spreadPenaltyScale` (up to +60% spread at 0 morale); `UnitNeedsEvents` adds +4 on kills, -8 on nearby owned-ally deaths, and rolls a 35% `SEEK_COVER` break when a shaken unit is hurt.
 - **Barks & reports**: threshold crossings (hungry/starving/exhausted/shaken) radio the owner once per crossing via a bark bitmask in `UnitNeeds`; owned-unit deaths chat-notify the owner or file into `UnitEventLog` (overworld SavedData) for the login "squad report".
-- **Sync**: `UnitMarker` carries `hunger`/`energy`/`morale`/`sleeping` (OWN allegiance only, `-1` when disabled) → tablet roster NEEDS column with a critical `!` marker + `Sleeping` status + WTHIT status line.
+- **Sync**: `UnitMarker` carries `hunger`/`energy`/`morale`/`sleeping`/`downed` (OWN allegiance only, `-1` when disabled) → tablet roster NEEDS column with a critical `!` marker + `Sleeping`/`DOWNED` status + WTHIT status line.
+
+### Downed-Not-Dead System
+
+An always-on survival layer for **owned** units (`[downed]` config, default enabled), modelled on PlayerRevive's player flow but fully standalone — PlayerRevive only ever touches players, so the two never collide:
+
+- **Down**: `LivingDeathEvent` (LOWEST priority) cancels lethal damage on owned `PmcUnitEntity` → `DownedState.down` sets `semcs:downed` + `semcs:downedUntil` NBT, HP pinned to 1, `setNoAi(true)` + `Pose.SWIMMING`. Owner gets a red chat warning with the bleedout countdown.
+- **While downed**: `LivingAttackEvent` cancels all damage (no executions — the clock is the threat), distress particles every 40 ticks, `DOWNED` on the tablet/WTHIT.
+- **Bleedout**: `LivingTickEvent` — `downedUntil` expiry calls `unit.kill()` (real death, normal drops, owner notified).
+- **Revive**: owner right-click with a medical item (consumed, `reviveHealthFrac`) or sneak + empty hand (half fraction field stabilize); medic-class units triage downed allies through `UnitMedicHealGoal` automatically.
+- **Config**: `[downed] enabled` (default `true`), `bleedoutTicks` (1200), `reviveHealthFrac` (0.35).
+
+### Field Scavenging
+
+`UnitLootGoal` (priority 6 — below every duty/need) lets idle owned units walk to the nearest worthwhile `ItemEntity` within 8 blocks and store it in slots 6+. Pickup whitelist: ammo whose id matches a carried gun that's dry (`StockpileSearch.dryAmmoIds`), edible items, medical items (`UnitMarkerTracker.isMedicalItem`), guns, armour, ammo boxes. Respects pickup delay and inventory space — a full pack leaves the drop. `[needs]`-independent, `lootPickup` config key.
+
+### Tablet Field Terminal
+
+`TabletScreen` renders an olive-drab FIELD-LINK terminal (bezel screws, scanlines, amber stencil text). The Squad roster supports column-header sorting (name/class/HP/ammo/needs/status, click toggles direction), a `CRIT` toggle filtering to downed/wounded/critical-needs units, and a bottom order bar — `ALL`/`NONE` selection plus `FOLLOW`/`HOLD`/`WEDGE`/`COLUMN`/`FREE`/`CEASE` batch orders sent per unit through SEM's own `PacketIssueOrder` (server-side ownership check, no new wire).
 
 ---
 

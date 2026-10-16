@@ -60,6 +60,12 @@ public class ClassSystemConfig {
     private static ForgeConfigSpec.BooleanValue AMMO_RESUPPLY;
     private static ForgeConfigSpec.BooleanValue OFFLINE_REPORT;
 
+    // ---- [downed]: downed-not-dead for owned units ---------------------
+    private static ForgeConfigSpec.BooleanValue DOWNED_ENABLED;
+    private static ForgeConfigSpec.IntValue DOWNED_BLEEDOUT_TICKS;
+    private static ForgeConfigSpec.DoubleValue DOWNED_REVIVE_FRAC;
+    private static ForgeConfigSpec.BooleanValue LOOT_PICKUP;
+
     // static {} runs once at class load - defines ALL keys before register()
     static {
 
@@ -355,6 +361,40 @@ public class ClassSystemConfig {
                         "deaths, unit losses, night raids).")
                 .define("offlineReport", true);
         BUILDER.pop();   // close [needs]
+
+        // ================= DOWNED-NOT-DEAD =================
+        BUILDER.push("downed");
+        BUILDER.comment(
+                "Downed-not-dead for OWNED units (mirrors the PlayerRevive",
+                "mod's behaviour for players). A lethal hit leaves the unit",
+                "downed instead of dead: it collapses, cannot fight, and",
+                "bleeds out after bleedoutTicks unless revived - right-click",
+                "it with a medical item (bandage/medkit/potion) or",
+                "sneak-click with an empty hand for a weaker field",
+                "stabilize. Medic-class units triage downed allies",
+                "automatically. Works with or without PlayerRevive",
+                "installed - that mod only ever touches players, so the",
+                "two never collide.");
+        DOWNED_ENABLED = BUILDER
+                .comment("Owned units drop to a downed state instead of dying")
+                .define("enabled", true);
+        DOWNED_BLEEDOUT_TICKS = BUILDER
+                .comment("Ticks a downed unit survives without aid.",
+                        "1200 = 60 seconds, matching PlayerRevive's default.")
+                .defineInRange("bleedoutTicks", 1200, 100, 72000);
+        DOWNED_REVIVE_FRAC = BUILDER
+                .comment("Fraction of max health a unit stands back up with",
+                        "when revived with a medical item (empty-hand",
+                        "stabilize uses half of this).")
+                .defineInRange("reviveHealthFrac", 0.35, 0.05, 1.0);
+        BUILDER.pop();   // close [downed]
+
+        LOOT_PICKUP = BUILDER
+                .comment("Owned units pick up nearby useful drops - ammo",
+                        "matching guns they carry, food, medical items,",
+                        "weapons and armour - into their storage inventory",
+                        "while out of combat.")
+                .define("lootPickup", true);
 
         // Freeze the builder into the immutable spec Forge will register
         SPEC = BUILDER.build();
@@ -748,6 +788,36 @@ public class ClassSystemConfig {
             return MAX_CLAIMED_CHUNKS.get();
         } catch (IllegalStateException notLoadedYet) {
             return 64;
+        }
+    }
+
+    // ================= Downed / loot accessors =================
+
+    public static boolean downedEnabled() {
+        try {
+            return DOWNED_ENABLED.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return true;
+        }
+    }
+
+    public static int downedBleedoutTicks() {
+        try {
+            return DOWNED_BLEEDOUT_TICKS.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 1200;
+        }
+    }
+
+    public static double downedReviveFrac() {
+        return safeGet(DOWNED_REVIVE_FRAC, 0.35);
+    }
+
+    public static boolean lootPickupEnabled() {
+        try {
+            return LOOT_PICKUP.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return true;
         }
     }
 

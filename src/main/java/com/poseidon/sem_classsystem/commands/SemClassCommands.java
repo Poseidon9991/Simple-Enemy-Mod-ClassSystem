@@ -102,7 +102,15 @@ public final class SemClassCommands {
                         .then(Commands.argument("targets", EntityArgument.entities())
                                 .then(Commands.argument("shift", StringArgumentType.word())
                                         .suggests(SHIFT_SUGGEST)
-                                        .executes(SemClassCommands::setShift)))));
+                                        .executes(SemClassCommands::setShift))))
+
+                // ---- /semcs dismiss <targets> ----
+                // Release ownership: the unit goes back to being a wild PMC
+                // (SEM's unowned PMCs act as regular NPCs - hostile rules
+                // apply, so they can turn on you). Frees the recruit cap.
+                .then(Commands.literal("dismiss")
+                        .then(Commands.argument("targets", EntityArgument.entities())
+                                .executes(SemClassCommands::dismissUnits))));
     }
 
     // ---- recruit_class ------------------------------------------------
@@ -266,6 +274,36 @@ public final class SemClassCommands {
                 "Shift set to " + UnitNeeds.shiftLabel(finalShift)
                         + " for " + finalChanged + " unit(s)"), true);
         return changed;
+    }
+
+    // ---- dismiss -------------------------------------------------------
+
+    // /semcs dismiss <targets> - drops ownership so the recruit cap frees up.
+    // WARN the player: an ownerless PMC is a regular SEM unit again and can
+    // go hostile - dismiss from a distance if you want the unit alive.
+    private static int dismissUnits(CommandContext<CommandSourceStack> ctx) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        CommandSourceStack src = ctx.getSource();
+        Player player = playerOrNull(ctx);
+        if (player == null) return 0;
+
+        int released = 0;
+        for (Entity entity : EntityArgument.getEntities(ctx, "targets")) {
+            if (entity instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity pmc
+                    && player.getUUID().equals(pmc.getOwnerUUID())) {
+                pmc.setOwner(null);
+                // Park them where they stand instead of resuming wild patrol
+                pmc.setOrder(net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType.HOLD_POSITION);
+                released++;
+            }
+        }
+        if (released == 0) {
+            src.sendFailure(Component.literal("No owned units in the selected entities"));
+            return 0;
+        }
+        int finalReleased = released;
+        src.sendSuccess(() -> Component.literal(
+                "§eDismissed " + finalReleased + " unit(s) - they are wild PMCs now and can turn hostile"), true);
+        return released;
     }
 
     // byConfigKey accepts every constant including subclasses - commands may
