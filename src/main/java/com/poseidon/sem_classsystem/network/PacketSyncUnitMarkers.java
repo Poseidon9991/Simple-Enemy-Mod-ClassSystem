@@ -58,6 +58,7 @@ public class PacketSyncUnitMarkers {
             buf.writeByte(m.hunger());
             buf.writeByte(m.energy());
             buf.writeByte(m.morale());
+            buf.writeBoolean(m.sleeping());
         }
     }
 
@@ -104,7 +105,7 @@ public class PacketSyncUnitMarkers {
                     buf.readUtf(16), buf.readFloat(), buf.readFloat(),
                     buf.readByte(), buf.readVarInt(), buf.readBoolean(),
                     buf.readBoolean(), buf.readBoolean(),
-                    buf.readByte(), buf.readByte(), buf.readByte()));
+                    buf.readByte(), buf.readByte(), buf.readByte(), buf.readBoolean()));
         }
         return new PacketSyncUnitMarkers(markers);
     }

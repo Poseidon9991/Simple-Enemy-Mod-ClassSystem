@@ -43,6 +43,40 @@ On top of specialized AI, this addon adds **10 custom 3D GeckoLib tactical armor
 
 ***
 
+## 🔧 What We Fix & Extend in SEM
+
+This addon doesn't just pile features on top of Simple Enemy Mod — it **repairs broken internals** and **extends shallow systems** so units behave and render like proper soldiers.
+
+### 🐛 Bugs Fixed in SEM
+
+*   **Invisible melee weapons** — SEM's held-item renderer only draws guns (`AbstractGunItem`), so swords, axes, and knives in a unit's hand rendered as *nothing*. Melee and non-gun items now render correctly.
+*   **Melee units couldn't attack** — SEM had no melee combat goal at all; units holding melee weapons just stood there. Units now fight in CQB with bayonet/knife strikes when enemies close inside gun minimum range.
+*   **Broken Curios support** — SEM hardcoded a fixed 4-slot Curios layout that mismatched real Curios slot types. Replaced with dynamic, player-like Curios slots that adapt to every registered slot type and count.
+*   **Purple/black curio textures** — non-armor curios (Artifacts charms, rings, goggles) rendered as corrupted missing-texture armor on units. They're now filtered out of the armor suit layer, and SEWV's gear layer texture path is fixed.
+*   **Ammo corruption & misplaced reserves** — PMC reserve ammo was stuffed into equipment slots, and oversized stacks (>127 items) overflowed the inventory packet's signed byte and silently corrupted to empty stacks. Reserve ammo now lives in proper storage slots, split into legal stacks.
+*   **Armor clipping/vanishing on unit models** — vanilla and modded armor used player proportions on SEM's custom soldier models. Armor now renders fitted to the unit body.
+*   **Order/duty conflict** — a unit on chunk duty could ignore a fresh commander's order. New orders now always cancel standing duty cleanly.
+
+### 🎞️ Animation & Presentation Upgrades
+
+*   **Butter-smooth head tracking** — SEM updated head/body yaw at a 20-TPS step, making units twitch instead of track. Head, body, and weapon aim now interpolate per-frame with the partial tick.
+*   **Blended combat stance** — switching between patrol (low-ready) and combat (high-ready) snapped in a single frame. Stances now blend smoothly.
+*   **Real melee stances** — Better-Combat-style melee poses with a 3-hit combo chain, instead of the static arm raise.
+*   **Tactical crouch & true prone** — class-specific crouch firing poses, a full prone body tilt applied before every render layer (armor, guns, gear all follow), and a real low-profile hitbox (0.6 high) so bullets originate from the prone barrel.
+*   **Fitted equipment titles** — the unit inventory GUI shows faction + class in the title.
+
+### ➕ Behavior SEM Never Had
+
+*   **Class identity at spawn** — every unit rolls a weapon class at `finalizeSpawn`, driving weapon pools, stats, firing cadence, and tactics (the whole system this README covers).
+*   **Self-heal & field rations** — units autonomously consume food/bandages/medkits from storage, bags, and Curios when hurt.
+*   **Sidearm fallback** — a dry primary triggers an automatic pistol swap, then back again once restocked.
+*   **Formation marching** — `FOLLOW_COMMANDER` becomes a real wedge/column formation instead of a blob of bodies.
+*   **Callsign naming** — recruited units instantly receive a unique persistent callsign.
+*   **Squad ownership cap** — recruitment caps apply even to paths that reach `setOwner` directly.
+*   **Owned-unit needs** — hunger, energy, morale, sleep shifts, and stockpile logistics (see 🍖 Unit Needs).
+
+***
+
 ## ⚔️ The Classes
 
 Every soldier rolls one of eight main combat classes upon spawning. The class governs which weapons the unit will accept, how it positions itself, its fire cadence and dispersion, its squad flanking behavior, and its specialized combat mechanics.
@@ -105,11 +139,15 @@ Pistols are not rolled at spawn — they are a **universal subclass** that any s
 Flip `[needs] enabled = true` in the config and your owned units become living soldiers with **hunger**, **energy**, and **morale** (off by default — units behave like plain SEM until you opt in). Applies to your recruited PMC + BHQ units only; wild RU/US patrols are untouched.
 
 *   **Hunger (0–20):** drains over time, twice as fast in combat. A hungry unit eats carried food on the spot (inventory, bags, Curios — the same scan as self-heal); with empty pockets it walks to the nearest **container inside your claimed chunks** (chest, barrel, guard-post storage) and pulls a ration.
-*   **Starvation:** at hunger 0 the unit is too weak to fire its gun, takes periodic starvation damage, and eventually **dies — dropping its gear** as items. Keep your pantry stocked.
-*   **Energy (0–20):** drains while awake. An exhausted unit claims a free **bed inside your claimed chunks** and sleeps — **day or night**, only while peaceful (no target, no active order). Guards go off-shift to rest and return when recharged, so posted units naturally rotate shifts. Wakes instantly when hurt.
+*   **Starvation:** at hunger 0 the unit is too weak to fire its gun, takes periodic starvation damage, and eventually **dies — dropping its gear** as items. The owner gets a red `[SEM]` chat line (or it lands in the offline report).
+*   **Energy (0–20):** drains while awake. An exhausted unit claims a free **bed inside your claimed chunks** and sleeps — **day or night**, only while peaceful (no target, no active order). Guards go off-shift to rest and return when recharged, so posted units naturally rotate shifts. Wakes instantly when hurt, and rest also **heals wounds slowly** (`sleepHealTicks`, slower than a medic).
 *   **Morale (0–100):** drops while starving/exhausted and when squadmates die nearby; rises on kills, meals, and rest. Low morale widens weapon spread (shaky aim), and shaken units can break for cover under fire instead of standing their ground.
+*   **Shift roster:** `/semcs shift <targets> <day|night|auto>` puts units on a real watch schedule — day-shift sleeps at night, night-shift sleeps by day, `auto` (default) sleeps whenever exhausted. Run posts around the clock.
+*   **Ammo resupply:** a unit whose gun is fully dry walks to a claimed stockpile and pulls matching ammo (up to 96 rounds per trip) — complements the sidearm fallback. Toggle with `ammoResupply`.
+*   **Ration Crate** (barrel + wheat + iron nuggets): the squad pantry — a 27-slot container that units *prefer* over generic chests when foraging, with a vanilla chest GUI and hopper support.
+*   **Barks & reports:** units radio the owner when they cross need thresholds ("Running low on rations", "I need rack time soon"), and on login you get a **squad report** of anything that happened while you were offline (starvation/KIA notices).
 *   **BHQ perk:** elite operators drain hunger and energy 40% slower.
-*   **Visibility:** the Field Tablet squad roster gains a **NEEDS** column (three mini-bars), and WTHIT shows Hunger/Energy/Morale when looking at your units.
+*   **Visibility:** the Field Tablet squad roster gains a **NEEDS** column (three mini-bars, `!` on critical), sleepers show as **Sleeping**, sleeping units drift note particles, and WTHIT shows Hunger/Energy/Morale when looking at your units.
 
 ***
 
@@ -327,7 +365,7 @@ Configuration is located globally in:
 *   `[bhq_recruit] price` — Recruit-item cost for a BHQ operator (default 32).
 *   `[night_raids]` — `enabled`, `chancePerNight`, `squadSizeMin`/`squadSizeMax`, `spawnDistance` for the night ambush events.
 *   `[map]` — `maxClaimedChunks` (default 64) and `requireContiguousClaims` for the chunk-claim system.
-*   `[needs]` — `enabled` (default `false`), `hungerDrainTicks`, `energyDrainTicks`, `combatDrainMultiplier`, `bhqDrainMultiplier`, `sleepEnergyTicks`, `starveDamageTicks`, `searchRadius` for the unit hunger/energy/morale system.
+*   `[needs]` — `enabled` (default `false`), `hungerDrainTicks`, `energyDrainTicks`, `combatDrainMultiplier`, `bhqDrainMultiplier`, `sleepEnergyTicks`, `sleepHealTicks`, `starveDamageTicks`, `searchRadius`, `barks`, `ammoResupply`, `offlineReport` for the unit hunger/energy/morale system.
 
 ***
 
@@ -368,13 +406,17 @@ Want to add custom guns from addon packs (e.g. SFMS, LRADD, BF1, MaxStuff) to th
 
 ## 🙌 Credits
 
-*   **[NekoYuni](https://github.com/NekoYuni)** — Creator of the exceptional [Simple Enemy Mod](https://github.com/NekoYuni/Simple-Enemy-Mod-Public). This addon is built upon SEM's foundational systems, entity models, and AI framework.
+*   **[NekoYuni](https://github.com/NekoYuni)** — Creator of the exceptional [Simple Enemy Mod](https://github.com/NekoYuni/Simple-Enemy-Mod-Public). This addon is built upon SEM's foundational systems, entity models, and AI framework. **All credit for the base mod goes to NekoYuni** — this project is a derivative addon and claims no ownership over SEM's code, assets, or design.
 *   **[TaCZ Team](https://www.curseforge.com/minecraft/mc-mods/timeless-and-classics-zero)** — Authors of the Timeless and Classics Zero firearm engine.
 *   **[GeckoLib](https://geckolib.com/)** — Powers the 3D entity and armor rendering pipeline.
 
 ## 📜 License
 
-GPLv3 — Inherited from Simple Enemy Mod. Source code remains open, and credit stays attached.
+**GPLv3** — Inherited from [Simple Enemy Mod](https://github.com/NekoYuni/Simple-Enemy-Mod-Public) by [NekoYuni](https://github.com/NekoYuni).
+
+This addon intentionally follows and complies with SEM's license: the source code remains open, SEM's copyright and authorship are preserved, and this derivative work is distributed under the same GPLv3 terms. Nothing from SEM is relicensed or claimed as our own — modifications and additions on top of it stay under the same license, with full credit to NekoYuni as the original author.
+
+If you fork or redistribute this addon, please honor the same terms: keep it GPLv3, keep it open-source, and keep the credit chain intact (NekoYuni for SEM → this addon for its extensions).
 
 ***
 

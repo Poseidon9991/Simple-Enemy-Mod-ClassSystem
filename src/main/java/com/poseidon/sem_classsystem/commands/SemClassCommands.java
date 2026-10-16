@@ -10,6 +10,7 @@ import com.poseidon.sem_classsystem.bridge.IClassifiedUnit;
 import com.poseidon.sem_classsystem.faction.UnitClassAttributes;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
+import com.poseidon.sem_classsystem.needs.UnitNeeds;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -36,6 +37,7 @@ import java.util.stream.Stream;
 //   /semcs recruit_class [class|random]   set or show your Recruit Table pick
 //   /semcs spawn <ru|us|pmc> <class>      spawn a unit of a chosen class (op)
 //   /semcs class <targets> <class>        re-class existing units (op)
+//   /semcs shift <targets> <auto|day|night>  sleep roster for owned units
 @Mod.EventBusSubscriber(modid = SemClassSystem.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class SemClassCommands {
 
@@ -58,6 +60,9 @@ public final class SemClassCommands {
             (ctx, builder) -> SharedSuggestionProvider.suggest(
                     Stream.concat(Stream.of("random"), Arrays.stream(CLASS_KEYS))
                             .toArray(String[]::new), builder);
+    private static final SuggestionProvider<CommandSourceStack> SHIFT_SUGGEST =
+            (ctx, builder) -> SharedSuggestionProvider.suggest(
+                    new String[]{"auto", "day", "night"}, builder);
 
     // Forge fires this when the server builds its command tree
     @SubscribeEvent
@@ -88,7 +93,16 @@ public final class SemClassCommands {
                         .then(Commands.argument("targets", EntityArgument.entities())
                                 .then(Commands.argument("class", StringArgumentType.word())
                                         .suggests(CLASS_SUGGEST)
-                                        .executes(SemClassCommands::reclassUnits)))));
+                                        .executes(SemClassCommands::reclassUnits))))
+
+                // ---- /semcs shift <targets> <auto|day|night> ----
+                // Sleep roster for [needs] units - own units only, no op
+                // needed: it is a squad-management action like the whistle.
+                .then(Commands.literal("shift")
+                        .then(Commands.argument("targets", EntityArgument.entities())
+                                .then(Commands.argument("shift", StringArgumentType.word())
+                                        .suggests(SHIFT_SUGGEST)
+                                        .executes(SemClassCommands::setShift)))));
     }
 
     // ---- recruit_class ------------------------------------------------
@@ -209,6 +223,48 @@ public final class SemClassCommands {
         WeaponClass finalCls = cls;
         src.sendSuccess(() -> Component.literal(
                 "Re-classed " + finalChanged + " unit(s) as " + finalCls.defaultNickname()), true);
+        return changed;
+    }
+
+    // ---- shift --------------------------------------------------------
+
+    // /semcs shift <targets> <auto|day|night> - roster owned units onto a
+    // sleep shift. auto = sleep whenever exhausted; day = sleep at night;
+    // night = sleep during the day.
+    private static int setShift(CommandContext<CommandSourceStack> ctx) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        CommandSourceStack src = ctx.getSource();
+        Player player = playerOrNull(ctx);
+        if (player == null) return 0;
+
+        int shift = switch (StringArgumentType.getString(ctx, "shift").toLowerCase()) {
+            case "day" -> UnitNeeds.SHIFT_DAY;
+            case "night" -> UnitNeeds.SHIFT_NIGHT;
+            case "auto" -> UnitNeeds.SHIFT_AUTO;
+            default -> -1;
+        };
+        if (shift < 0) {
+            src.sendFailure(Component.literal("Unknown shift (use auto, day or night)"));
+            return 0;
+        }
+
+        Collection<? extends Entity> targets = EntityArgument.getEntities(ctx, "targets");
+        int changed = 0;
+        for (Entity entity : targets) {
+            if (entity instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity pmc
+                    && player.getUUID().equals(pmc.getOwnerUUID())) {
+                UnitNeeds.setShift(pmc, shift);
+                changed++;
+            }
+        }
+        if (changed == 0) {
+            src.sendFailure(Component.literal("No owned units in the selected entities"));
+            return 0;
+        }
+        int finalChanged = changed;
+        int finalShift = shift;
+        src.sendSuccess(() -> Component.literal(
+                "Shift set to " + UnitNeeds.shiftLabel(finalShift)
+                        + " for " + finalChanged + " unit(s)"), true);
         return changed;
     }
 

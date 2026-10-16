@@ -6,6 +6,7 @@ import com.poseidon.sem_classsystem.world.PlayerChunkClaims;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.village.poi.PoiManager;
 import net.minecraft.world.entity.ai.village.poi.PoiTypes;
@@ -65,6 +66,10 @@ public class UnitSleepGoal extends Goal {
         if (UnitNeeds.energy(this.unit) > UnitNeeds.EXHAUSTED_AT) {
             return false;
         }
+        // Shift roster: DAY-shift units wait for night, NIGHT-shift for day.
+        if (!UnitNeeds.canSleepNow(this.unit)) {
+            return false;
+        }
         // No sleeping mid-fight or mid-order.
         if (this.unit.getTarget() != null || BUSY_ORDERS.contains(this.unit.getOrder())) {
             return false;
@@ -99,12 +104,34 @@ public class UnitSleepGoal extends Goal {
     public void tick() {
         if (this.unit.isSleeping()) {
             this.sleepTicks++;
-            if (this.sleepTicks >= ClassSystemConfig.sleepEnergyTicks()) {
-                this.sleepTicks = 0;
+            int energyPace = ClassSystemConfig.sleepEnergyTicks();
+            if (energyPace > 0 && this.sleepTicks % energyPace == 0) {
                 UnitNeeds.restoreEnergy(this.unit);
                 if (UnitNeeds.energy(this.unit) >= UnitNeeds.WAKE_AT) {
                     UnitNeeds.onRested(this.unit);
                 }
+            }
+            // Wounded recovery: rest knits wounds slowly (slower than a medic).
+            int healPace = ClassSystemConfig.sleepHealTicks();
+            if (healPace > 0 && this.sleepTicks % healPace == 0
+                    && this.unit.getHealth() < this.unit.getMaxHealth()) {
+                this.unit.heal(1.0F);
+            }
+            // Snoring notes every ~2s - the "Zzz" read without a custom particle.
+            if (this.sleepTicks % 40 == 20
+                    && this.unit.level() instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(ParticleTypes.NOTE,
+                        this.unit.getX() + this.unit.getRandom().nextGaussian() * 0.15,
+                        this.unit.getY() + 1.1,
+                        this.unit.getZ() + this.unit.getRandom().nextGaussian() * 0.15,
+                        1, 0.0D, 0.05D, 0.0D, 0.0D);
+            }
+            // Shift ends while asleep (day shift wakes at dawn) - let the
+            // goal keep running until WAKE_AT only for AUTO; scheduled
+            // units surface when their shift's rest window closes.
+            if (this.unit.tickCount % 40 == 0 && !UnitNeeds.canSleepNow(this.unit)
+                    && UnitNeeds.energy(this.unit) >= 10) {
+                UnitNeeds.wake(this.unit);
             }
             return;
         }

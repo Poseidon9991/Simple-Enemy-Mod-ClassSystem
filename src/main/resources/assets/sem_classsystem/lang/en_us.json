@@ -3,6 +3,8 @@
   "entity.sem_classsystem.bhqunit": "BHQ Operator",
   "block.sem_classsystem.bhq_recruit_table": "BHQ Recruit Table",
   "block.sem_classsystem.guard_post": "Guard Post",
+  "block.sem_classsystem.ration_crate": "Ration Crate",
+  "item.sem_classsystem.ration_crate": "Ration Crate",
   "item.sem_classsystem.bhq_recruit_table": "BHQ Recruit Table",
   "item.sem_classsystem.bhq_cap": "BHQ Cap",
   "item.sem_classsystem.bhq_helmet": "BHQ Helmet",

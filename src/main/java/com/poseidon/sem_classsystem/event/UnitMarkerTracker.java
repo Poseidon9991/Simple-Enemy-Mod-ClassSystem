@@ -134,6 +134,7 @@ public final class UnitMarkerTracker {
             int ammoRounds = 0;
             boolean ammoInfinite = false, hasFood = false, hasMedical = false;
             int hunger = -1, energy = -1, morale = -1;
+            boolean sleeping = unit.isSleeping();
             if (allegiance == UnitMarker.Allegiance.OWN) {
                 int[] supplies = scanSupplies(unit);
                 ammoRounds = supplies[0];
@@ -162,7 +163,7 @@ public final class UnitMarkerTracker {
                     unit.getHealth(), unit.getMaxHealth(),
                     faction == null ? -1 : faction.ordinal(),
                     ammoRounds, ammoInfinite, hasFood, hasMedical,
-                    hunger, energy, morale));
+                    hunger, energy, morale, sleeping));
         }
         return out;
     }

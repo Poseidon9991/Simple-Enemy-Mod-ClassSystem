@@ -5,6 +5,7 @@ import com.poseidon.sem_classsystem.entity.ai.UnitChunkDutyGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitEatGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitMedicHealGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitMeleeAttackGoal;
+import com.poseidon.sem_classsystem.entity.ai.UnitResupplyGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitSelfHealGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitSleepGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitWeaponFallbackGoal;
@@ -39,6 +40,8 @@ public abstract class MixinAbstractUnitGoals {
             // unit) and eating sits under combat but above idle orders.
             entity.goalSelector.addGoal(2, new UnitSleepGoal(pmc));
             entity.goalSelector.addGoal(3, new UnitEatGoal(pmc));
+            // Same tier as eating: ammo stockpile runs inside owner claims
+            entity.goalSelector.addGoal(3, new UnitResupplyGoal(pmc));
         }
     }
 }

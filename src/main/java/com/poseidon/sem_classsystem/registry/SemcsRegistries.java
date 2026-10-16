@@ -135,6 +135,30 @@ public final class SemcsRegistries {
                     () -> BlockEntityType.Builder.of(GuardPostBlockEntity::new,
                             GUARD_POST.get()).build(null));
 
+    // ---- Ration Crate -------------------------------------------------------
+    // Squad pantry: 27-slot container that need-driven units prefer when
+    // pulling food/ammo from the owner's stockpiles ([needs] mode).
+    public static final RegistryObject<Block> SUPPLY_CRATE = BLOCKS.register(
+            "ration_crate",
+            () -> new com.poseidon.sem_classsystem.block.SupplyCrateBlock(
+                    BlockBehaviour.Properties.of()
+                            .mapColor(MapColor.WOOD)
+                            .strength(1.5F)
+                            .sound(SoundType.WOOD)
+            )
+    );
+
+    public static final RegistryObject<Item> SUPPLY_CRATE_ITEM = ITEMS.register(
+            "ration_crate",
+            () -> new BlockItem(SUPPLY_CRATE.get(), new Item.Properties())
+    );
+
+    public static final RegistryObject<BlockEntityType<com.poseidon.sem_classsystem.block.SupplyCrateBlockEntity>> SUPPLY_CRATE_BE =
+            BLOCK_ENTITIES.register("ration_crate",
+                    () -> BlockEntityType.Builder.of(
+                            com.poseidon.sem_classsystem.block.SupplyCrateBlockEntity::new,
+                            SUPPLY_CRATE.get()).build(null));
+
     // ---- Field Tablet -------------------------------------------------------
     // Squad command PDA - right-click boots the SEM-OS desktop (Squad roster
     // app + Intel app). Read-only client UI over synced marker data.
@@ -305,6 +329,7 @@ public final class SemcsRegistries {
                     .displayItems((params, output) -> {
                         output.accept(BHQ_RECRUIT_TABLE_ITEM.get());
                         output.accept(GUARD_POST_ITEM.get());
+                        output.accept(SUPPLY_CRATE_ITEM.get());
                         output.accept(BHQ_CAP.get());
                         output.accept(BHQ_HELMET.get());
                         output.accept(BHQ_VEST.get());
@@ -403,6 +428,7 @@ public final class SemcsRegistries {
             if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
                 event.accept(BHQ_RECRUIT_TABLE_ITEM.get());
                 event.accept(GUARD_POST_ITEM.get());
+                event.accept(SUPPLY_CRATE_ITEM.get());
             }
             if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
                 event.accept(SQUAD_WHISTLE.get());

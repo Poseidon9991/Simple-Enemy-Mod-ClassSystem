@@ -32,7 +32,8 @@ public record UnitMarker(
         // --- [needs] stats; OWN units only, -1 when needs mode is off ---
         int hunger,              // 0-20
         int energy,              // 0-20
-        int morale               // 0-100
+        int morale,              // 0-100
+        boolean sleeping         // unit is bunked down right now
 ) {
 
     public enum Allegiance {

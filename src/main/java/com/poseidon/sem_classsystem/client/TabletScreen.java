@@ -276,6 +276,10 @@ public class TabletScreen extends Screen {
         needBar(g, x, y, m.hunger() / 20.0, 0xFFE3B86F);
         needBar(g, x + 5, y, m.energy() / 20.0, 0xFF6FE3C1);
         needBar(g, x + 10, y, m.morale() / 100.0, 0xFFA6E36F);
+        // Critical warning: starving, collapsed, or about to break.
+        if (m.hunger() <= 2 || m.energy() <= 1 || m.morale() < 25) {
+            g.drawString(this.font, "!", x + 16, y - 2, 0xFFC0403A, false);
+        }
     }
 
     private static void needBar(GuiGraphics g, int x, int y, double frac, int color) {
@@ -596,6 +600,9 @@ public class TabletScreen extends Screen {
     }
 
     private static String statusLabel(UnitMarker m) {
+        if (m.sleeping()) {
+            return "Sleeping";   // off-shift: bunked down on a claimed bed
+        }
         return switch (m.dutyMode()) {
             case UnitChunkDutyGoal.DUTY_GUARD -> "Guard";
             case UnitChunkDutyGoal.DUTY_PATROL -> "Patrol";

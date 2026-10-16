@@ -55,6 +55,10 @@ public class ClassSystemConfig {
     private static ForgeConfigSpec.IntValue SLEEP_ENERGY_TICKS;
     private static ForgeConfigSpec.IntValue STARVE_DAMAGE_TICKS;
     private static ForgeConfigSpec.IntValue NEEDS_SEARCH_RADIUS;
+    private static ForgeConfigSpec.IntValue SLEEP_HEAL_TICKS;
+    private static ForgeConfigSpec.BooleanValue NEEDS_BARKS;
+    private static ForgeConfigSpec.BooleanValue AMMO_RESUPPLY;
+    private static ForgeConfigSpec.BooleanValue OFFLINE_REPORT;
 
     // static {} runs once at class load - defines ALL keys before register()
     static {
@@ -331,6 +335,25 @@ public class ClassSystemConfig {
                 .comment("How far a unit searches for a bed or a stockpile",
                         "container, limited to chunks claimed by its owner.")
                 .defineInRange("searchRadius", 48, 16, 128);
+        SLEEP_HEAL_TICKS = BUILDER
+                .comment("Ticks per +1 HP while sleeping (0 = sleep does",
+                        "not heal). Rest is recovery, not magic - keep it",
+                        "slower than a medic.")
+                .defineInRange("sleepHealTicks", 600, 0, 24000);
+        NEEDS_BARKS = BUILDER
+                .comment("Units radio the owner when they cross a need",
+                        "threshold (hungry, starving, exhausted, shaken).")
+                .define("barks", true);
+        AMMO_RESUPPLY = BUILDER
+                .comment("Units whose gun is dry walk to a stockpile",
+                        "container inside owner claims and pull matching",
+                        "ammo - same search as the food goal.")
+                .define("ammoResupply", true);
+        OFFLINE_REPORT = BUILDER
+                .comment("On login, chat a summary of squad events that",
+                        "happened while the player was offline (starvation",
+                        "deaths, unit losses, night raids).")
+                .define("offlineReport", true);
         BUILDER.pop();   // close [needs]
 
         // Freeze the builder into the immutable spec Forge will register
@@ -811,6 +834,38 @@ public class ClassSystemConfig {
             return NEEDS_SEARCH_RADIUS.get();
         } catch (IllegalStateException notLoadedYet) {
             return 48;
+        }
+    }
+
+    public static int sleepHealTicks() {
+        try {
+            return SLEEP_HEAL_TICKS.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 600;
+        }
+    }
+
+    public static boolean needsBarks() {
+        try {
+            return NEEDS_BARKS.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return true;
+        }
+    }
+
+    public static boolean ammoResupply() {
+        try {
+            return AMMO_RESUPPLY.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return true;
+        }
+    }
+
+    public static boolean offlineReport() {
+        try {
+            return OFFLINE_REPORT.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return true;
         }
     }
 

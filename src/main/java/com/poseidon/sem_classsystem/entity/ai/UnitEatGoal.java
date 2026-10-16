@@ -1,7 +1,6 @@
 package com.poseidon.sem_classsystem.entity.ai;
 
 import com.poseidon.sem_classsystem.needs.UnitNeeds;
-import com.poseidon.sem_classsystem.world.PlayerChunkClaims;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ItemParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
@@ -11,16 +10,11 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.chunk.ChunkStatus;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 
 import java.util.EnumSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
 
 // Hunger handler for owned units ([needs].enabled). A hungry unit first eats
 // real food it carries (same inventory/bag/Curios pipeline as self-heal); if
@@ -80,7 +74,12 @@ public class UnitEatGoal extends Goal {
             return true;
         }
         // Nothing on the body - head for a stockpile inside the claims.
-        this.stockpile = findStockpile();
+        if (this.rescanTicks > 0) {
+            return false;
+        }
+        this.rescanTicks = RESCAN_TICKS;
+        this.stockpile = StockpileSearch.findContainer(this.unit,
+                s -> UnitSelfHealGoal.isFoodItem(s, this.unit));
         return this.stockpile != null;
     }
 
@@ -126,8 +125,7 @@ public class UnitEatGoal extends Goal {
         }
         if (this.unit.distanceToSqr(this.stockpile.getX() + 0.5,
                 this.stockpile.getY() + 0.5, this.stockpile.getZ() + 0.5) <= REACH_SQR) {
-            ItemStack ration = takeFood(this.unit.level() instanceof ServerLevel sl
-                    ? sl : null, this.stockpile);
+            ItemStack ration = takeFood(this.stockpile);
             if (ration.isEmpty()) {
                 this.stockpile = null;   // cupboard's bare - give up
                 return;
@@ -193,76 +191,10 @@ public class UnitEatGoal extends Goal {
 
     // ---- stockpile -----------------------------------------------------------
 
-    // Nearest container with edible food inside the owner's claimed chunks.
-    // Chests, barrels, shulker crates, guard-post storage - anything that
-    // exposes ForgeCapabilities.ITEM_HANDLER counts as a pantry.
-    private BlockPos findStockpile() {
+    // Pull exactly one ration out of the target container. Container lookup
+    // is shared with UnitResupplyGoal via StockpileSearch.
+    private ItemStack takeFood(BlockPos pos) {
         if (!(this.unit.level() instanceof ServerLevel level)) {
-            return null;
-        }
-        UUID owner = this.unit.getOwnerUUID();
-        if (owner == null) {
-            return null;
-        }
-        if (this.rescanTicks > 0) {
-            return null;
-        }
-        this.rescanTicks = RESCAN_TICKS;
-        String dim = level.dimension().location().toString();
-        Set<Long> claims = PlayerChunkClaims.get(level.getServer().overworld())
-                .allIn(dim).get(owner);
-        if (claims == null || claims.isEmpty()) {
-            return null;
-        }
-        int radius = com.poseidon.sem_classsystem.config.ClassSystemConfig
-                .needsSearchRadius();
-        BlockPos best = null;
-        double bestDist = Double.MAX_VALUE;
-        for (long chunkLong : claims) {
-            int cx = ChunkPos.getX(chunkLong);
-            int cz = ChunkPos.getZ(chunkLong);
-            // Cheap reject: chunk centre farther than the search radius.
-            double cdx = (cx << 4) + 8 - this.unit.getX();
-            double cdz = (cz << 4) + 8 - this.unit.getZ();
-            if (cdx * cdx + cdz * cdz > (radius + 16.0) * (radius + 16.0)) {
-                continue;
-            }
-            var chunk = level.getChunk(cx, cz, ChunkStatus.FULL, false);
-            if (!(chunk instanceof net.minecraft.world.level.chunk.LevelChunk levelChunk)) {
-                continue;
-            }
-            for (Map.Entry<BlockPos, BlockEntity> be : levelChunk.getBlockEntities().entrySet()) {
-                double dist = this.unit.distanceToSqr(
-                        be.getKey().getX() + 0.5, be.getKey().getY() + 0.5,
-                        be.getKey().getZ() + 0.5);
-                if (dist >= bestDist || dist > radius * radius) {
-                    continue;
-                }
-                if (containerHasFood(be.getValue(), this.unit)) {
-                    best = be.getKey().immutable();
-                    bestDist = dist;
-                }
-            }
-        }
-        return best;
-    }
-
-    private static boolean containerHasFood(BlockEntity be, PmcUnitEntity unit) {
-        var cap = be.getCapability(ForgeCapabilities.ITEM_HANDLER).resolve();
-        if (cap.isEmpty()) {
-            return false;
-        }
-        var handler = cap.get();
-        for (int i = 0; i < handler.getSlots(); i++) {
-            if (UnitSelfHealGoal.isFoodItem(handler.getStackInSlot(i), unit)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private ItemStack takeFood(ServerLevel level, BlockPos pos) {
-        if (level == null) {
             return ItemStack.EMPTY;
         }
         BlockEntity be = level.getBlockEntity(pos);

@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IWI",
+    "WBW",
+    "IWI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_nugget"
+    },
+    "W": {
+      "item": "minecraft:wheat"
+    },
+    "B": {
+      "item": "minecraft:barrel"
+    }
+  },
+  "result": {
+    "item": "sem_classsystem:ration_crate",
+    "count": 1
+  }
+}

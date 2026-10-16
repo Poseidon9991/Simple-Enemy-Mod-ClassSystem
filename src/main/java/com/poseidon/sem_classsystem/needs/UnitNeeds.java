@@ -35,6 +35,23 @@ public final class UnitNeeds {
     private static final String TAG_LAST = "semcs_needs_last";   // gameTime of last drain
     private static final String TAG_STARVING = "semcs_needs_starving"; // ticks at 0 hunger
     private static final String TAG_BED = "semcs_needs_bed";     // BlockPos.asLong, claimed bunk
+    private static final String TAG_SHIFT = "semcs_needs_shift"; // SHIFT_AUTO / DAY / NIGHT
+    private static final String TAG_BARKED = "semcs_needs_barked"; // bitmask of fired barks
+
+    // Shift schedule: AUTO sleeps whenever exhausted (default behaviour),
+    // DAY-shift units work the day and bunk down at night, NIGHT-shift is
+    // the reverse - lets a player run a real watch rotation on posts.
+    public static final int SHIFT_AUTO = 0;
+    public static final int SHIFT_DAY = 1;
+    public static final int SHIFT_NIGHT = 2;
+
+    // Bark thresholds - one message each time a stat crosses INTO the bad
+    // zone; the mask bit clears when the stat recovers, so a unit that
+    // gets fed and goes hungry again barks again.
+    private static final int BARK_HUNGRY = 1;    // hunger <= 6
+    private static final int BARK_STARVING = 2;  // hunger <= 0
+    private static final int BARK_TIRED = 4;     // energy <= EXHAUSTED_AT
+    private static final int BARK_SHAKEN = 8;    // morale < 30
 
     private UnitNeeds() {
     }
@@ -149,6 +166,7 @@ public final class UnitNeeds {
 
         tickMorale(unit, data, elapsed);
         tickStarvation(unit, data, elapsed);
+        tickBarks(unit, data);
     }
 
     private static void tickMorale(PmcUnitEntity unit, CompoundTag data, long elapsed) {
@@ -181,6 +199,82 @@ public final class UnitNeeds {
             unit.hurt(sources.starve(), 1.0F);
         }
         data.putInt(TAG_STARVING, starving);
+    }
+
+    // Compares current stats against the barked-bitmask and radios the
+    // owner for each NEW threshold crossing. Styled like radio chatter.
+    private static void tickBarks(PmcUnitEntity unit, CompoundTag data) {
+        if (!ClassSystemConfig.needsBarks()) {
+            return;
+        }
+        int mask = 0;
+        if (data.getFloat(TAG_HUNGER) <= 0) mask |= BARK_STARVING;
+        else if (data.getFloat(TAG_HUNGER) <= 6) mask |= BARK_HUNGRY;
+        if (data.getFloat(TAG_ENERGY) <= EXHAUSTED_AT) mask |= BARK_TIRED;
+        if (data.getInt(TAG_MORALE) < 30) mask |= BARK_SHAKEN;
+
+        int fired = data.getInt(TAG_BARKED);
+        int fresh = mask & ~fired;
+        data.putInt(TAG_BARKED, mask);
+        if (fresh == 0) {
+            return;
+        }
+        if ((fresh & BARK_STARVING) != 0) {
+            bark(unit, "* stomach growling - needs food NOW *");
+        } else if ((fresh & BARK_HUNGRY) != 0) {
+            bark(unit, "\"Running low on rations.\"");
+        }
+        if ((fresh & BARK_TIRED) != 0) {
+            bark(unit, "\"I need rack time soon.\"");
+        }
+        if ((fresh & BARK_SHAKEN) != 0) {
+            bark(unit, "\"I'm losing it out here...\"");
+        }
+    }
+
+    // One bark = a gray italic radio line to the owner, if online.
+    private static void bark(PmcUnitEntity unit, String line) {
+        java.util.UUID owner = unit.getOwnerUUID();
+        if (owner == null || !(unit.level() instanceof net.minecraft.server.level.ServerLevel sl)) {
+            return;
+        }
+        net.minecraft.server.level.ServerPlayer player = sl.getServer().getPlayerList().getPlayer(owner);
+        if (player == null) {
+            return;
+        }
+        player.sendSystemMessage(net.minecraft.network.chat.Component.literal("[")
+                .append(unit.getDisplayName().copy())
+                .append(net.minecraft.network.chat.Component.literal("] " + line))
+                .withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC));
+    }
+
+    // ---- shift schedule -------------------------------------------------------
+
+    public static int shift(PmcUnitEntity unit) {
+        return unit.getPersistentData().getInt(TAG_SHIFT);
+    }
+
+    public static void setShift(PmcUnitEntity unit, int shift) {
+        unit.getPersistentData().putInt(TAG_SHIFT, shift);
+    }
+
+    // Whether this unit is allowed to bunk down right now. AUTO units sleep
+    // whenever they are exhausted; DAY/NIGHT shift units wait for their
+    // off-shift half of the cycle.
+    public static boolean canSleepNow(PmcUnitEntity unit) {
+        return switch (shift(unit)) {
+            case SHIFT_DAY -> unit.level().isNight();
+            case SHIFT_NIGHT -> unit.level().isDay();
+            default -> true;
+        };
+    }
+
+    public static String shiftLabel(int shift) {
+        return switch (shift) {
+            case SHIFT_DAY -> "Day shift";
+            case SHIFT_NIGHT -> "Night shift";
+            default -> "Auto";
+        };
     }
 
     // ---- events (called by goals / listeners) --------------------------------
