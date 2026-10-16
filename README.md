@@ -55,6 +55,7 @@ This addon doesn't just pile features on top of Simple Enemy Mod — it **repair
 *   **Purple/black curio textures** — non-armor curios (Artifacts charms, rings, goggles) rendered as corrupted missing-texture armor on units. They're now filtered out of the armor suit layer.
 *   **Curios rendered at the feet** — curio renderers that draw their own model-space geometry (Superb Warfare's thermal goggles, parachute) were drawn under the unit-bone transform, so a head curio appeared on the boots. Bone-attached renderers (Artifacts) keep the synced transform; model-space renderers now draw in entity space like they do on players.
 *   **Ammo corruption & misplaced reserves** — PMC reserve ammo was stuffed into equipment slots, and oversized stacks (>127 items) overflowed the inventory packet's signed byte and silently corrupted to empty stacks. Reserve ammo now lives in proper storage slots, split into legal stacks.
+*   **Squads spawning inside tree canopies** — SEM picks spawn Y from the `MOTION_BLOCKING_NO_LEAVES` heightmap (ignores leaves) and never checks the body space, so patrols materialized wedged in foliage. `isValidSpawn` now rejects any spot where feet or head collide — canopies are skipped, the event retries elsewhere.
 *   **Armor clipping/vanishing on unit models** — vanilla and modded armor used player proportions on SEM's custom soldier models. Armor now renders fitted to the unit body.
 *   **Order/duty conflict** — a unit on chunk duty could ignore a fresh commander's order. New orders now always cancel standing duty cleanly.
 

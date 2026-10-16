@@ -1,43 +1,44 @@
 {
-  "required": true,
-  "minVersion": "0.8",
-  "package": "com.poseidon.sem_classsystem.mixin",
-  "refmap": "sem_classsystem.refmap.json",
-  "target": "@env(DEFAULT)",
-  "compatibilityLevel": "JAVA_17",
-  "mixins": [
-    "MixinAbstractUnit",
-    "MixinAbstractUnitGoals",
-    "MixinBulletImpactSuppression",
-    "MixinCommanderOrderFollow",
-    "MixinCuriosHelper",
-    "MixinGunTracer",
-    "MixinMoveToAttackRange",
-    "MixinPmcAmmoPlacement",
-    "MixinPmcUnitDutyClear",
-    "MixinPmcUnitMenuTitle",
-    "MixinPmcUnitNaming",
-    "MixinPmcUnitOwnershipCap",
-    "MixinRangedGunAttackGoal",
-    "MixinRecruitTable",
-    "MixinTacticalManagerGoal",
-    "MixinUnitAmmoReserve",
-    "MixinUnitInventoryHandler",
-    "MixinUnitProneDimensions",
-    "MixinWeaponEquippers"
-  ],
-  "client": [
-    "MixinCombatStateSmooth",
-    "MixinGeckoArmorTexture",
-    "MixinGunLayerMeleeItem",
-    "MixinHeadTrackingSmooth",
-    "MixinUnitMeleeWeaponPose",
-    "MixinUnitModelCrouch",
-    "MixinUnitRenderProne",
-    "MixinUniversalArmorLayer"
-  ],
-  "server": [],
-  "injectors": {
-    "defaultRequire": 1
-  }
+    "required": true,
+    "minVersion": "0.8",
+    "package": "com.poseidon.sem_classsystem.mixin",
+    "refmap": "sem_classsystem.refmap.json",
+    "target": "@env(DEFAULT)",
+    "compatibilityLevel": "JAVA_17",
+    "mixins": [
+        "MixinAbstractUnit",
+        "MixinAbstractUnitGoals",
+        "MixinBulletImpactSuppression",
+        "MixinCommanderOrderFollow",
+        "MixinCuriosHelper",
+        "MixinGunTracer",
+        "MixinMoveToAttackRange",
+        "MixinPmcAmmoPlacement",
+        "MixinPmcUnitDutyClear",
+        "MixinPmcUnitMenuTitle",
+        "MixinPmcUnitNaming",
+        "MixinPmcUnitOwnershipCap",
+        "MixinRangedGunAttackGoal",
+        "MixinRecruitTable",
+        "MixinTacticalManagerGoal",
+        "MixinUnitAmmoReserve",
+        "MixinUnitInventoryHandler",
+        "MixinUnitProneDimensions",
+        "MixinWeaponEquippers",
+        "MixinSpawnHelper"
+    ],
+    "client": [
+        "MixinCombatStateSmooth",
+        "MixinGeckoArmorTexture",
+        "MixinGunLayerMeleeItem",
+        "MixinHeadTrackingSmooth",
+        "MixinUnitMeleeWeaponPose",
+        "MixinUnitModelCrouch",
+        "MixinUnitRenderProne",
+        "MixinUniversalArmorLayer"
+    ],
+    "server": [],
+    "injectors": {
+        "defaultRequire": 1
+    }
 }
