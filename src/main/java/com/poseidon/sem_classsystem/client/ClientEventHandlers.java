@@ -2,6 +2,9 @@
 package com.poseidon.sem_classsystem.client;
 
 import com.poseidon.sem_classsystem.SemClassSystem;
+import com.poseidon.sem_classsystem.client.particle.MuzzleFlashParticle;
+import com.poseidon.sem_classsystem.client.particle.SparkParticle;
+import com.poseidon.sem_classsystem.client.particle.ZzzParticle;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.model.HumanoidModel;
@@ -11,6 +14,7 @@ import net.minecraft.world.item.Item;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.RegisterColorHandlersEvent;
+import net.minecraftforge.client.event.RegisterParticleProvidersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
@@ -46,6 +50,15 @@ public final class ClientEventHandlers {
         if (ModList.get().isLoaded("xaerominimap")) {
             com.poseidon.sem_classsystem.client.xaero.SemcsMinimapCompat.register();
         }
+    }
+
+    // Client-side particle factories - SimpleParticleType data is empty,
+    // the provider just binds each type to its sprite sheet + behaviour.
+    @SubscribeEvent
+    public static void onRegisterParticles(RegisterParticleProvidersEvent event) {
+        event.registerSpriteSet(SemcsRegistries.SPARK_PARTICLE.get(), SparkParticle.Provider::new);
+        event.registerSpriteSet(SemcsRegistries.MUZZLE_FLASH_PARTICLE.get(), MuzzleFlashParticle.Provider::new);
+        event.registerSpriteSet(SemcsRegistries.ZZZ_PARTICLE.get(), ZzzParticle.Provider::new);
     }
 
     @SubscribeEvent

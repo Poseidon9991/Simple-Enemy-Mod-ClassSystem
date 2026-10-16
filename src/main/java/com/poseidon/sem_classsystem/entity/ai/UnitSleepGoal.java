@@ -2,11 +2,11 @@ package com.poseidon.sem_classsystem.entity.ai;
 
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
 import com.poseidon.sem_classsystem.needs.UnitNeeds;
+import com.poseidon.sem_classsystem.registry.SemcsRegistries;
 import com.poseidon.sem_classsystem.world.PlayerChunkClaims;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.village.poi.PoiManager;
 import net.minecraft.world.entity.ai.village.poi.PoiTypes;
@@ -117,10 +117,10 @@ public class UnitSleepGoal extends Goal {
                     && this.unit.getHealth() < this.unit.getMaxHealth()) {
                 this.unit.heal(1.0F);
             }
-            // Snoring notes every ~2s - the "Zzz" read without a custom particle.
+            // Drifting Z's every ~2s - our own translucent ZZZ particle.
             if (this.sleepTicks % 40 == 20
                     && this.unit.level() instanceof ServerLevel serverLevel) {
-                serverLevel.sendParticles(ParticleTypes.NOTE,
+                serverLevel.sendParticles(SemcsRegistries.ZZZ_PARTICLE.get(),
                         this.unit.getX() + this.unit.getRandom().nextGaussian() * 0.15,
                         this.unit.getY() + 1.1,
                         this.unit.getZ() + this.unit.getRandom().nextGaussian() * 0.15,

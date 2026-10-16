@@ -53,6 +53,7 @@ This addon doesn't just pile features on top of Simple Enemy Mod — it **repair
 *   **Melee units couldn't attack** — SEM had no melee combat goal at all; units holding melee weapons just stood there. Units now fight in CQB with bayonet/knife strikes when enemies close inside gun minimum range.
 *   **Broken Curios support** — SEM hardcoded a fixed 4-slot Curios layout that mismatched real Curios slot types. Replaced with dynamic, player-like Curios slots that adapt to every registered slot type and count.
 *   **Purple/black curio textures** — non-armor curios (Artifacts charms, rings, goggles) rendered as corrupted missing-texture armor on units. They're now filtered out of the armor suit layer.
+*   **Curios rendered at the feet** — curio renderers that draw their own model-space geometry (Superb Warfare's thermal goggles, parachute) were drawn under the unit-bone transform, so a head curio appeared on the boots. Bone-attached renderers (Artifacts) keep the synced transform; model-space renderers now draw in entity space like they do on players.
 *   **Ammo corruption & misplaced reserves** — PMC reserve ammo was stuffed into equipment slots, and oversized stacks (>127 items) overflowed the inventory packet's signed byte and silently corrupted to empty stacks. Reserve ammo now lives in proper storage slots, split into legal stacks.
 *   **Armor clipping/vanishing on unit models** — vanilla and modded armor used player proportions on SEM's custom soldier models. Armor now renders fitted to the unit body.
 *   **Order/duty conflict** — a unit on chunk duty could ignore a fresh commander's order. New orders now always cancel standing duty cleanly.
@@ -63,6 +64,7 @@ This addon doesn't just pile features on top of Simple Enemy Mod — it **repair
 *   **Blended combat stance** — switching between patrol (low-ready) and combat (high-ready) snapped in a single frame. Stances now blend smoothly.
 *   **Real melee stances** — Better-Combat-style melee poses with a 3-hit combo chain, instead of the static arm raise.
 *   **Tactical crouch & true prone** — class-specific crouch firing poses, a full prone body tilt applied before every render layer (armor, guns, gear all follow), and a real low-profile hitbox (0.6 high) so bullets originate from the prone barrel.
+*   **Unit gunfire VFX** — TaCZ only draws muzzle flashes for the player's own gun, so firefights read flat. Units now get a fullbright muzzle flash on every shot, spark showers off block impacts (headshots spray harder on flesh hits), and sleeping units drift custom Zzz particles — all zero-dependency `ParticleType`s, no library needed.
 *   **Fitted equipment titles** — the unit inventory GUI shows faction + class in the title.
 
 ### ➕ Behavior SEM Never Had
@@ -144,6 +146,7 @@ Flip `[needs] enabled = true` in the config and your owned units become living s
 *   **Morale (0–100):** drops while starving/exhausted and when squadmates die nearby; rises on kills, meals, and rest. Low morale widens weapon spread (shaky aim), and shaken units can break for cover under fire instead of standing their ground.
 *   **Shift roster:** `/semcs shift <targets> <day|night|auto>` puts units on a real watch schedule — day-shift sleeps at night, night-shift sleeps by day, `auto` (default) sleeps whenever exhausted. Run posts around the clock.
 *   **Ammo resupply:** a unit whose gun is fully dry walks to a claimed stockpile and pulls matching ammo (up to 96 rounds per trip) — complements the sidearm fallback. Toggle with `ammoResupply`.
+*   **TaCZ ammo boxes as curios:** `tacz:ammo_box` fits `belt`/`back` curio slots — wear one on a unit and it feeds the unit's dry gun directly (creative boxes included), no stockpile trip needed. Renders as a crate on the hip/back. Works even with `[needs]` disabled — the box is the unit's own gear.
 *   **Ration Crate** (barrel + wheat + iron nuggets): the squad pantry — a 27-slot container that units *prefer* over generic chests when foraging, with a vanilla chest GUI and hopper support.
 *   **Barks & reports:** units radio the owner when they cross need thresholds ("Running low on rations", "I need rack time soon"), and on login you get a **squad report** of anything that happened while you were offline (starvation/KIA notices).
 *   **BHQ perk:** elite operators drain hunger and energy 40% slower.

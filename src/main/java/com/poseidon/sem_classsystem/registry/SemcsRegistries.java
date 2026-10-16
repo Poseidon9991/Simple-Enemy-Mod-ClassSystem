@@ -12,6 +12,8 @@ import com.poseidon.sem_classsystem.item.ClassSpawnEggItem;
 import com.poseidon.sem_classsystem.item.FieldTabletItem;
 import com.poseidon.sem_classsystem.item.SquadWhistleItem;
 import com.poseidon.sem_classsystem.menu.RecruitTableMenu;
+import net.minecraft.core.particles.ParticleType;
+import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
@@ -73,6 +75,20 @@ public final class SemcsRegistries {
 
     public static final DeferredRegister<MenuType<?>> MENU_TYPES =
             DeferredRegister.create(ForgeRegistries.MENU_TYPES, SemClassSystem.MODID);
+
+    public static final DeferredRegister<ParticleType<?>> PARTICLE_TYPES =
+            DeferredRegister.create(ForgeRegistries.PARTICLE_TYPES, SemClassSystem.MODID);
+
+    // ---- custom particles ---------------------------------------------------
+    // Zero-dependency unit VFX (see client/particle + event/UnitEffectsEvents).
+    // SimpleParticleType carries no data - position/velocity come from the
+    // sendParticles spread args.
+    public static final RegistryObject<SimpleParticleType> SPARK_PARTICLE =
+            PARTICLE_TYPES.register("spark", () -> new SimpleParticleType(false));
+    public static final RegistryObject<SimpleParticleType> MUZZLE_FLASH_PARTICLE =
+            PARTICLE_TYPES.register("muzzle_flash", () -> new SimpleParticleType(false));
+    public static final RegistryObject<SimpleParticleType> ZZZ_PARTICLE =
+            PARTICLE_TYPES.register("zzz", () -> new SimpleParticleType(false));
 
     public static final RegistryObject<MenuType<RecruitTableMenu>> RECRUIT_TABLE_MENU =
             MENU_TYPES.register("recruit_table", () -> IForgeMenuType.create(RecruitTableMenu::new));
@@ -404,6 +420,7 @@ public final class SemcsRegistries {
         ITEMS.register(bus);
         CREATIVE_TABS.register(bus);
         MENU_TYPES.register(bus);
+        PARTICLE_TYPES.register(bus);
     }
 
     // Forge asks every entity type for its attribute table at startup.

@@ -22,19 +22,24 @@ public abstract class MixinUniversalArmorLayer {
 
     // Unit skin + its painted-gear overlay sits proud of a 1.0 armor shell,
     // so flat armor disappears inside the body. A mild uniform bump clears
-    // the skin without SEM's bloated ~x2 inflation.
+    // the skin without SEM's bloated ~x2 inflation. Boots still scale past
+    // leggings (SEM: 2.15 vs 2.1) or the legging piece swallows them.
     private static final float ARMOR_SCALE = 1.5F;
+    private static final float BOOT_SCALE = 1.56F;
 
     @Inject(method = "applyManualScale", at = @At("HEAD"), cancellable = true, remap = false)
     private void semcs$playerScaleArmor(HumanoidModel<LivingEntity> armorModel,
                                         EquipmentSlot slot, CallbackInfo ci) {
         // Scale persists on the shared baked model across renders - snap
-        // it back to ours in case anything else wrote it.
+        // it back to ours in case anything else wrote it. Part sets follow
+        // SEM's per-slot layout, just at our proportions.
         for (ModelPart part : new ModelPart[]{armorModel.head, armorModel.hat,
-                armorModel.body, armorModel.rightArm, armorModel.leftArm,
-                armorModel.rightLeg, armorModel.leftLeg}) {
+                armorModel.body, armorModel.rightArm, armorModel.leftArm}) {
             part.xScale = part.yScale = part.zScale = ARMOR_SCALE;
         }
+        float legScale = slot == EquipmentSlot.FEET ? BOOT_SCALE : ARMOR_SCALE;
+        armorModel.rightLeg.xScale = armorModel.rightLeg.yScale = armorModel.rightLeg.zScale = legScale;
+        armorModel.leftLeg.xScale = armorModel.leftLeg.yScale = armorModel.leftLeg.zScale = legScale;
         ci.cancel();
     }
 

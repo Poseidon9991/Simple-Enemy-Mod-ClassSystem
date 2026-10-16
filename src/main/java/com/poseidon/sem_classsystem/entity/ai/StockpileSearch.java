@@ -3,7 +3,11 @@ package com.poseidon.sem_classsystem.entity.ai;
 import com.poseidon.sem_classsystem.block.SupplyCrateBlockEntity;
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
 import com.poseidon.sem_classsystem.world.PlayerChunkClaims;
+import com.tacz.guns.api.TimelessAPI;
+import com.tacz.guns.api.item.IAmmo;
+import com.tacz.guns.api.item.IGun;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
@@ -15,6 +19,7 @@ import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -143,5 +148,71 @@ final class StockpileSearch {
     private static IItemHandler handlerOf(BlockEntity be) {
         return be.getCapability(ForgeCapabilities.ITEM_HANDLER)
                 .resolve().orElse(null);
+    }
+
+    // Ammo ids of carried guns that have zero matching rounds - loose
+    // stacks and the gun's own loaded magazine both count as supply.
+    // Two passes so ammo listed before its gun still counts.
+    static Set<ResourceLocation> dryAmmoIds(PmcUnitEntity unit) {
+        IItemHandler inv = unit.getCapability(ForgeCapabilities.ITEM_HANDLER)
+                .resolve().orElse(null);
+        if (inv == null) {
+            return Set.of();
+        }
+        ResourceLocation[] ids = new ResourceLocation[8];
+        int[] rounds = new int[8];
+        int idCount = 0;
+        // Pass 1: every carried gun claims its ammo id + loaded mag.
+        for (int i = 0; i < inv.getSlots() && idCount < ids.length; i++) {
+            ItemStack stack = inv.getStackInSlot(i);
+            IGun gun = IGun.getIGunOrNull(stack);
+            if (gun == null) {
+                continue;
+            }
+            ResourceLocation gunId = gun.getGunId(stack);
+            ResourceLocation ammoId = gunId == null ? null
+                    : TimelessAPI.getCommonGunIndex(gunId)
+                    .map(index -> index.getGunData().getAmmoId())
+                    .orElse(null);
+            if (ammoId == null) {
+                continue;
+            }
+            int at = indexOf(ids, idCount, ammoId);
+            if (at < 0) {
+                ids[idCount] = ammoId;
+                rounds[idCount] = gun.getCurrentAmmoCount(stack);
+                idCount++;
+            } else {
+                rounds[at] += gun.getCurrentAmmoCount(stack);
+            }
+        }
+        // Pass 2: loose rounds top up the matching gun's pool.
+        for (int i = 0; i < inv.getSlots(); i++) {
+            ItemStack stack = inv.getStackInSlot(i);
+            IAmmo ammo = IAmmo.getIAmmoOrNull(stack);
+            if (ammo == null) {
+                continue;
+            }
+            int at = indexOf(ids, idCount, ammo.getAmmoId(stack));
+            if (at >= 0) {
+                rounds[at] += stack.getCount();
+            }
+        }
+        Set<ResourceLocation> wanted = new HashSet<>();
+        for (int i = 0; i < idCount; i++) {
+            if (rounds[i] <= 0) {
+                wanted.add(ids[i]);
+            }
+        }
+        return wanted;
+    }
+
+    private static int indexOf(ResourceLocation[] ids, int count, ResourceLocation id) {
+        for (int i = 0; i < count; i++) {
+            if (ids[i].equals(id)) {
+                return i;
+            }
+        }
+        return -1;
     }
 }

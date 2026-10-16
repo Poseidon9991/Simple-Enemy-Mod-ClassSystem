@@ -56,6 +56,11 @@ public abstract class MixinGeckoArmorTexture {
     private static final java.util.Set<ResourceLocation> SWAP_LOGGED =
             java.util.concurrent.ConcurrentHashMap.newKeySet();
 
+    // Slot of the piece mid-render - lets the part-copy inject give boots
+    // a wider scale than leggings (SEM: 2.15 vs 2.1) so they wrap over.
+    @Unique
+    private EquipmentSlot semcs$renderingSlot;
+
     @Shadow(remap = false)
     @Final
     private HumanoidModel<?> dummyHumanoidModel;
@@ -78,6 +83,7 @@ public abstract class MixinGeckoArmorTexture {
                                           float limbSwing, float limbSwingAmount, float partialTicks,
                                           float ageInTicks, float netHeadYaw, float headPitch,
                                           CallbackInfo ci) {
+        this.semcs$renderingSlot = slot;
         if (stack.isEmpty()) {
             ci.cancel();
             return;
@@ -154,8 +160,10 @@ public abstract class MixinGeckoArmorTexture {
     // Must match MixinUniversalArmorLayer.ARMOR_SCALE - this layer is the
     // other armor path (gecko/modded pieces) and hard-resets every synced
     // part to 1.0, which left modded armor looking small next to the
-    // scaled vanilla pieces.
+    // scaled vanilla pieces. Legs get a slight bump for FEET renders so
+    // boots stay visibly outside the leggings.
     private static final float ARMOR_SCALE = 1.5F;
+    private static final float BOOT_SCALE = 1.56F;
 
     // remap=false: SEM-internal method name.
     @Inject(method = "copyPartWithGlobalOffset", at = @At("RETURN"), remap = false)
@@ -163,6 +171,10 @@ public abstract class MixinGeckoArmorTexture {
                                            float pX, float pY, float pZ,
                                            float rX, float rY, float rZ,
                                            boolean preserveVisibility, CallbackInfo ci) {
-        target.xScale = target.yScale = target.zScale = ARMOR_SCALE;
+        boolean bootLeg = this.semcs$renderingSlot == EquipmentSlot.FEET
+                && (target == this.dummyHumanoidModel.rightLeg
+                || target == this.dummyHumanoidModel.leftLeg);
+        float scale = bootLeg ? BOOT_SCALE : ARMOR_SCALE;
+        target.xScale = target.yScale = target.zScale = scale;
     }
 }

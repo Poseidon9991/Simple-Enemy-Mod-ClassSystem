@@ -110,10 +110,20 @@ public class UnitCuriosRenderLayer<T extends LivingEntity, M extends EntityModel
                     var rendererOpt = CuriosRendererRegistry.getRenderer(stack.getItem());
                     if (rendererOpt.isPresent()) {
                         ICurioRenderer curioRenderer = rendererOpt.get();
-                        syncEmbeddedHumanoidModels(curioRenderer, this.dummyHumanoid);
+                        // Two renderer families exist:
+                        // - Bone-attached (Artifacts): embed a HumanoidModel field,
+                        //   synced above, and need the unit-bone transform so the
+                        //   bones' unit-local poses land correctly.
+                        // - Model-space (Superb Warfare goggles/parachute): draw
+                        //   their own geometry where Curios would on a player -
+                        //   entity space. Applying the unit-bone transform here
+                        //   shifts their head-height geometry down to the feet.
+                        boolean boneSynced = syncEmbeddedHumanoidModels(curioRenderer, this.dummyHumanoid);
                         poseStack.pushPose();
-                        fakeRoot.translateAndRotate(poseStack);
-                        unitBone.translateAndRotate(poseStack);
+                        if (boneSynced) {
+                            fakeRoot.translateAndRotate(poseStack);
+                            unitBone.translateAndRotate(poseStack);
+                        }
                         try {
                             curioRenderer.render(stack, slotCtx, poseStack, humanoidProxy, buffer, packedLight,
                                     limbSwing, limbSwingAmount, partialTicks, ageInTicks, netHeadYaw, headPitch);
@@ -147,7 +157,8 @@ public class UnitCuriosRenderLayer<T extends LivingEntity, M extends EntityModel
     // directly into any HumanoidModel field on the renderer makes 3D Artifacts
     // animate 1:1 with the unit!
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static void syncEmbeddedHumanoidModels(ICurioRenderer renderer, HumanoidModel<?> synced) {
+    private static boolean syncEmbeddedHumanoidModels(ICurioRenderer renderer, HumanoidModel<?> synced) {
+        boolean found = false;
         try {
             for (Field f : renderer.getClass().getDeclaredFields()) {
                 if (HumanoidModel.class.isAssignableFrom(f.getType())) {
@@ -161,11 +172,13 @@ public class UnitCuriosRenderLayer<T extends LivingEntity, M extends EntityModel
                         hm.leftArm.copyFrom(synced.leftArm);
                         hm.rightLeg.copyFrom(synced.rightLeg);
                         hm.leftLeg.copyFrom(synced.leftLeg);
+                        found = true;
                     }
                 }
             }
         } catch (Throwable ignored) {
         }
+        return found;
     }
 
     private static void renderFallbackBadge(PoseStack poseStack, MultiBufferSource buffer, int packedLight,

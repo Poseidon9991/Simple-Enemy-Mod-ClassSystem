@@ -124,6 +124,7 @@ com.poseidon.sem_classsystem/
 │       ├── UnitChunkDutyGoal.java      # Guard post & chunk patrol logic
 │       ├── UnitEatGoal.java            # Hunger: carried food + stockpile runs
 │       ├── UnitResupplyGoal.java       # Ammo: dry-gun stockpile runs
+│       ├── UnitAmmoBoxGoal.java        # Ammo: worn tacz:ammo_box curio feed
 │       ├── UnitMedicHealGoal.java      # Medic triage & healing behavior
 │       ├── UnitMeleeAttackGoal.java    # Bayonet/knife CQB fallback
 │       ├── UnitSelfHealGoal.java       # Autonomous bandaging/food consumption
@@ -133,6 +134,7 @@ com.poseidon.sem_classsystem/
 │   ├── GuardPostEvents.java            # Billet promotion & fallback checks
 │   ├── NightRaidEvents.java            # Ambush raid scheduling director
 │   ├── UnitBackupCall.java             # Squad wounded distress alerts (<25% HP)
+│   ├── UnitEffectsEvents.java          # Unit gunfire VFX (muzzle flash, impact sparks)
 │   ├── UnitMarkerTracker.java          # Server-to-client marker sync director
 │   ├── UnitNeedsEvents.java            # [needs] drain tick, morale & wake hooks
 │   ├── UnitOwnershipCap.java           # Player recruit capacity enforcement
@@ -288,6 +290,7 @@ $$\text{Soldier Profile} = \text{UnitClass (Faction)} \times \text{WeaponClass (
 | **2** | `UnitSleepGoal` | Owned PMC & BHQ | [needs] Exhausted units claim a free bed inside the owner's chunk claims and sleep day or night while peaceful. |
 | **3** | `UnitEatGoal` | Owned PMC & BHQ | [needs] Hungry units eat carried food or pathfind to a stockpile container inside owner claims. |
 | **3** | `UnitResupplyGoal` | Owned PMC & BHQ | [needs] Units with a dry gun pull matching ammo from claimed stockpiles (up to 96 rounds/trip). |
+| **3** | `UnitAmmoBoxGoal` | Owned PMC & BHQ | Units with a dry gun draw matching rounds straight from a worn `tacz:ammo_box` curio (belt/back tag) - no needs gating, works in combat. |
 | **4** | `UnitMedicHealGoal` | Medic Only | Breaks combat to heal wounded squadmates within 24 blocks. |
 | **9** | `UnitWeaponFallbackGoal`| All Units | Swaps to backup pistol when primary magazine & reserve ammo run dry. |
 
@@ -330,9 +333,9 @@ An opt-in survival layer (`[needs] enabled`, default `false`) that gives **owned
 - **Elapsed-time drain**: `UnitNeedsEvents.onTick` (every 40 ticks) measures drain in game-time deltas, so hunger keeps falling while the chunk is unloaded — an abandoned outpost starves offline (catch-up capped at 3 days). Stats lazy-initialize to full on first read so enabling the config on an existing world doesn't instantly starve old units.
 - **Starvation**: at hunger 0 the unit holds fire (`MixinRangedGunAttackGoal` canUse gate) and takes `starveDamageTicks`-paced starve damage; death runs SEM's `dropCustomDeathLoot`, scattering gear as items.
 - **Stockpile feeding**: `UnitEatGoal` scans carried food via `UnitSelfHealGoal.findFood` (the shared consumable scanner, parameterized by a `BiPredicate`), then falls back to the nearest `ITEM_HANDLER` block entity inside the owner's `PlayerChunkClaims` — never force-loads chunks (`ChunkStatus.FULL` + `LevelChunk` block-entity iteration only on loaded chunks).
-- **Shift-capable sleep**: `UnitSleepGoal` finds villager-POI beds (`PoiManager.findAll` with `Occupancy.HAS_SPACE` + per-unit `bedPos` claim tracking) restricted to owner-claimed chunks. Sleep works day or night but only while peaceful — no target and no busy `OrderType` (follow/move/attack/formation). Hurt wakes instantly. `/semcs shift <targets> <auto|day|night>` sets a sleep window (day-shift sleeps at night, night-shift by day); sleeping units also heal slowly (`sleepHealTicks`) and emit note particles.
+- **Shift-capable sleep**: `UnitSleepGoal` finds villager-POI beds (`PoiManager.findAll` with `Occupancy.HAS_SPACE` + per-unit `bedPos` claim tracking) restricted to owner-claimed chunks. Sleep works day or night but only while peaceful — no target and no busy `OrderType` (follow/move/attack/formation). Hurt wakes instantly. `/semcs shift <targets> <auto|day|night>` sets a sleep window (day-shift sleeps at night, night-shift by day); sleeping units also heal slowly (`sleepHealTicks`) and emit custom `zzz` particles (`client/particle/ZzzParticle` — translucent rising "Z"; muzzle flash + impact sparks live alongside it under `client/particle/`, triggered by `UnitEffectsEvents` on TaCZ's `GunShootEvent`/`AmmoHitBlockEvent`/`EntityHurtByGunEvent`).
 - **Shared stockpile search**: `StockpileSearch.findContainer/withdrawIntoUnit` locates `ITEM_HANDLER` block entities inside `PlayerChunkClaims` (loaded chunks only) and prefers `SupplyCrateBlockEntity` (the craftable Ration Crate pantry) at equal distance.
-- **Ammo resupply**: `UnitResupplyGoal` computes each carried gun's ammo id (`TimelessAPI` gun index → `GunData.getAmmoId`) and stockpile-runs when a gun has zero matching rounds — the primary comes back after `UnitWeaponFallbackGoal` swapped to the sidearm.
+- **Ammo resupply**: `UnitResupplyGoal` computes each carried gun's ammo id (`StockpileSearch.dryAmmoIds` — `TimelessAPI` gun index → `GunData.getAmmoId`) and stockpile-runs when a gun has zero matching rounds — the primary comes back after `UnitWeaponFallbackGoal` swapped to the sidearm. `UnitAmmoBoxGoal` is the decoupled wearable version: a `tacz:ammo_box` in a Curio `belt`/`back` slot (tag files at `data/curios/tags/items/`) feeds the dry gun in place via `IAmmoBox` — no needs config, no stockpile trip.
 - **Morale**: `UnitClassAttributes.spreadMultiplier` multiplies by `UnitNeeds.spreadPenaltyScale` (up to +60% spread at 0 morale); `UnitNeedsEvents` adds +4 on kills, -8 on nearby owned-ally deaths, and rolls a 35% `SEEK_COVER` break when a shaken unit is hurt.
 - **Barks & reports**: threshold crossings (hungry/starving/exhausted/shaken) radio the owner once per crossing via a bark bitmask in `UnitNeeds`; owned-unit deaths chat-notify the owner or file into `UnitEventLog` (overworld SavedData) for the login "squad report".
 - **Sync**: `UnitMarker` carries `hunger`/`energy`/`morale`/`sleeping` (OWN allegiance only, `-1` when disabled) → tablet roster NEEDS column with a critical `!` marker + `Sleeping` status + WTHIT status line.

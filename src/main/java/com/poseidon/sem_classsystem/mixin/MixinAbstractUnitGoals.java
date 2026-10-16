@@ -1,6 +1,7 @@
 // Server/Common mixin - adds UnitMeleeAttackGoal to SEM units
 package com.poseidon.sem_classsystem.mixin;
 
+import com.poseidon.sem_classsystem.entity.ai.UnitAmmoBoxGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitChunkDutyGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitEatGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitMedicHealGoal;
@@ -42,6 +43,8 @@ public abstract class MixinAbstractUnitGoals {
             entity.goalSelector.addGoal(3, new UnitEatGoal(pmc));
             // Same tier as eating: ammo stockpile runs inside owner claims
             entity.goalSelector.addGoal(3, new UnitResupplyGoal(pmc));
+            // No needs gating: a worn TaCZ ammo box feeds a dry gun in place
+            entity.goalSelector.addGoal(3, new UnitAmmoBoxGoal(pmc));
         }
     }
 }
