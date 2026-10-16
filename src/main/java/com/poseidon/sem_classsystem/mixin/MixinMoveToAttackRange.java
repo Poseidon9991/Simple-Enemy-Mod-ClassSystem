@@ -3,6 +3,7 @@ package com.poseidon.sem_classsystem.mixin;
 
 // Our helpers: read the unit's class + per-class tuning values
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
+import com.poseidon.sem_classsystem.entity.ai.UnitMeleeAttackGoal;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
 // Vanilla Mob type of the goal's owner field
@@ -56,9 +57,20 @@ public abstract class MixinMoveToAttackRange {
 
     // canUse runs every evaluation - retune here too so a re-classed unit
     // (e.g. /semcs class) updates its preferred distance mid-fight.
-    @Inject(method = "canUse", at = @At("HEAD"))
+    @Inject(method = "canUse", at = @At("HEAD"), cancellable = true)
     private void semcs$retuneOnUse(CallbackInfoReturnable<Boolean> cir) {
+        if (UnitMeleeAttackGoal.isMeleeWeapon(this.mob.getMainHandItem())) {
+            cir.setReturnValue(false);
+            return;
+        }
         semcs$applyTuning();
+    }
+
+    @Inject(method = "canContinueToUse", at = @At("HEAD"), cancellable = true)
+    private void semcs$stopWhenMelee(CallbackInfoReturnable<Boolean> cir) {
+        if (UnitMeleeAttackGoal.isMeleeWeapon(this.mob.getMainHandItem())) {
+            cir.setReturnValue(false);
+        }
     }
 
     // attackRange <- the class's preferred engage distance (absolute blocks)

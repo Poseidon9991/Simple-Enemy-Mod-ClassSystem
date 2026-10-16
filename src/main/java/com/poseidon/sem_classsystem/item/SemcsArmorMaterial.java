@@ -15,7 +15,10 @@ public enum SemcsArmorMaterial implements ArmorMaterial {
     RAF("raf_", 14, new int[]{2, 3, 5, 4}, 12, 0.25F, 0.0F, SoundEvents.ARMOR_EQUIP_LEATHER, () -> Ingredient.of(Items.STRING)),
     GRK("grk_", 24, new int[]{2, 4, 7, 5}, 11, 1.0F, 0.1F, SoundEvents.ARMOR_EQUIP_IRON, () -> Ingredient.of(Items.IRON_INGOT)),
     SUPPRESSOR("suppressor_", 40, new int[]{3, 6, 9, 4}, 9, 2.0F, 0.2F, SoundEvents.ARMOR_EQUIP_DIAMOND, () -> Ingredient.of(Items.NETHERITE_INGOT)),
-    DEMOLISHER("demolisher_", 36, new int[]{3, 5, 8, 4}, 7, 2.5F, 0.25F, SoundEvents.ARMOR_EQUIP_NETHERITE, () -> Ingredient.of(Items.DIAMOND));
+    DEMOLISHER("demolisher_", 36, new int[]{3, 5, 8, 4}, 7, 2.5F, 0.25F, SoundEvents.ARMOR_EQUIP_NETHERITE, () -> Ingredient.of(Items.DIAMOND)),
+    RU("ru_", 26, new int[]{3, 5, 7, 3}, 10, 1.0F, 0.0F, SoundEvents.ARMOR_EQUIP_IRON, () -> Ingredient.of(Items.IRON_INGOT)),
+    US("us_", 28, new int[]{3, 6, 8, 3}, 10, 1.5F, 0.05F, SoundEvents.ARMOR_EQUIP_DIAMOND, () -> Ingredient.of(Items.IRON_INGOT)),
+    PMC("pmc_", 30, new int[]{3, 6, 8, 4}, 12, 1.5F, 0.1F, SoundEvents.ARMOR_EQUIP_NETHERITE, () -> Ingredient.of(Items.NETHERITE_SCRAP));
 
     private static final int[] BASE_DURABILITY = {13, 15, 16, 11};
 

@@ -31,6 +31,9 @@ mixin {
     add sourceSets.main, "${mod_id}.refmap.json"
     // Our mixin config json in resources - defines which classes get patched
     config "${mod_id}.mixins.json"
+    // Xaero World Map soft-compat mixins - gated by XaeroSemcsMixinPlugin so a
+    // missing map mod never even queues them
+    config "${mod_id}.xaero.mixins.json"
 }
 
 // ==================== MINECRAFT / FORGE SETUP ====================
@@ -108,6 +111,12 @@ repositories {
         url = 'https://maven.parchmentmc.org'
     }
 
+    // Xaero's Maven - World Map dev jar for the map-integration compile deps
+    maven {
+        url = 'https://chocolateminecraft.com/maven'
+        name = "Xaero's Maven"
+    }
+
 }
 
 // ==================== DEPENDENCIES ====================
@@ -147,6 +156,21 @@ dependencies {
     // render through GeoArmorRenderer; present in the pack's mods folder.
     implementation files('libs/geckolib-forge-1.20.1-4.8.4.jar')
 
+    // Soft dependency: Curios API — compile-time only for dynamic unit Curios slots
+    compileOnly files('libs/curios.jar')
+
+    // Soft dependency: Xaero's World Map — unit markers, map orders and chunk
+    // claims are compiled against it but the whole feature inert-gates itself
+    // when the mod is absent (ModList check + gated mixin config).
+    compileOnly "xaero.map:xaeroworldmap-forge-1.20.1:1.44.2:dev"
+    // Xaero's Minimap - same soft-dep pattern: unit markers also render on
+    // the minimap HUD when it is installed (see SemcsMinimapCompat).
+    compileOnly "xaero.minimap:xaerominimap-forge-1.20.1:26.5.0:dev"
+    if (!project.hasProperty('noXaero')) {
+        runtimeOnly "xaero.map:xaeroworldmap-forge-1.20.1:1.44.2:dev"
+        runtimeOnly "xaero.minimap:xaerominimap-forge-1.20.1:26.5.0:dev"
+    }
+
 }
 
 // ==================== RESOURCE PROCESSING ====================
@@ -182,7 +206,7 @@ tasks.named('jar', Jar).configure {
                 'Implementation-Vendor'   : mod_authors,
                 'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
                 // Extra safety net: some loaders read mixin config from the manifest too
-                'MixinConfigs'            : "${mod_id}.mixins.json"
+                'MixinConfigs'            : "${mod_id}.mixins.json,${mod_id}.xaero.mixins.json"
         ])
     }
 

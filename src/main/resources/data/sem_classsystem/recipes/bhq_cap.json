@@ -1,15 +1,22 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "PSP",
-    "P P"
+    " W ",
+    "WGW",
+    "LSL"
   ],
   "key": {
-    "P": {
+    "W": {
+      "item": "minecraft:blue_wool"
+    },
+    "G": {
+      "item": "minecraft:gold_nugget"
+    },
+    "L": {
       "item": "minecraft:leather"
     },
     "S": {
-      "item": "minecraft:diamond"
+      "item": "minecraft:string"
     }
   },
   "result": {

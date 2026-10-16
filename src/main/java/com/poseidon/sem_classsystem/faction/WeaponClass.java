@@ -28,6 +28,9 @@ public enum WeaponClass {
     // applies no matter what it holds (see computeEffective) - decent at
     // everything, never as good as the specialist holding the same gun.
     JACK("jack", "Jack"),
+    // Corpsman: light gun (SMG/pistol table) plus UnitMedicHealGoal - moves
+    // to wounded allies and patches them up, consuming medkits if stocked.
+    MEDIC("medic", "Medic"),
     // SUBCLASS, not assignable: any unit given a pistol fights with these
     // rules (quick single shots, mid-range, stays mobile) while keeping its
     // real class. Pistols bypass the class weapon lock for every class.

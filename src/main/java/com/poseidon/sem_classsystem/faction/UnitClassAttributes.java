@@ -5,12 +5,15 @@ package com.poseidon.sem_classsystem.faction;
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
 // Vanilla base class of all entities (needed for the spread checker's input type)
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 // An attribute entry on a mob (holds base value + modifiers). Think "health slot".
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 // Vanilla registry of attribute types: MAX_HEALTH, MOVEMENT_SPEED, FOLLOW_RANGE...
 import net.minecraft.world.entity.ai.attributes.Attributes;
 // SEM's base soldier class - PmcUnitEntity / RUunitEntity / USunitEntity extend it
 import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;
+// Veterancy: rank bonuses + accuracy bonus earned from kills
+import com.poseidon.sem_classsystem.veterancy.UnitVeterancy;
 
 public final class UnitClassAttributes {
 
@@ -52,14 +55,16 @@ public final class UnitClassAttributes {
                 unit.setHealth((float) health);
             }
         }
-        // --- Walk speed ---
+        // --- Walk speed (global nerf multiplier applied on top) ---
         if (speedAttr != null) {
-            speedAttr.setBaseValue(speed);
+            speedAttr.setBaseValue(speed * ClassSystemConfig.globalWalkSpeedMultiplier());
         }
         // --- Detection range (vanilla FOLLOW_RANGE drives mob target search) ---
         if (rangeAttr != null) {
             rangeAttr.setBaseValue(range);
         }
+        // --- Veterancy: +HP / +melee damage per earned rank ---
+        UnitVeterancy.applyRankBonuses(unit);
     }
 
     // Accuracy multiplier for whoever is shooting. 1.0 keeps SEM's spread,
@@ -67,6 +72,11 @@ public final class UnitClassAttributes {
     // Non-SEM shooters get 1.0 so we never touch other mods' behaviour.
     public static double spreadMultiplier(Entity entity) {
         UnitClass unitClass = UnitClass.of(entity);
-        return unitClass == null ? 1.0 : ClassSystemConfig.spreadMultiplier(unitClass);
+        double base = unitClass == null ? 1.0 : ClassSystemConfig.spreadMultiplier(unitClass);
+        // Veterans shoot tighter: -6% spread per rank, floor -30%
+        if (entity instanceof LivingEntity living) {
+            base *= UnitVeterancy.spreadScale(living);
+        }
+        return base;
     }
 }

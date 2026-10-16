@@ -124,6 +124,9 @@ public class ClassLoadoutManager extends SimpleJsonResourceReloadListener {
             }
         }
         GUN_TO_CLASS = gunIndex;
+        // Reset warn-once state: a /reload with corrected or newly-installed
+        // gunpacks should re-evaluate every gun id against the fresh index.
+        WARNED_GUNS.clear();
         // Tables changed - cached inferClass answers are now stale.
         ClassLoadouts.invalidateInferenceCache();
         int total = table.values().stream().mapToInt(m -> m.values().stream().mapToInt(List::size).sum()).sum();

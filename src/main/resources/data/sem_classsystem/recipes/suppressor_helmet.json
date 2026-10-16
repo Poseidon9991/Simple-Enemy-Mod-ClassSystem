@@ -1,15 +1,22 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "PSP",
-    "P P"
+    "III",
+    "IHI",
+    "OGO"
   ],
   "key": {
-    "P": {
-      "item": "minecraft:diamond"
+    "I": {
+      "item": "minecraft:iron_ingot"
     },
-    "S": {
-      "item": "minecraft:netherite_ingot"
+    "H": {
+      "item": "minecraft:iron_helmet"
+    },
+    "O": {
+      "item": "minecraft:obsidian"
+    },
+    "G": {
+      "item": "minecraft:tinted_glass"
     }
   },
   "result": {

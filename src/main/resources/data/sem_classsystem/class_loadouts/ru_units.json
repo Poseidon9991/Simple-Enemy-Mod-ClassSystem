@@ -82,6 +82,19 @@
         "fire_mode": "SEMI"
       }
     },
+    "medic": {
+      "cz75": {
+        "gun_id": "tacz:cz75",
+        "ammo_count": 12,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:sight_okp7"
+      },
+      "m1911": {
+        "gun_id": "tacz:m1911",
+        "ammo_count": 7,
+        "fire_mode": "SEMI"
+      }
+    },
     "pistol": {
       "cz75": {
         "gun_id": "tacz:cz75",

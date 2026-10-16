@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "sem_classsystem:block/guard_post_side",
+    "up": "sem_classsystem:block/guard_post_top",
+    "down": "sem_classsystem:block/guard_post_bottom",
+    "north": "sem_classsystem:block/guard_post_side",
+    "south": "sem_classsystem:block/guard_post_side",
+    "west": "sem_classsystem:block/guard_post_side",
+    "east": "sem_classsystem:block/guard_post_side"
+  }
+}

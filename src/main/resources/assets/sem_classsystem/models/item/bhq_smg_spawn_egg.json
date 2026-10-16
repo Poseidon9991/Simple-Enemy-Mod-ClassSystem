@@ -1,1 +1,6 @@
-{ "parent": "minecraft:item/template_spawn_egg" }
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "sem_classsystem:item/bhq_smg_spawn_egg"
+  }
+}

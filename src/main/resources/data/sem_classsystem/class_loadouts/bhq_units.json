@@ -104,6 +104,20 @@
         "fire_mode": "SEMI"
       }
     },
+    "medic": {
+      "cz75": {
+        "gun_id": "tacz:cz75",
+        "ammo_count": 12,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:sight_rmr_dot"
+      },
+      "p320": {
+        "gun_id": "tacz:p320",
+        "ammo_count": 17,
+        "fire_mode": "SEMI",
+        "muzzle_id": "tacz:muzzle_silencer_ursus"
+      }
+    },
     "pistol": {
       "deagle": {
         "gun_id": "tacz:deagle",

@@ -1,15 +1,21 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "P P",
-    "P S"
+    "LCL",
+    "IBI"
   ],
   "key": {
-    "P": {
-      "item": "minecraft:diamond"
+    "L": {
+      "item": "minecraft:leather"
     },
-    "S": {
-      "item": "minecraft:netherite_ingot"
+    "C": {
+      "item": "minecraft:chain"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "B": {
+      "item": "minecraft:iron_boots"
     }
   },
   "result": {

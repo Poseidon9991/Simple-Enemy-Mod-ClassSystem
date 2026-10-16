@@ -17,7 +17,6 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.MobSpawnType;
@@ -29,7 +28,9 @@ import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.stream.Stream;
 
 // /semcs - player + admin commands for the class system:
 //   /semcs recruit_class [class|random]   set or show your Recruit Table pick
@@ -41,10 +42,12 @@ public final class SemClassCommands {
     private SemClassCommands() {
     }
 
-    // Class keys offered in tab-completion
-    // Assignable main classes only - pistol is a subclass (sidearm), it is
-    // picked up by handing the unit a pistol gun, not by assignment.
-    private static final String[] CLASS_KEYS = {"smg", "rifle", "shotgun", "sniper", "heavy_mg"};
+    // Class keys offered in tab-completion, derived from mainClasses() so
+    // new assignable classes join automatically. Pistol is a subclass
+    // (sidearm): it is picked up by handing the unit a pistol gun, not by
+    // assignment.
+    private static final String[] CLASS_KEYS = Arrays.stream(WeaponClass.mainClasses())
+            .map(WeaponClass::configKey).toArray(String[]::new);
     private static final String[] FACTION_KEYS = {"ru", "us", "pmc", "bhq"};
 
     private static final SuggestionProvider<CommandSourceStack> CLASS_SUGGEST =
@@ -53,7 +56,8 @@ public final class SemClassCommands {
             (ctx, builder) -> SharedSuggestionProvider.suggest(FACTION_KEYS, builder);
     private static final SuggestionProvider<CommandSourceStack> RECRUIT_SUGGEST =
             (ctx, builder) -> SharedSuggestionProvider.suggest(
-                    new String[]{"random", "smg", "rifle", "shotgun", "sniper", "heavy_mg"}, builder);
+                    Stream.concat(Stream.of("random"), Arrays.stream(CLASS_KEYS))
+                            .toArray(String[]::new), builder);
 
     // Forge fires this when the server builds its command tree
     @SubscribeEvent
@@ -109,7 +113,7 @@ public final class SemClassCommands {
             ctx.getSource().sendSuccess(() -> Component.literal("Recruit class: Random"), true);
             return 1;
         }
-        WeaponClass cls = WeaponClass.byConfigKey(arg);
+        WeaponClass cls = assignableClass(arg);
         if (cls == null) {
             ctx.getSource().sendFailure(Component.literal("Unknown class: " + arg));
             return 0;
@@ -128,7 +132,7 @@ public final class SemClassCommands {
         String factionArg = StringArgumentType.getString(ctx, "faction").toLowerCase();
         String classArg = StringArgumentType.getString(ctx, "class");
 
-        WeaponClass cls = WeaponClass.byConfigKey(classArg);
+        WeaponClass cls = assignableClass(classArg);
         if (cls == null) {
             src.sendFailure(Component.literal("Unknown class: " + classArg));
             return 0;
@@ -176,7 +180,7 @@ public final class SemClassCommands {
         CommandSourceStack src = ctx.getSource();
         String classArg = StringArgumentType.getString(ctx, "class");
 
-        WeaponClass cls = WeaponClass.byConfigKey(classArg);
+        WeaponClass cls = assignableClass(classArg);
         if (cls == null) {
             src.sendFailure(Component.literal("Unknown class: " + classArg));
             return 0;
@@ -206,6 +210,14 @@ public final class SemClassCommands {
         src.sendSuccess(() -> Component.literal(
                 "Re-classed " + finalChanged + " unit(s) as " + finalCls.defaultNickname()), true);
         return changed;
+    }
+
+    // byConfigKey accepts every constant including subclasses - commands may
+    // only assign main classes, so "pistol" is rejected here even though it
+    // parses.
+    private static WeaponClass assignableClass(String key) {
+        WeaponClass cls = WeaponClass.byConfigKey(key);
+        return cls != null && !cls.isSubclass() ? cls : null;
     }
 
     // CommandSourceStack -> Player, or null (console/command blocks get a message)

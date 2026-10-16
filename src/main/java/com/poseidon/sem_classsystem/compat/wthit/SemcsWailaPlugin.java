@@ -8,6 +8,7 @@ import com.poseidon.sem_classsystem.config.ClassSystemConfig;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;
+import com.poseidon.sem_classsystem.veterancy.UnitVeterancy;
 import mcp.mobius.waila.api.IEntityAccessor;
 import mcp.mobius.waila.api.IEntityComponentProvider;
 import mcp.mobius.waila.api.IDataProvider;
@@ -33,6 +34,8 @@ public class SemcsWailaPlugin implements IWailaPlugin {
 
     private static final String TAG_CLASS = "semcs_class";
     private static final String TAG_FACTION = "semcs_faction";
+    private static final String TAG_NAME = "semcs_name";
+    private static final String TAG_XP = "semcs_xp";
 
     @Override
     public void register(IRegistrar registrar) {
@@ -56,6 +59,11 @@ public class SemcsWailaPlugin implements IWailaPlugin {
             if (faction != null) {
                 raw.putString(TAG_FACTION, faction.name().split("_")[0]);   // "RU","PMC","BHQ"
             }
+            // Recruit callsign + veterancy record for the overlay line
+            if (unit.getCustomName() != null) {
+                raw.putString(TAG_NAME, unit.getCustomName().getString());
+            }
+            raw.putInt(TAG_XP, UnitVeterancy.xp(unit));
         }
     }
 
@@ -76,12 +84,21 @@ public class SemcsWailaPlugin implements IWailaPlugin {
                 return;   // class renamed/removed between versions
             }
             String faction = raw.getString(TAG_FACTION);
-            Component line = Component.empty()
-                    .append(Component.literal(faction.isEmpty() ? "" : faction + " ")
+            String name = raw.getString(TAG_NAME);
+            net.minecraft.network.chat.MutableComponent line = Component.empty();
+            if (!name.isEmpty()) {
+                line.append(Component.literal(name + " ").withStyle(ChatFormatting.YELLOW));
+            }
+            line.append(Component.literal(faction.isEmpty() ? "" : faction + " ")
                             .withStyle(ChatFormatting.GRAY))
                     .append(Component.literal(ClassSystemConfig.classNickname(cls))
                             .withStyle(style -> style.withColor(SemcsRegistries.classAccent(cls))));
             tooltip.addLine(line);
+            int xp = raw.getInt(TAG_XP);
+            if (xp > 0) {
+                tooltip.addLine(Component.literal("Veterancy " + xp + " XP")
+                        .withStyle(ChatFormatting.DARK_GREEN));
+            }
         }
     }
 }

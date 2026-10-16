@@ -16,6 +16,10 @@ description='''${mod_description}'''
 # Tells Forge to apply our mixin config file at load time.
 [[mixins]]
 config="${mod_id}.mixins.json"
+# Xaero World Map soft-compat mixins - a second config gated by a mixin
+# plugin so the feature simply never applies when the map mod is absent.
+[[mixins]]
+config="${mod_id}.xaero.mixins.json"
 
 # ---- Dependencies ----
 # Forge itself - obviously required.
@@ -62,3 +66,21 @@ mandatory=true
 versionRange="[4,)"
 ordering="NONE"
 side="BOTH"
+
+# Xaero's World Map - OPTIONAL: unit markers, map orders and chunk claims.
+# Absent installs still load everything else; the compat layer self-gates.
+[[dependencies.sem_classsystem]]
+modId="xaeroworldmap"
+mandatory=false
+versionRange="[0,)"
+ordering="AFTER"
+side="CLIENT"
+
+# Xaero's Minimap - OPTIONAL: the same unit markers on the minimap HUD.
+# Registration is a lazy ModList + null gate in SemcsMinimapCompat.
+[[dependencies.sem_classsystem]]
+modId="xaerominimap"
+mandatory=false
+versionRange="[0,)"
+ordering="AFTER"
+side="CLIENT"

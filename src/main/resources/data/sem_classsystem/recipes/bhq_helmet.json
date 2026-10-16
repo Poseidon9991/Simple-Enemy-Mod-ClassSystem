@@ -1,15 +1,28 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "PSP",
-    "P P"
+    "IDI",
+    "IHI",
+    "GLR"
   ],
   "key": {
-    "P": {
+    "I": {
       "item": "minecraft:iron_ingot"
     },
-    "S": {
-      "item": "minecraft:diamond"
+    "D": {
+      "item": "minecraft:blue_dye"
+    },
+    "H": {
+      "item": "minecraft:leather_helmet"
+    },
+    "G": {
+      "item": "minecraft:glass_pane"
+    },
+    "L": {
+      "item": "minecraft:leather"
+    },
+    "R": {
+      "item": "minecraft:redstone"
     }
   },
   "result": {

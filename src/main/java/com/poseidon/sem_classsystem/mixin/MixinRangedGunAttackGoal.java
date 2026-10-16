@@ -100,6 +100,18 @@ public abstract class MixinRangedGunAttackGoal {
     @Unique
     private boolean semcs$aiming = false;
 
+    // True while WE hold the unit in the prone (Pose.SWIMMING) stance.
+    @Unique
+    private boolean semcs$prone = false;
+    @Unique
+    private int semcs$stationaryTicks = 0;
+    @Unique
+    private int semcs$proneHoldTicks = 0;
+    @Unique
+    private int semcs$proneCooldownTicks = 0;
+    @Unique
+    private int semcs$proneBlockedLosTicks = 0;
+
     // Successful shots since the Camper last displaced - reposition trigger.
     @Unique
     private int semcs$shotsSinceMove = 0;
@@ -221,9 +233,10 @@ public abstract class MixinRangedGunAttackGoal {
         if (cls == WeaponClass.SNIPER && this.target instanceof Monster) {
             classSpread *= 0.4;
         }
-        // Crouched firing is steadier - the class's own bonus while sneaking
-        double crouch = cls != null && this.mob.isShiftKeyDown()
-                ? ClassSystemConfig.classCrouchSpread(cls) : 1.0;
+        // Crouched / prone firing is steadier - prone gets an extra stability bonus
+        boolean isProne = this.mob.getPose() == net.minecraft.world.entity.Pose.SWIMMING;
+        double crouch = cls != null && (this.mob.isShiftKeyDown() || isProne)
+                ? ClassSystemConfig.classCrouchSpread(cls) * (isProne ? 0.75 : 1.0) : 1.0;
 
         // Total spread = SEM's value x faction multiplier x class multiplier.
         // The distance falloff arg is scaled by the class falloff multiplier
@@ -338,26 +351,42 @@ public abstract class MixinRangedGunAttackGoal {
     // releases only the flag WE set.
     @Inject(method = "start", at = @At("TAIL"))
     private void semcs$enterCrouch(CallbackInfo ci) {
+        this.semcs$stationaryTicks = 0;
+        this.semcs$proneHoldTicks = 0;
+        this.semcs$proneBlockedLosTicks = 0;
         WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
-        if (cls != null && ClassSystemConfig.classCrouchWhileFiring(cls)) {
+        if (cls != null && ClassSystemConfig.classCrouchWhileFiring(cls)
+                && cls != WeaponClass.SHOTGUN && cls != WeaponClass.SMG) {
             this.mob.setShiftKeyDown(true);
             this.semcs$crouching = true;
         }
     }
 
     // ---- camper scoped aim -------------------------------------------------
-    // TaCZ picks bullet dispersion from the shooter's InaccuracyType, and the
-    // AIM tier only applies when aiming progress reaches 1.0. SEM never calls
-    // operator.aim() - its one attempt sits commented out next to the shoot
-    // call - so units were firing snipers with hip-fire (STAND/MOVE) spread,
-    // which for snipers is huge. Assert aim(true) every tick while the goal
-    // runs so progress ramps to fully scoped; the shoot redirect holds fire
-    // until then. Released in stop().
-    // tick is a vanilla Goal method - remap stays default for the refmap.
-    // Perf: re-assert every 5 ticks (the aim flag persists internally) and
-    // gate on the cheap assigned-class read before the held-gun scan.
     @Inject(method = "tick", at = @At("HEAD"))
     private void semcs$assertAim(CallbackInfo ci) {
+        if (this.semcs$proneCooldownTicks > 0) {
+            this.semcs$proneCooldownTicks--;
+        }
+        boolean stationary = this.mob.onGround()
+                && this.mob.getNavigation().isDone()
+                && this.mob.getDeltaMovement().horizontalDistanceSqr() < 0.0020D;
+        if (stationary) {
+            this.semcs$stationaryTicks++;
+        } else {
+            this.semcs$stationaryTicks = 0;
+        }
+        if (this.semcs$prone) {
+            this.semcs$proneHoldTicks++;
+            // Every-tick pin: tactical AI re-issues paths between the 5-tick
+            // stance evals - kill them here so a prone unit never creeps.
+            if (!this.mob.getNavigation().isDone()) {
+                this.mob.getNavigation().stop();
+            }
+        } else {
+            this.semcs$proneHoldTicks = 0;
+        }
+
         if (this.mob.tickCount % 5 != 0) {
             return;
         }
@@ -369,19 +398,144 @@ public abstract class MixinRangedGunAttackGoal {
         }
     }
 
-    // ---- stance selection ---------------------------------------------------
-    // Two firing stances for classes with crouchWhileFiring:
-    //   STAND -> close range or while moving (already SEM default)
-    //   KNEEL -> mid range, the crouchWhileFiring class pose (sneak flag)
+    // ---- stance selection with hysteresis & low-eye LoS verification --------
+    // Prevents rapid crouch <-> prone oscillation:
+    //   1. Entering PRONE requires:
+    //      - SNIPER or HEAVY_MG class with proneDistance > 0
+    //      - Stationary on ground for >= 30 ticks (1.5s) and cooldown == 0
+    //      - Target distance >= proneDist and elevation diff <= 8 blocks
+    //      - Clear raycast from prone eye height (y + 0.42) to target eye!
+    //   2. Staying PRONE uses an 8-block distance hysteresis (proneDist - 8)
+    //      and a minimum 50-tick hold unless the unit moves or loses prone LoS
+    //      for >= 20 ticks (which triggers an 80-tick prone cooldown).
+    //   3. KNEEL (sneak) is used when stationary at >= 6 blocks and not prone
+    //      (Shotgun/SMG stay standing while rushing inside 12 blocks).
     @Unique
     private void semcs$updateStance() {
         WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
-        if (cls == null || !ClassSystemConfig.classCrouchWhileFiring(cls)) {
+        if (cls == null || !ClassSystemConfig.classCrouchWhileFiring(cls) || this.mob.isUsingItem()) {
+            semcs$clearProneAndCrouch();
             return;
         }
-        if (!this.semcs$crouching) {
-            this.mob.setShiftKeyDown(true);
-            this.semcs$crouching = true;
+
+        double dist = this.target != null ? this.mob.distanceTo(this.target) : 0.0D;
+        double dy = this.target != null ? Math.abs(this.target.getY() - this.mob.getY()) : 0.0D;
+        double proneDist = ClassSystemConfig.classProneDistance(cls);
+        boolean moving = !this.mob.getNavigation().isDone()
+                || this.mob.getDeltaMovement().horizontalDistanceSqr() >= 0.0035D;
+
+        if (this.semcs$prone) {
+            // Prone is a commitment: the unit stays flat until something REAL
+            // happens - a hostile pushes inside the standoff (then it gets up
+            // and normal AI handles the retreat), the target is lost, prone
+            // LoS stays blocked, or a commander orders a move. Tactical-AI
+            // noise (cover seek, kiting, reload sidesteps, knockback) must
+            // NOT break the stance - that was the prone->crouch->retreat flap.
+            boolean commanderMove =
+                    this.mob instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity pmc
+                            && (pmc.getOrder()
+                                    == net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType.MOVE_TO_POSITION
+                            || pmc.getOrder()
+                                    == net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType.FOLLOW_COMMANDER);
+
+            boolean hasProneLos = this.target != null && semcs$hasProneLineOfSight(this.target);
+            if (!hasProneLos) {
+                this.semcs$proneBlockedLosTicks += 5;
+            } else {
+                this.semcs$proneBlockedLosTicks = 0;
+            }
+
+            boolean hardExit = commanderMove
+                    || !this.mob.onGround()
+                    || this.target == null
+                    || dist < Math.max(10.0D, proneDist - 8.0D);
+            boolean softExit = dy > 10.0D || this.semcs$proneBlockedLosTicks >= 20;
+
+            if (hardExit || (softExit && this.semcs$proneHoldTicks >= 40)) {
+                this.mob.setPose(net.minecraft.world.entity.Pose.STANDING);
+                this.semcs$prone = false;
+                this.semcs$proneHoldTicks = 0;
+                this.semcs$proneCooldownTicks = 80; // 4s cooldown before going prone again
+            } else {
+                // Pin: kill any path that slipped through anyway and release
+                // movement locks, so the unit visibly STAYS in one spot.
+                if (!this.mob.getNavigation().isDone()) {
+                    this.mob.getNavigation().stop();
+                }
+                if (this.mob instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit au
+                        && au.isMovementLockedByManager()) {
+                    au.releaseMovementLock();
+                }
+                if (this.mob.getPose() != net.minecraft.world.entity.Pose.SWIMMING) {
+                    this.mob.setPose(net.minecraft.world.entity.Pose.SWIMMING);
+                }
+                if (this.semcs$crouching) {
+                    this.mob.setShiftKeyDown(false);
+                    this.semcs$crouching = false;
+                }
+                return;
+            }
+        }
+
+        // Check if eligible to enter prone
+        boolean canEnterProne = proneDist > 0.0
+                && (cls == WeaponClass.SNIPER || cls == WeaponClass.HEAVY_MG)
+                && this.semcs$proneCooldownTicks <= 0
+                && this.semcs$stationaryTicks >= 30
+                && this.target != null
+                && dist >= proneDist
+                && dy <= 8.0D
+                && semcs$hasProneLineOfSight(this.target);
+
+        if (canEnterProne) {
+            this.mob.setPose(net.minecraft.world.entity.Pose.SWIMMING);
+            if (this.semcs$crouching) {
+                this.mob.setShiftKeyDown(false);
+                this.semcs$crouching = false;
+            }
+            this.semcs$prone = true;
+            this.semcs$proneHoldTicks = 0;
+            this.semcs$proneBlockedLosTicks = 0;
+            return;
+        }
+
+        // Kneel stance (crouch): only when not actively sprinting/moving in CQB
+        boolean shouldKneel = this.mob.onGround()
+                && !moving
+                && dist >= (cls == WeaponClass.SHOTGUN || cls == WeaponClass.SMG ? 12.0D : 5.5D);
+
+        if (shouldKneel) {
+            if (!this.semcs$crouching) {
+                this.mob.setShiftKeyDown(true);
+                this.semcs$crouching = true;
+            }
+        } else if (this.semcs$crouching && (moving || dist < 4.5D)) {
+            this.mob.setShiftKeyDown(false);
+            this.semcs$crouching = false;
+        }
+    }
+
+    @Unique
+    private boolean semcs$hasProneLineOfSight(LivingEntity target) {
+        Vec3 proneEye = new Vec3(this.mob.getX(), this.mob.getY() + 0.42D, this.mob.getZ());
+        Vec3 targetEye = target.getEyePosition();
+        var hit = this.mob.level().clip(new net.minecraft.world.level.ClipContext(
+                proneEye, targetEye,
+                net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                net.minecraft.world.level.ClipContext.Fluid.NONE,
+                this.mob));
+        return hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
+    }
+
+    @Unique
+    private void semcs$clearProneAndCrouch() {
+        if (this.semcs$prone) {
+            this.mob.setPose(net.minecraft.world.entity.Pose.STANDING);
+            this.semcs$prone = false;
+        }
+        if (this.semcs$crouching) {
+            this.mob.setShiftKeyDown(false);
+            this.semcs$crouching = false;
         }
     }
 
@@ -471,6 +625,15 @@ public abstract class MixinRangedGunAttackGoal {
                     target = "Lcom/tacz/guns/api/entity/IGunOperator;shoot(Ljava/util/function/Supplier;Ljava/util/function/Supplier;)Lcom/tacz/guns/api/entity/ShootResult;"))
     private ShootResult semcs$scopedShoot(IGunOperator operator,
                                           Supplier<Float> pitch, Supplier<Float> yaw) {
+        // Pause firing while eating food or applying a bandage/medkit
+        if (this.mob.isUsingItem()) {
+            return ShootResult.COOL_DOWN;
+        }
+        // Friendly-fire line-of-sight hold: if an allied unit or friendly player
+        // is standing in our firing line, hold the trigger and step laterally.
+        if (this.target != null && semcs$allyInFireLine()) {
+            return ShootResult.COOL_DOWN;
+        }
         WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
         // Blast standoff: a launcher round that lands within its own
         // explosion radius hurts the shooter (and squad). Hold fire while
@@ -522,6 +685,45 @@ public abstract class MixinRangedGunAttackGoal {
         }
         double danger = bullet.getExplosionData().getRadius() + 2.0;
         return this.mob.distanceTo(this.target) < Math.min(danger, 20.0);
+    }
+
+    // True if a friendly unit or allied player intersects the firing ray
+    // between this shooter and its target. Also nudges the shooter sideways
+    // so it clears the friendly's back on the next ticks.
+    @Unique
+    private boolean semcs$allyInFireLine() {
+        Vec3 start = this.mob.getEyePosition();
+        Vec3 end = this.target.getEyePosition();
+        var ownFaction = com.poseidon.sem_classsystem.faction.UnitClass.of(this.mob);
+        boolean isFriendlyPmc = this.mob instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;
+
+        var allies = this.mob.level().getEntitiesOfClass(
+                LivingEntity.class,
+                this.mob.getBoundingBox().expandTowards(end.subtract(start)).inflate(0.6D),
+                other -> other != this.mob && other != this.target && other.isAlive()
+                        && (this.mob.isAlliedTo(other)
+                        || (ownFaction != null && ownFaction == com.poseidon.sem_classsystem.faction.UnitClass.of(other))
+                        || (isFriendlyPmc && other instanceof net.minecraft.world.entity.player.Player)));
+
+        for (LivingEntity ally : allies) {
+            if (ally.getBoundingBox().inflate(0.45D).clip(start, end).isPresent()) {
+                double dx = end.x - start.x;
+                double dz = end.z - start.z;
+                double len = Math.sqrt(dx * dx + dz * dz);
+                if (len > 0.01D) {
+                    double px = -dz / len;
+                    double pz = dx / len;
+                    double side = ((this.mob.getX() - ally.getX()) * px + (this.mob.getZ() - ally.getZ()) * pz) >= 0.0D ? 1.0D : -1.0D;
+                    this.mob.getMoveControl().setWantedPosition(
+                            this.mob.getX() + px * 1.8D * side,
+                            this.mob.getY(),
+                            this.mob.getZ() + pz * 1.8D * side,
+                            1.1D);
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     // ---- fire correction ----------------------------------------------------
@@ -622,6 +824,10 @@ public abstract class MixinRangedGunAttackGoal {
         if (this.semcs$crouching) {
             this.mob.setShiftKeyDown(false);
             this.semcs$crouching = false;
+        }
+        if (this.semcs$prone) {
+            this.mob.setPose(net.minecraft.world.entity.Pose.STANDING);
+            this.semcs$prone = false;
         }
         if (this.semcs$aiming) {
             IGunOperator.fromLivingEntity(this.mob).aim(false);

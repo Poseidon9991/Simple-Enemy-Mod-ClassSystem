@@ -25,7 +25,7 @@
 
 A squad is no longer three identical riflemen. Now you'll face a **Breacher** pushing close with an SMG, a **Camper** calculating ballistic lead from a ridge, a **Suppressor** laying down continuous tracer fire to pin targets, a **Demolisher** walking explosive rounds over cover, and an adaptive **Jack** dynamically flexing between combat roles.
 
-On top of specialized AI, this addon adds **7 custom 3D GeckoLib tactical armor sets** (29 pieces total) with tailored bullet-damage resistance and survival recipes, **BHQ elite operators**, **reserve ammunition logistics**, **WTHIT (WAILA) HUD support**, and a dedicated creative tab with **29 custom spawn eggs**.
+On top of specialized AI, this addon adds **10 custom 3D GeckoLib tactical armor sets** (41 pieces total) with tailored bullet-damage resistance and survival recipes, **BHQ elite operators**, **field medics and self-heal logistics**, **squad command tools** (Field Tablet, Rally Whistle, Guard Posts, chunk-claim map control), **night raid ambushes**, **unit veterancy**, **Xaero's World Map integration**, **WTHIT (WAILA) HUD support**, and a dedicated creative tab with **33 custom spawn eggs**.
 
 > **Note:** This addon is built for Minecraft 1.20.1 (Forge). Back up your worlds before installing, and tweak the common configuration to match your pack's balance.
 
@@ -33,7 +33,7 @@ On top of specialized AI, this addon adds **7 custom 3D GeckoLib tactical armor 
 
 ## The Classes
 
-Every soldier rolls one of seven main combat classes upon spawning. The class governs which weapons the unit will accept, how it positions itself, its fire cadence and dispersion, its squad flanking behavior, and its specialized combat mechanics.
+Every soldier rolls one of eight main combat classes upon spawning. The class governs which weapons the unit will accept, how it positions itself, its fire cadence and dispersion, its squad flanking behavior, and its specialized combat mechanics.
 
 | Class | Nickname | Accent Color | Combat Style & Behavior | Standard Weapons |
 |---|---|---|---|---|
@@ -44,6 +44,7 @@ Every soldier rolls one of seven main combat classes upon spawning. The class go
 | **Heavy MG** (`heavy_mg`) | **Suppressor** | Suppression Purple (`#7B4FA6`) | Sustained fire support platform (~55 blocks). Braces in a crouch to fire full tracer streams. Suppresses players and hostiles in a 14-block impact radius. | RPK, M249 SAW, M134 Minigun |
 | **Heavy / Ordnance** (`heavy`) | **Demolisher** | Ordnance Orange (`#C97B1E`) | Explosive ordnance specialist (~42 blocks). Employs indirect fire over obstacles with lobbed shells, targets hostile clusters, and auto-corrects aim between shots. | RPG-7, Panzerfaust, MGL-320, MGL-40, MGL-416, M202 |
 | **Generalist** (`jack`) | **Jack** | Ranger Green (`#5C8A4D`) | Flexible combat operator. Bypasses class weapon lock (can use any gun). Dynamically shifts engagement distance, approach speed, and stances based on the held weapon. | Any weapon in the arsenal (AK-47, M4A1, MP5, M870, etc.) |
+| **Medic** (`medic`) | **Medic** | Medical Red (`#D63A3A`) | Corpsman. Fights with a sidearm but breaks off to treat wounded allies — moves to any hurt teammate within 24 blocks and patches them up, consuming stocked bandages/medkits for a big heal or applying a free field dressing. | P320, M1911 (faction sidearms) |
 
 ***
 
@@ -78,12 +79,60 @@ Pistols are not rolled at spawn — they are a **universal subclass** that any s
 
 ***
 
+## Field Medicine & Combat Logistics
+
+*   **Medic Behavior:** Medics fight like light infantry, but when a same-faction unit, SEM ally, squadmate, or their owner player is hurt within 24 blocks, they move in and heal them every ~1.25 s. Consuming a stocked bandage/medkit/potion restores **8 HP**; with no supplies they still apply a free **3 HP** field dressing (with heart particles + sound feedback).
+*   **Unit Self-Heal:** Wounded units autonomously consume food, bandages, medkits, and beneficial potions from their storage, nested bags/pouches, or Curios slots — even mid-fight (they retreat to cover while eating). Golden Apples are eaten at full HP to gain Absorption. RU/US units without a storage grid carry built-in **field rations** instead.
+*   **Ammo Fallback:** When a unit's magazine runs dry *and* no matching rounds exist anywhere in its inventory, it automatically swaps to the best armed weapon it carries (the issued backup sidearm or any loaded gun), then swaps back to its primary once the player restocks ammunition.
+*   **Curios on Units:** Curios slots adapt dynamically to all registered slot types, and artifact-style effects are bridged onto soldiers — including **Totem of Undying death protection** from Curios, offhand, or storage, plus night-vision goggles, invisibility scarves, running shoes, antidotes, and offensive charms (Power/Fire/Vampiric Gloves, thorn pendants).
+
+***
+
+## Squad Command & Map Control
+
+### Squad Rally Whistle
+
+*   **Right-click:** Rally every unit you own within 64 blocks — they drop locks and fall in behind you (`FOLLOW_COMMANDER`), or into the whistle's current formation.
+*   **Sneak + right-click:** Cycle the march order — `FOLLOW` → `WEDGE` → `COLUMN` — and apply it immediately. Craftable from iron.
+
+### Field Tablet (SEM-OS)
+
+A squad command PDA (glass pane + iron + redstone). Right-click boots the SEM-OS desktop; the Squad app lists every owned unit's health, ammo supply (including infinite creative ammo boxes), class, and food/medical status — all fed by server-synced data. Also includes a teleport app that recalls selected units to you or to a marked position.
+
+### Chunk Claims, Duty & Guard Posts
+
+With or without a map mod, the server tracks **per-player chunk claims** (persisted in overworld SavedData):
+
+*   **Claim chunks** from the world-map right-click menu (or hold territory for your squad).
+*   **Assign duty** to owned units: **Guard** (hold the chunk centre), **Patrol** (loop inside it), **Perimeter** (walk the boundary of the whole connected claim patch), or a custom waypoint **Route** plotted on the map.
+*   **Guard Post blocks** (smooth stone + iron + redstone + glowstone) bind up to two units as **primary + reserve**; when the primary is cleared or teleported away, the reserve automatically steps up.
+*   Claims are limited per dimension (`maxClaimedChunks`, default 64) and new claims must border existing territory (`requireContiguousClaims`).
+
+### Xaero's World Map & Minimap Integration (optional)
+
+When Xaero's World Map is installed, the map becomes a real RTS surface:
+
+*   Every owned unit renders as a **live faction-colored marker** (health, class, order, duty, veterancy rank) anywhere in the dimension; hostile units within 160 blocks appear as spotted contacts.
+*   **Right-click orders:** claim/unclaim chunks, assign guard/patrol/perimeter duty, plot patrol routes, designate targets, teleport or return units to their posts.
+*   Your claims paint as a colored overlay (green for yours, amber for others'), and night-raid pings pulse on the map.
+*   Fully soft-dependent — the mod runs fine without Xaero; claims and duty logic still work, only the map UI is absent.
+
+### Squad Teamwork & Veterancy
+
+*   **Radio Target Sharing:** When one unit spots an enemy squad, it broadcasts the contact to allied units within 48 blocks and distributes targets across the enemy team — squads spread fire instead of leaving one soldier alone.
+*   **Anti-Bunching Strafe:** Stacked squadmates automatically spread into a firing line, and mobile classes take short lateral combat strafes while engaging.
+*   **Veterancy:** Units earn XP in combat and gain persistent rank titles (shown on markers and the tablet), stored in entity NBT.
+*   **Night Raids:** Once per night each player rolls `chancePerNight` (default ~1 in 3); on success a hostile RU or US patrol spawns `spawnDistance` blocks away and hunts your position — with a map ping warning.
+*   **Squad Size Cap:** Recruitment is limited to `maxOwnedUnits` per player (default 32, `0` = unlimited) to keep servers balanced.
+
+***
+
 ## Tactical 3D Armor Sets (GeckoLib)
 
-The mod includes **7 complete tactical armor sets (29 individual pieces)** with custom 3D models and textures powered by **GeckoLib**. Each set renders in full 3D on both **players** and **soldiers**, featuring tailored defense, durability, toughness, knockback resistance, and authentic TaCZ bullet-reduction stats.
+The mod includes **10 complete tactical armor sets (41 individual pieces)** with custom 3D models and textures powered by **GeckoLib**. Each set renders in full 3D on both **players** and **soldiers**, featuring tailored defense, durability, toughness, knockback resistance, and authentic TaCZ bullet-reduction stats.
 
 <p align="center">
-  <i>All 29 armor pieces are craftable in survival with vanilla recipes and accessible in the creative tab.</i>
+  <i>All 41 armor pieces are craftable in survival and accessible in the creative tab.</i>
 </p>
 
 ### Armor Sets Overview
@@ -95,6 +144,9 @@ The mod includes **7 complete tactical armor sets (29 individual pieces)** with 
 5.  **Camper (Recon / Sniper) Set** *(4 pieces)* — Jungle-camo boonie hat with leaf net and foliage tufts, slim chest rig with integrated rangefinder pouch, ghillie leaf-stitched pants, and silent recon boots.
 6.  **Suppressor (Heavy Gunner) Set** *(4 pieces)* — Heavy ballistic steel-camo helmet with counterweight and side rails, juggernaut plate carrier with ammo belt, heavy pauldrons and collar, reinforced knee-plate pants, and steel-toe boots.
 7.  **Demolisher (EOD / Ordnance) Set** *(4 pieces)* — Blast muff helmet with amber ballistic goggles and top rail, black ordnance vest with grenade loops and back-mounted launcher tube, heavy blast-guard cargo pants, and steel-reinforced EOD boots.
+8.  **PMC Contractor Set** *(4 pieces)* — Private-military operator kit: Ops-Core FAST ballistic helmet, Contractor Plate Carrier, Operator Cargo Pants, and Contractor Tactical Boots.
+9.  **RU Ratnik Set** *(4 pieces)* — Russian infantry kit: Ratnik 6B47 ballistic helmet, 6B45 plate carrier, VKPO EMR combat trousers, and Ratnik combat boots.
+10. **US IOTV Set** *(4 pieces)* — American infantry kit: ACH ballistic helmet, IOTV tactical plate carrier, OCP combat pants, and Coyote combat boots.
 
 ### Armor Stats & TaCZ Bullet Protection
 
@@ -107,12 +159,15 @@ TaCZ splits projectile hits into regular bullet damage (`tacz:bullet`, mitigated
 | **911 SF** | 3 / 6 / 4 / 2 (15) | +0.75 | 0.0 | ×18 | Iron Ingot | **~47%** (Medium Commando) |
 | **GRK** | 5 / 7 / 4 / 2 (18) | +1.0 | +0.10 | ×24 | Iron Ingot | **~60%** (Riot / Security) |
 | **BHQ** | 3 / 7 / 6 / 3 (19) | +1.5 | +0.05 | ×26 | Iron Ingot | **~66%** (Elite Bodyguard) |
+| **RU Ratnik** | 3 / 7 / 5 / 3 (18) | +1.0 | 0.0 | ×26 | Iron Ingot | **~60%** (Standard Infantry) |
 | **Demolisher** | 4 / 8 / 5 / 3 (20) | +2.5 | +0.25 | ×36 | Diamond | **~72%** (Heavy Blast / EOD) |
+| **US IOTV** | 3 / 8 / 6 / 3 (20) | +1.5 | +0.05 | ×28 | Iron Ingot | **~68%** (Modern Infantry) |
+| **PMC Contractor** | 4 / 8 / 6 / 3 (21) | +1.5 | +0.10 | ×30 | Netherite Scrap | **~70%** (Elite Operator) |
 | **Suppressor** | 4 / 9 / 6 / 3 (22) | +2.0 | +0.20 | ×40 | Netherite Ingot | **~79%** (Maximum Ballistic) |
 
 ### Survival Crafting Recipes
 
-All 29 pieces are crafted on a vanilla Crafting Table following standard armor shapes, reinforced with special center materials:
+All 41 pieces are crafted on a vanilla Crafting Table. The faction sets use themed shaped recipes (e.g. vests built around an iron chestplate with faction-colored wool and leather), while class sets reinforce standard armor shapes with special center materials:
 *   **Camper Set:** Leather base + Gold Ingot center core.
 *   **RAF Set:** String & Leather base + Iron Ingot center core.
 *   **911 SF Set:** Leather & Iron Ingot base + Iron Ingot center core.
@@ -120,6 +175,7 @@ All 29 pieces are crafted on a vanilla Crafting Table following standard armor s
 *   **BHQ Set:** Iron Ingot base + Diamond center core.
 *   **Demolisher Set:** Diamond base + Iron Block center core.
 *   **Suppressor Set:** Diamond base + Netherite Ingot center core.
+*   **PMC / RU / US Sets:** Iron chestplate core + leather and faction-colored wool (black, green, and yellow respectively).
 
 ***
 
@@ -136,16 +192,15 @@ All 29 pieces are crafted on a vanilla Crafting Table following standard armor s
 You have complete control over squad composition:
 
 1.  **Recruit Table & BHQ Recruit Table:**
-    *   **Sneak + Right-Click** the table to cycle preferences:  
-        `Random` → `Breacher` → `Rifleman` → `Sweeper` → `Camper` → `Suppressor` → `Demolisher` → `Jack` → `Random`
-    *   **Right-Click** normally to recruit. Your selection is saved to your player profile.
+    *   **Right-Click** the table to open the class-selection screen — class cards for every role plus **Random**, each in its accent color.
+    *   Click a card to set your preference, or use the recruit buttons to hire immediately. Your selection is saved to your player profile.
 2.  **Commands:**
     *   `/semcs recruit_class [class|random]` — View or set your recruiting preference.
     *   `/semcs spawn <ru|us|pmc|bhq> <class>` — Admin command to spawn a specific faction specialist.
     *   `/semcs class <targets> <class>` — Admin command to instantly re-class living units (automatically updates gear).
 3.  **Creative Spawn Eggs & Dedicated Tab:**
     *   The mod registers its own **SEM Class System** creative tab (`itemGroup.sem_classsystem`) housing all armor, items, and eggs.
-    *   Includes **28 Class Spawn Eggs** (4 factions × 7 main classes, matching faction shell colors and class accent spots) plus the **BHQ Operator Spawn Egg**. Units spawned from class eggs immediately lock to that class and draw proper loadouts.
+    *   Includes **32 Class Spawn Eggs** (4 factions × 8 main classes, matching faction shell colors and class accent spots) plus the **BHQ Operator Spawn Egg**. Units spawned from class eggs immediately lock to that class and draw proper loadouts.
 4.  **Summon Command:**
     *   `/summon simpleenemymod:pmcunit ~ ~ ~ {semcs_weapon_class:"SNIPER"}`
     *   `/summon sem_classsystem:bhqunit ~ ~ ~ {semcs_weapon_class:"HEAVY"}`
@@ -208,6 +263,7 @@ You can add any guard mod entity to the `#sem_classsystem:unit_defenders` entity
 *   **Recommended / Compatible Mods:**
     *   [WTHIT (WAILA)](https://www.curseforge.com/minecraft/mc-mods/wthit-forge) — for in-game unit class HUD popups.
     *   [Curios API](https://www.curseforge.com/minecraft/mc-mods/curios) — for unit curios accessory slots.
+    *   **Xaero's World Map + Minimap** — unlocks live unit markers, chunk claims, and map-based squad orders.
     *   [Guard Villagers](https://www.curseforge.com/minecraft/mc-mods/guard-villagers) — fully compatible with defender rules.
 
 ***
@@ -241,6 +297,12 @@ Configuration is located globally in:
 *   `tacticalCloseRangeMultiplier` — CQB combat threshold distance.
 *   `tacticalKiteDistance` — Back-pedal distance when enemies approach too close (Camper 20.0, Demolisher 16.0).
 
+### Squad & World Systems
+*   `[general] maxOwnedUnits` — Per-player squad size cap (default 32, `0` = unlimited).
+*   `[bhq_recruit] price` — Recruit-item cost for a BHQ operator (default 32).
+*   `[night_raids]` — `enabled`, `chancePerNight`, `squadSizeMin`/`squadSizeMax`, `spawnDistance` for the night ambush events.
+*   `[map]` — `maxClaimedChunks` (default 64) and `requireContiguousClaims` for the chunk-claim system.
+
 ***
 
 ## Custom Guns & Datapacks
@@ -272,7 +334,7 @@ Want to add custom guns from addon packs (e.g. SFMS, LRADD, BF1, MaxStuff) to th
 ```
 
 *   **Factions:** `ru_units.json`, `us_units.json`, `pmc_units.json`, `bhq_units.json`.
-*   **Supported Classes:** `smg`, `rifle`, `shotgun`, `sniper`, `heavy_mg`, `heavy`, `jack`, and `pistol`.
+*   **Supported Classes:** `smg`, `rifle`, `shotgun`, `sniper`, `heavy_mg`, `heavy`, `jack`, `medic`, and `pistol`.
 *   **Optional Attachments:** `scope_id`, `muzzle_id`, `grip_id`.
 *   Entries merge seamlessly with built-in pools upon running `/reload`. Missing or uninstalled weapon IDs are cleanly skipped without crashes.
 

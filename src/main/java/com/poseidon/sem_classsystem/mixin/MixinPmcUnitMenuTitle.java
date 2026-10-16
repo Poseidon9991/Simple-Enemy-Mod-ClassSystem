@@ -34,6 +34,12 @@ public abstract class MixinPmcUnitMenuTitle {
         if (cls != null) {
             title += " - " + ClassSystemConfig.classNickname(cls);
         }
+        // Recruited units carry unique callsigns: "Sgt. Jony - PMC Unit Equipment - Rifleman"
+        Component name = self.getCustomName();
+        if (name != null) {
+            title = com.poseidon.sem_classsystem.veterancy.UnitVeterancy.rankTitle(self)
+                    + " " + name.getString() + " - " + title;
+        }
         return Component.literal(title);
     }
 }

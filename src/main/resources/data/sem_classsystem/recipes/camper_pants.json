@@ -1,16 +1,22 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "PPP",
-    "P S",
-    "P P"
+    "LDL",
+    "SPS",
+    "L L"
   ],
   "key": {
-    "P": {
+    "L": {
       "item": "minecraft:leather"
     },
+    "D": {
+      "item": "minecraft:green_dye"
+    },
     "S": {
-      "item": "minecraft:gold_ingot"
+      "item": "minecraft:string"
+    },
+    "P": {
+      "item": "minecraft:leather_leggings"
     }
   },
   "result": {

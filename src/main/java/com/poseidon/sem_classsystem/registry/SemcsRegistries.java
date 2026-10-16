@@ -3,14 +3,20 @@ package com.poseidon.sem_classsystem.registry;
 
 import com.poseidon.sem_classsystem.SemClassSystem;
 import com.poseidon.sem_classsystem.block.BhqRecruitTableBlock;
+import com.poseidon.sem_classsystem.block.GuardPostBlock;
+import com.poseidon.sem_classsystem.block.GuardPostBlockEntity;
 import com.poseidon.sem_classsystem.entity.BhqUnitEntity;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.item.BhqArmorItem;
 import com.poseidon.sem_classsystem.item.ClassSpawnEggItem;
+import com.poseidon.sem_classsystem.item.FieldTabletItem;
+import com.poseidon.sem_classsystem.item.SquadWhistleItem;
+import com.poseidon.sem_classsystem.menu.RecruitTableMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.CreativeModeTab;
@@ -19,8 +25,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -54,11 +62,20 @@ public final class SemcsRegistries {
     public static final DeferredRegister<Block> BLOCKS =
             DeferredRegister.create(ForgeRegistries.BLOCKS, SemClassSystem.MODID);
 
+    public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
+            DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, SemClassSystem.MODID);
+
     public static final DeferredRegister<Item> ITEMS =
             DeferredRegister.create(ForgeRegistries.ITEMS, SemClassSystem.MODID);
 
     public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, SemClassSystem.MODID);
+
+    public static final DeferredRegister<MenuType<?>> MENU_TYPES =
+            DeferredRegister.create(ForgeRegistries.MENU_TYPES, SemClassSystem.MODID);
+
+    public static final RegistryObject<MenuType<RecruitTableMenu>> RECRUIT_TABLE_MENU =
+            MENU_TYPES.register("recruit_table", () -> IForgeMenuType.create(RecruitTableMenu::new));
 
     // ---- BHQ unit ---------------------------------------------------------
     // Same physical box + tracking range SEM uses for pmcunit so hitboxes,
@@ -84,6 +101,46 @@ public final class SemcsRegistries {
     public static final RegistryObject<Item> BHQ_RECRUIT_TABLE_ITEM = ITEMS.register(
             "bhq_recruit_table",
             () -> new BlockItem(BHQ_RECRUIT_TABLE.get(), new Item.Properties())
+    );
+
+    // ---- Squad Rally Whistle ----------------------------------------------
+    // Right-click rallies owned units behind the player; sneak+click cycles
+    // the march order (loose follow wedge -> wedge -> column).
+    public static final RegistryObject<Item> SQUAD_WHISTLE = ITEMS.register(
+            "squad_whistle",
+            () -> new SquadWhistleItem(new Item.Properties().stacksTo(1))
+    );
+
+    // ---- Guard Post ---------------------------------------------------------
+    // A billet marker block: two slots (primary + reserve). The primary
+    // stands on the post; the reserve is promoted when the primary dies or
+    // is ordered elsewhere, and stands down when the primary returns.
+    public static final RegistryObject<Block> GUARD_POST = BLOCKS.register(
+            "guard_post",
+            () -> new GuardPostBlock(
+                    BlockBehaviour.Properties.of()
+                            .mapColor(MapColor.METAL)
+                            .strength(1.0F)
+                            .sound(SoundType.METAL)
+            )
+    );
+
+    public static final RegistryObject<Item> GUARD_POST_ITEM = ITEMS.register(
+            "guard_post",
+            () -> new BlockItem(GUARD_POST.get(), new Item.Properties())
+    );
+
+    public static final RegistryObject<BlockEntityType<GuardPostBlockEntity>> GUARD_POST_BE =
+            BLOCK_ENTITIES.register("guard_post",
+                    () -> BlockEntityType.Builder.of(GuardPostBlockEntity::new,
+                            GUARD_POST.get()).build(null));
+
+    // ---- Field Tablet -------------------------------------------------------
+    // Squad command PDA - right-click boots the SEM-OS desktop (Squad roster
+    // app + Intel app). Read-only client UI over synced marker data.
+    public static final RegistryObject<Item> FIELD_TABLET = ITEMS.register(
+            "field_tablet",
+            () -> new FieldTabletItem(new Item.Properties().stacksTo(1))
     );
 
     // ---- BHQ armor set -----------------------------------------------------
@@ -161,6 +218,36 @@ public final class SemcsRegistries {
     public static final RegistryObject<Item> DEMOLISHER_BOOTS = ITEMS.register("demolisher_boots",
             () -> new BhqArmorItem("demolisher_boots", ArmorItem.Type.BOOTS));
 
+    // ---- RU (Ratnik) set ---------------------------------------------------
+    public static final RegistryObject<Item> RU_HELMET = ITEMS.register("ru_helmet",
+            () -> new BhqArmorItem("ru_helmet", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> RU_VEST = ITEMS.register("ru_vest",
+            () -> new BhqArmorItem("ru_vest", ArmorItem.Type.CHESTPLATE));
+    public static final RegistryObject<Item> RU_PANTS = ITEMS.register("ru_pants",
+            () -> new BhqArmorItem("ru_pants", ArmorItem.Type.LEGGINGS));
+    public static final RegistryObject<Item> RU_BOOTS = ITEMS.register("ru_boots",
+            () -> new BhqArmorItem("ru_boots", ArmorItem.Type.BOOTS));
+
+    // ---- US (OCP MultiCam) set ---------------------------------------------
+    public static final RegistryObject<Item> US_HELMET = ITEMS.register("us_helmet",
+            () -> new BhqArmorItem("us_helmet", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> US_VEST = ITEMS.register("us_vest",
+            () -> new BhqArmorItem("us_vest", ArmorItem.Type.CHESTPLATE));
+    public static final RegistryObject<Item> US_PANTS = ITEMS.register("us_pants",
+            () -> new BhqArmorItem("us_pants", ArmorItem.Type.LEGGINGS));
+    public static final RegistryObject<Item> US_BOOTS = ITEMS.register("us_boots",
+            () -> new BhqArmorItem("us_boots", ArmorItem.Type.BOOTS));
+
+    // ---- PMC (Operator Tactical) set ---------------------------------------
+    public static final RegistryObject<Item> PMC_HELMET = ITEMS.register("pmc_helmet",
+            () -> new BhqArmorItem("pmc_helmet", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> PMC_VEST = ITEMS.register("pmc_vest",
+            () -> new BhqArmorItem("pmc_vest", ArmorItem.Type.CHESTPLATE));
+    public static final RegistryObject<Item> PMC_PANTS = ITEMS.register("pmc_pants",
+            () -> new BhqArmorItem("pmc_pants", ArmorItem.Type.LEGGINGS));
+    public static final RegistryObject<Item> PMC_BOOTS = ITEMS.register("pmc_boots",
+            () -> new BhqArmorItem("pmc_boots", ArmorItem.Type.BOOTS));
+
     // Spawn egg uses SEM's RoleSpawnEggItem so eggs spawn with the same
     // FRIENDLY_DEFAULT role SEM's own PMC egg assigns.
     // Colors: tactical black shell + Cambodian-flag red spots.
@@ -197,6 +284,7 @@ public final class SemcsRegistries {
         CLASS_SPOT_COLORS.put(WeaponClass.HEAVY_MG, 0x7B4FA6); // suppression purple
         CLASS_SPOT_COLORS.put(WeaponClass.HEAVY, 0xC97B1E);    // ordnance orange
         CLASS_SPOT_COLORS.put(WeaponClass.JACK, 0x5C8A4D);     // ranger green
+        CLASS_SPOT_COLORS.put(WeaponClass.MEDIC, 0xD63A3A);    // medical red cross
 
         List<RegistryObject<Item>> eggs = new ArrayList<>();
         eggs.addAll(registerClassEggs("ru", ModEntities.RUUNIT, 0x4B5320));   // olive drab
@@ -216,6 +304,7 @@ public final class SemcsRegistries {
                     .icon(() -> new ItemStack(BHQ_RECRUIT_TABLE_ITEM.get()))
                     .displayItems((params, output) -> {
                         output.accept(BHQ_RECRUIT_TABLE_ITEM.get());
+                        output.accept(GUARD_POST_ITEM.get());
                         output.accept(BHQ_CAP.get());
                         output.accept(BHQ_HELMET.get());
                         output.accept(BHQ_VEST.get());
@@ -245,6 +334,20 @@ public final class SemcsRegistries {
                         output.accept(DEMOLISHER_VEST.get());
                         output.accept(DEMOLISHER_PANTS.get());
                         output.accept(DEMOLISHER_BOOTS.get());
+                        output.accept(RU_HELMET.get());
+                        output.accept(RU_VEST.get());
+                        output.accept(RU_PANTS.get());
+                        output.accept(RU_BOOTS.get());
+                        output.accept(US_HELMET.get());
+                        output.accept(US_VEST.get());
+                        output.accept(US_PANTS.get());
+                        output.accept(US_BOOTS.get());
+                        output.accept(PMC_HELMET.get());
+                        output.accept(PMC_VEST.get());
+                        output.accept(PMC_PANTS.get());
+                        output.accept(PMC_BOOTS.get());
+                        output.accept(SQUAD_WHISTLE.get());
+                        output.accept(FIELD_TABLET.get());
                         output.accept(BHQ_UNIT_SPAWN_EGG.get());
                         for (RegistryObject<Item> egg : CLASS_SPAWN_EGGS) {
                             output.accept(egg.get());
@@ -272,8 +375,10 @@ public final class SemcsRegistries {
         IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
         ENTITY_TYPES.register(bus);
         BLOCKS.register(bus);
+        BLOCK_ENTITIES.register(bus);
         ITEMS.register(bus);
         CREATIVE_TABS.register(bus);
+        MENU_TYPES.register(bus);
     }
 
     // Forge asks every entity type for its attribute table at startup.
@@ -297,6 +402,11 @@ public final class SemcsRegistries {
         public static void addCreative(BuildCreativeModeTabContentsEvent event) {
             if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
                 event.accept(BHQ_RECRUIT_TABLE_ITEM.get());
+                event.accept(GUARD_POST_ITEM.get());
+            }
+            if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
+                event.accept(SQUAD_WHISTLE.get());
+                event.accept(FIELD_TABLET.get());
             }
             if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
                 event.accept(BHQ_UNIT_SPAWN_EGG.get());

@@ -76,6 +76,21 @@
         "fire_mode": "AUTO"
       }
     },
+    "medic": {
+      "p320": {
+        "gun_id": "tacz:p320",
+        "ammo_count": 17,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:sight_rmr_dot",
+        "grip_id": "tacz:laser_nightstick"
+      },
+      "m1911": {
+        "gun_id": "tacz:m1911",
+        "ammo_count": 7,
+        "fire_mode": "SEMI",
+        "muzzle_id": "tacz:muzzle_silencer_ptilopsis"
+      }
+    },
     "pistol": {
       "glock_17": {
         "gun_id": "tacz:glock_17",

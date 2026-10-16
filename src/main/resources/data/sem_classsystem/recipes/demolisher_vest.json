@@ -1,16 +1,28 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "P P",
-    "PSP",
-    "PPP"
+    "LOL",
+    "CBC",
+    "IDI"
   ],
   "key": {
-    "P": {
-      "item": "minecraft:diamond"
+    "L": {
+      "item": "minecraft:leather"
     },
-    "S": {
-      "item": "minecraft:iron_block"
+    "O": {
+      "item": "minecraft:obsidian"
+    },
+    "C": {
+      "item": "minecraft:copper_ingot"
+    },
+    "B": {
+      "item": "minecraft:iron_chestplate"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "D": {
+      "item": "minecraft:diamond"
     }
   },
   "result": {

@@ -3,10 +3,25 @@ package com.poseidon.sem_classsystem.mixin;
 
 // Our helpers: read the unit's effective class + per-class tactical tuning
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
+import com.poseidon.sem_classsystem.entity.ai.UnitMeleeAttackGoal;
+import com.poseidon.sem_classsystem.entity.ai.UnitSelfHealGoal;
+import com.poseidon.sem_classsystem.faction.ClassLoadouts;
+import com.poseidon.sem_classsystem.faction.UnitClass;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
+import com.tacz.guns.api.entity.IGunOperator;
+import com.tacz.guns.api.entity.ReloadState;
+import com.tacz.guns.api.item.IGun;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.items.IItemHandlerModifiable;
+import net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;
+import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.util.SoldierState;
 // SEM's per-unit tactical manager - THE CLASS WE PATCH. It decides when the
 // unit seeks cover, flanks around the target, or commits to a forced rush.
@@ -66,16 +81,24 @@ public abstract class MixinTacticalManagerGoal {
     // tick() runs every evaluation - retune here so a weapon swap (pistol
     // subclass) or a /semcs class change updates tactics mid-fight, then run
     // the forced-rush gate before SEM's own logic consumes the flag.
-    @Inject(method = "tick", at = @At("HEAD"))
+    @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
     private void semcs$tuneAndGateRush(CallbackInfo ci) {
+        if (!this.unit.level().isClientSide) {
+            semcs$smartRetarget();
+            semcs$syncTeamworkLink();
+            semcs$updateWeaponSwap();
+        }
+        if (UnitMeleeAttackGoal.isMeleeWeapon(this.unit.getMainHandItem())) {
+            if (this.unit.isMovementLockedByManager()) {
+                this.unit.releaseMovementLock();
+            }
+            ci.cancel();
+            return;
+        }
         WeaponClass cls = semcs$applyTuning();
         if (cls == null) {
             return;
         }
-        // Forced-rush gate: hold-position classes never charge on flank
-        // timeout. Clear the flag SEM just set, restart the flank arc, and
-        // hand movement back to the maneuver goal - the unit keeps circling
-        // for a firing position instead of sprinting into melee range.
         if (this.isForcedRush && !ClassSystemConfig.classForcedRush(cls)) {
             this.isForcedRush = false;
             this.unit.releaseMovementLock();
@@ -85,7 +108,67 @@ public abstract class MixinTacticalManagerGoal {
             this.unit.setFlankingStartTick(this.unit.level().getGameTime());
             this.unit.setSoldierState(SoldierState.TACTICAL_MOV);
         }
+        semcs$evasiveReload();
         semcs$kiteIfTooClose(cls);
+        semcs$strafeAndSpread(cls);
+    }
+
+    // TAIL of tick(): override SEM's automatic SEEK_COVER / RETREAT behavior
+    // for Sweeper (SHOTGUN) so Sweepers aggressively charge into point-blank
+    // shotgun range instead of backing down into cover when spotting a target!
+    @Inject(method = "tick", at = @At("TAIL"))
+    private void semcs$enforceSweeperCharge(CallbackInfo ci) {
+        if (this.unit.level().isClientSide || this.unit.isUsingItem()) {
+            return;
+        }
+        if (this.unit instanceof PmcUnitEntity pmc && pmc.getOrder() == OrderType.HOLD_POSITION) {
+            return;
+        }
+        WeaponClass cls = WeaponClassSupport.getEffective(this.unit);
+        if (cls != WeaponClass.SHOTGUN) {
+            return;
+        }
+        LivingEntity target = this.unit.getTarget();
+        if (target == null || !target.isAlive()) {
+            return;
+        }
+        // Only allow cover if critically wounded (< 18% HP) and carrying a heal item
+        float hpPct = this.unit.getHealth() / this.unit.getMaxHealth();
+        if (hpPct < 0.18F && UnitSelfHealGoal.hasAnyConsumable(this.unit)) {
+            return;
+        }
+
+        // Cancel SEM's SEEK_COVER / HOLD_COVER lock on Sweepers
+        SoldierState state = this.unit.getSoldierState();
+        if (state == SoldierState.SEEK_COVER || state == SoldierState.HOLD_COVER) {
+            this.unit.releaseMovementLock();
+            this.unit.setFlankingActive(false);
+        }
+        if (this.unit.isShiftKeyDown()) {
+            this.unit.setShiftKeyDown(false);
+        }
+
+        double dist = this.unit.distanceTo(target);
+        if (dist > 6.5D) {
+            this.isForcedRush = true;
+            this.unit.setSoldierState(SoldierState.TACTICAL_MOV);
+            this.unit.setSprinting(true);
+            if ((this.unit.tickCount + this.unit.getId()) % 5 == 0 || this.unit.getNavigation().isDone()) {
+                this.unit.getNavigation().moveTo(target, Math.max(1.1D, this.RUSH_SPEED));
+            }
+        } else {
+            this.unit.setSoldierState(SoldierState.ENGAGE);
+            this.unit.setSprinting(false);
+        }
+    }
+
+    // True while the unit is holding our prone stance (Pose.SWIMMING on
+    // ground, not actually swimming). Movement helpers must not disturb a
+    // prone unit - the gun-goal pin + its exit rules decide when it gets up.
+    @Unique
+    private boolean semcs$isProneStance() {
+        return this.unit.getPose() == net.minecraft.world.entity.Pose.SWIMMING
+                && this.unit.onGround() && !this.unit.isInWater();
     }
 
     // Keep-away: while ENGAGED, a class with a positive tacticalKiteDistance
@@ -96,6 +179,9 @@ public abstract class MixinTacticalManagerGoal {
     // SEM's cover/flank/patrol strategies keep full control otherwise.
     @Unique
     private void semcs$kiteIfTooClose(WeaponClass cls) {
+        if (semcs$isProneStance()) {
+            return;   // prone units hold their ground - no kiting flat
+        }
         double kiteDistance = ClassSystemConfig.classKiteDistance(cls);
         if (kiteDistance <= 0
                 || this.unit.getSoldierState() != SoldierState.ENGAGE
@@ -153,5 +239,474 @@ public abstract class MixinTacticalManagerGoal {
                 * ClassSystemConfig.classRetreatHealthMultiplier(cls));
         this.ENGAGE_DIST_MID = this.semcs$origCloseBand * ClassSystemConfig.classCloseRangeMultiplier(cls);
         return cls;
+    }
+
+    // -------------------------------------------------------------------
+    // 1. Evasive Reload / Reload-in-Cover
+    //    When reloading in the open with a live target, seek cover or
+    //    sidestep laterally instead of standing frozen.
+    // -------------------------------------------------------------------
+    @Unique
+    private void semcs$evasiveReload() {
+        if (semcs$isProneStance()) {
+            return;   // reloading flat is fine - don't sidestep out of prone
+        }
+        if (this.unit instanceof PmcUnitEntity pmc && pmc.getOrder() == OrderType.HOLD_POSITION) {
+            return;
+        }
+        LivingEntity target = this.unit.getTarget();
+        if (target == null || !target.isAlive()) {
+            return;
+        }
+        IGunOperator operator = IGunOperator.fromLivingEntity(this.unit);
+        ReloadState rs = operator != null ? operator.getSynReloadState() : null;
+        boolean reloading = rs != null && rs.getStateType() != null && rs.getStateType().isReloading();
+        boolean needsCoverToHeal = this.unit.getHealth() <= this.unit.getMaxHealth() * 0.65F
+                && UnitSelfHealGoal.hasAnyConsumable(this.unit);
+        if (!reloading && !needsCoverToHeal) {
+            return;
+        }
+        if (this.unit.getSoldierState() == SoldierState.ENGAGE
+                && this.unit.getSensing().hasLineOfSight(target)) {
+            this.unit.setSoldierState(SoldierState.SEEK_COVER);
+        }
+        if (!this.unit.isMovementLockedByManager() && this.unit.tickCount % 10 == 0) {
+            double dx = target.getX() - this.unit.getX();
+            double dz = target.getZ() - this.unit.getZ();
+            double len = Math.sqrt(dx * dx + dz * dz);
+            if (len > 0.01D) {
+                double dir = ((this.unit.getId() + (this.unit.tickCount / 10)) % 2 == 0) ? 1.0D : -1.0D;
+                double sx = (-dz / len) * 2.5D * dir - (dx / len) * 1.2D;
+                double sz = (dx / len) * 2.5D * dir - (dz / len) * 1.2D;
+                this.unit.getMoveControl().setWantedPosition(
+                        this.unit.getX() + sx,
+                        this.unit.getY(),
+                        this.unit.getZ() + sz,
+                        1.15D);
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // 2. Smart Threat Re-Targeting
+    //    Switch to a closer/visible attacker if our current target is
+    //    behind cover or much farther away than whoever just shot us.
+    // -------------------------------------------------------------------
+    @Unique
+    private void semcs$smartRetarget() {
+        if (this.unit.tickCount % 15 != 0) {
+            return;
+        }
+        LivingEntity current = this.unit.getTarget();
+        LivingEntity hurtBy = this.unit.getLastHurtByMob();
+        if (hurtBy != null && hurtBy.isAlive() && hurtBy != current && !this.unit.isAlliedTo(hurtBy)) {
+            int hurtAge = this.unit.tickCount - this.unit.getLastHurtByMobTimestamp();
+            if (hurtAge <= 40) {
+                boolean currentHidden = current == null || !current.isAlive()
+                        || !this.unit.getSensing().hasLineOfSight(current);
+                boolean attackerCloser = current != null
+                        && this.unit.distanceToSqr(hurtBy) < this.unit.distanceToSqr(current) * 0.65D;
+                if (currentHidden || attackerCloser) {
+                    this.unit.setTarget(hurtBy);
+                    return;
+                }
+            }
+        }
+        if (current != null && current.isAlive() && !this.unit.getSensing().hasLineOfSight(current)) {
+            double currentDistSqr = this.unit.distanceToSqr(current);
+            var nearby = this.unit.level().getEntitiesOfClass(
+                    LivingEntity.class,
+                    this.unit.getBoundingBox().inflate(24.0D, 8.0D, 24.0D),
+                    e -> e != this.unit && e != current && e.isAlive()
+                            && e.getLastHurtMob() == this.unit
+                            && !this.unit.isAlliedTo(e));
+            for (LivingEntity candidate : nearby) {
+                if (this.unit.distanceToSqr(candidate) < currentDistSqr
+                        && this.unit.getSensing().hasLineOfSight(candidate)) {
+                    this.unit.setTarget(candidate);
+                    break;
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // 3. Dynamic Sidearm / CQB Weapon Switching
+    //    All units carry a pistol in their inventory. They draw their
+    //    sidearm/melee when:
+    //      - Primary magazine runs empty or is mid-reload within 16 blocks, OR
+    //      - Long-range / heavy classes (SNIPER, HEAVY, HEAVY_MG) get rushed
+    //        within 7.5 blocks.
+    //    They swap back to their primary only when:
+    //      - the target is gone OR outside the class's standoff distance
+    //        (kite range for specialists - the gap they are trying to hold
+    //        anyway - otherwise flat 14 blocks), AND
+    //      - a USABLE primary actually exists in storage. If the main gun
+    //        is bone dry this check fails and the pistol stays out - the
+    //        ammo-fallback goal and this one agreed: pistol is the weapon
+    //        now. (Without it they ping-ponged the swap every second.)
+    //    A 3-second cooldown between swaps stops draw-animation flapping
+    //    while a charging enemy straddles the thresholds.
+    // -------------------------------------------------------------------
+    @Unique
+    private long semcs$nextSwapTick = 0L;
+
+    @Unique
+    private void semcs$updateWeaponSwap() {
+        if (this.unit.tickCount % 10 != 0 || this.unit.isUsingItem()) {
+            return;
+        }
+        WeaponClass assigned = WeaponClassSupport.get(this.unit);
+        if (assigned == null || assigned == WeaponClass.PISTOL) {
+            return;
+        }
+        long now = this.unit.level().getGameTime();
+        if (now < this.semcs$nextSwapTick) {
+            return;
+        }
+        LivingEntity target = this.unit.getTarget();
+        double distSqr = (target != null && target.isAlive()) ? this.unit.distanceToSqr(target) : Double.MAX_VALUE;
+
+        ItemStack main = this.unit.getMainHandItem();
+        boolean holdingCqbBackup = isCqbBackupItem(main, assigned);
+
+        boolean primaryDryOrReloading = false;
+        if (!holdingCqbBackup) {
+            IGun iGun = IGun.getIGunOrNull(main);
+            if (iGun != null && iGun.getCurrentAmmoCount(main) <= 0) {
+                primaryDryOrReloading = true;
+            } else {
+                IGunOperator op = IGunOperator.fromLivingEntity(this.unit);
+                ReloadState rs = op != null ? op.getSynReloadState() : null;
+                if (rs != null && rs.getStateType() != null && rs.getStateType().isReloading()) {
+                    primaryDryOrReloading = true;
+                }
+            }
+        }
+
+        boolean isLongRangeSpecialist = assigned == WeaponClass.SNIPER
+                || assigned == WeaponClass.HEAVY
+                || assigned == WeaponClass.HEAVY_MG;
+        boolean wantCqb = target != null && target.isAlive()
+                && ((isLongRangeSpecialist && distSqr <= 7.5D * 7.5D)
+                || (primaryDryOrReloading && distSqr <= 16.0D * 16.0D));
+        double backOff = isLongRangeSpecialist
+                ? Math.max(14.0D, ClassSystemConfig.classKiteDistance(assigned))
+                : 14.0D;
+        boolean wantPrimary = holdingCqbBackup
+                && (target == null || !target.isAlive() || distSqr >= backOff * backOff)
+                && semcs$hasUsablePrimary(assigned);
+
+        if (wantCqb && !holdingCqbBackup) {
+            semcs$swapToBackup(assigned);
+            this.semcs$nextSwapTick = now + 60;
+        } else if (wantPrimary) {
+            semcs$swapToPrimary(assigned);
+            this.semcs$nextSwapTick = now + 60;
+        }
+    }
+
+    // Is there a non-CQB gun in storage that can actually shoot (loaded,
+    // reserve ammo, or dummy ammo)? Guards swap-back so a dry primary is
+    // never drawn over a loaded pistol.
+    @Unique
+    private boolean semcs$hasUsablePrimary(WeaponClass assigned) {
+        if (this.unit instanceof PmcUnitEntity) {
+            var cap = this.unit.getCapability(ForgeCapabilities.ITEM_HANDLER);
+            if (cap.isPresent() && cap.orElse(null) instanceof IItemHandlerModifiable modifiable) {
+                for (int s = 6; s < modifiable.getSlots(); s++) {
+                    if (semcs$gunUsable(modifiable.getStackInSlot(s), assigned)) {
+                        return true;
+                    }
+                }
+                return semcs$gunUsable(modifiable.getStackInSlot(1), assigned);
+            }
+            return false;
+        }
+        CompoundTag data = this.unit.getPersistentData();
+        return data.contains("semcs_primary_gun")
+                && semcs$gunUsable(ItemStack.of(data.getCompound("semcs_primary_gun")), assigned);
+    }
+
+    @Unique
+    private boolean semcs$gunUsable(ItemStack stack, WeaponClass assigned) {
+        if (stack.isEmpty() || isCqbBackupItem(stack, assigned)) {
+            return false;
+        }
+        IGun g = IGun.getIGunOrNull(stack);
+        return g != null && (g.getCurrentAmmoCount(stack) > 0
+                || g.getDummyAmmoAmount(stack) > 0
+                || g.hasInventoryAmmo(this.unit, stack, true));
+    }
+
+    @Unique
+    private static boolean isCqbBackupItem(ItemStack stack, WeaponClass assigned) {
+        if (UnitMeleeAttackGoal.isMeleeWeapon(stack)) {
+            return true;
+        }
+        IGun iGun = IGun.getIGunOrNull(stack);
+        if (iGun == null) {
+            return false;
+        }
+        ResourceLocation gunId = iGun.getGunId(stack);
+        WeaponClass gunCls = gunId != null ? ClassLoadouts.inferClass(gunId) : null;
+        return gunCls == WeaponClass.PISTOL || (assigned != WeaponClass.SMG && gunCls == WeaponClass.SMG);
+    }
+
+    @Unique
+    private void semcs$swapToBackup(WeaponClass assigned) {
+        if (this.unit instanceof PmcUnitEntity) {
+            this.unit.getCapability(ForgeCapabilities.ITEM_HANDLER).ifPresent(handler -> {
+                if (!(handler instanceof IItemHandlerModifiable modifiable)) {
+                    return;
+                }
+                // Check storage slots 6..17 first, then offhand slot 1
+                int[] searchOrder = new int[modifiable.getSlots() - 5];
+                int k = 0;
+                for (int s = 6; s < modifiable.getSlots(); s++) searchOrder[k++] = s;
+                searchOrder[k] = 1;
+                for (int slot : searchOrder) {
+                    ItemStack candidate = modifiable.getStackInSlot(slot);
+                    if (isCqbBackupItem(candidate, assigned)) {
+                        ItemStack prevMain = modifiable.getStackInSlot(0).copy();
+                        modifiable.setStackInSlot(0, candidate.copy());
+                        modifiable.setStackInSlot(slot, prevMain);
+                        IGunOperator.fromLivingEntity(this.unit).draw(() -> this.unit.getMainHandItem());
+                        return;
+                    }
+                }
+            });
+            return;
+        }
+        CompoundTag data = this.unit.getPersistentData();
+        if (data.contains("semcs_backup_sidearm")) {
+            ItemStack backup = ItemStack.of(data.getCompound("semcs_backup_sidearm"));
+            if (!backup.isEmpty()) {
+                ItemStack prevMain = this.unit.getMainHandItem().copy();
+                data.put("semcs_primary_gun", prevMain.save(new CompoundTag()));
+                data.remove("semcs_backup_sidearm");
+                this.unit.setItemInHand(InteractionHand.MAIN_HAND, backup);
+                IGunOperator.fromLivingEntity(this.unit).draw(() -> this.unit.getMainHandItem());
+            }
+        }
+    }
+
+    @Unique
+    private void semcs$swapToPrimary(WeaponClass assigned) {
+        if (this.unit instanceof PmcUnitEntity) {
+            this.unit.getCapability(ForgeCapabilities.ITEM_HANDLER).ifPresent(handler -> {
+                if (!(handler instanceof IItemHandlerModifiable modifiable)) {
+                    return;
+                }
+                int[] searchOrder = new int[modifiable.getSlots() - 5];
+                int k = 0;
+                for (int s = 6; s < modifiable.getSlots(); s++) searchOrder[k++] = s;
+                searchOrder[k] = 1;
+                for (int slot : searchOrder) {
+                    ItemStack candidate = modifiable.getStackInSlot(slot);
+                    IGun iGun = IGun.getIGunOrNull(candidate);
+                    if (iGun != null && !isCqbBackupItem(candidate, assigned)) {
+                        ItemStack prevMain = modifiable.getStackInSlot(0).copy();
+                        modifiable.setStackInSlot(0, candidate.copy());
+                        modifiable.setStackInSlot(slot, prevMain);
+                        IGunOperator.fromLivingEntity(this.unit).draw(() -> this.unit.getMainHandItem());
+                        return;
+                    }
+                }
+            });
+            return;
+        }
+        CompoundTag data = this.unit.getPersistentData();
+        if (data.contains("semcs_primary_gun")) {
+            ItemStack primary = ItemStack.of(data.getCompound("semcs_primary_gun"));
+            if (!primary.isEmpty()) {
+                ItemStack prevBackup = this.unit.getMainHandItem().copy();
+                data.put("semcs_backup_sidearm", prevBackup.save(new CompoundTag()));
+                data.remove("semcs_primary_gun");
+                this.unit.setItemInHand(InteractionHand.MAIN_HAND, primary);
+                IGunOperator.fromLivingEntity(this.unit).draw(() -> this.unit.getMainHandItem());
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // 4. Combat Strafe & Squad Anti-Bunching
+    //    Spreads stacked squadmates into a firing line and gives mobile
+    //    classes short lateral combat strafes while engaging.
+    // -------------------------------------------------------------------
+    @Unique
+    private void semcs$strafeAndSpread(WeaponClass cls) {
+        if (semcs$isProneStance()) {
+            return;   // no strafing while flat
+        }
+        if (this.unit.getSoldierState() != SoldierState.ENGAGE
+                || this.unit.isMovementLockedByManager()
+                || this.unit.getPose() == net.minecraft.world.entity.Pose.SWIMMING
+                || this.unit.tickCount % 12 != 0) {
+            return;
+        }
+        if (this.unit instanceof PmcUnitEntity pmc && pmc.getOrder() == OrderType.HOLD_POSITION) {
+            return;
+        }
+        LivingEntity target = this.unit.getTarget();
+        if (target == null || !target.isAlive()) {
+            return;
+        }
+        double dx = target.getX() - this.unit.getX();
+        double dz = target.getZ() - this.unit.getZ();
+        double len = Math.sqrt(dx * dx + dz * dz);
+        if (len < 0.01D) {
+            return;
+        }
+        // Perpendicular unit vector (-dz/len, dx/len)
+        double px = -dz / len;
+        double pz = dx / len;
+
+        // A. Anti-bunching: if stacked within 1.6 blocks of an allied unit, step apart
+        var crowded = this.unit.level().getEntitiesOfClass(
+                AbstractUnit.class,
+                this.unit.getBoundingBox().inflate(1.6D, 1.0D, 1.6D),
+                other -> other != this.unit && other.isAlive() && this.unit.isAlliedTo(other));
+        if (!crowded.isEmpty()) {
+            AbstractUnit mate = crowded.get(0);
+            double dot = (this.unit.getX() - mate.getX()) * px + (this.unit.getZ() - mate.getZ()) * pz;
+            double side = dot >= 0.0D ? 1.0D : -1.0D;
+            this.unit.getMoveControl().setWantedPosition(
+                    this.unit.getX() + px * 2.2D * side,
+                    this.unit.getY(),
+                    this.unit.getZ() + pz * 2.2D * side,
+                    1.05D);
+            return;
+        }
+
+        // B. Periodic combat micro-strafe for mobile classes within 28 blocks
+        if (cls != WeaponClass.SNIPER && cls != WeaponClass.HEAVY_MG
+                && len <= 28.0D
+                && (this.unit.tickCount + this.unit.getId() * 7) % 24 == 0
+                && this.unit.getSensing().hasLineOfSight(target)) {
+            double side = ((this.unit.tickCount / 24 + this.unit.getId()) % 2 == 0) ? 1.0D : -1.0D;
+            this.unit.getMoveControl().setWantedPosition(
+                    this.unit.getX() + px * 2.0D * side,
+                    this.unit.getY(),
+                    this.unit.getZ() + pz * 2.0D * side,
+                    1.05D);
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // 5. Squad & Faction Teamwork Link (Radio Target Sharing)
+    //    When one unit spots or engages an enemy squad, it broadcasts the
+    //    contact to all allied units within 48 blocks and distributes targets
+    //    across the enemy squad so teammates immediately engage or advance
+    //    to support instead of leaving one soldier fighting alone.
+    // -------------------------------------------------------------------
+    @Unique
+    private void semcs$syncTeamworkLink() {
+        if ((this.unit.tickCount + this.unit.getId()) % 8 != 0) {
+            return;
+        }
+        LivingEntity myTarget = this.unit.getTarget();
+
+        // If we are idle with no target, check if a nearby teammate is already in combat
+        if (myTarget == null || !myTarget.isAlive()) {
+            var allies = this.unit.level().getEntitiesOfClass(
+                    AbstractUnit.class,
+                    this.unit.getBoundingBox().inflate(48.0D, 20.0D, 48.0D),
+                    other -> other != this.unit && other.isAlive() && semcs$isSameTeam(this.unit, other));
+            for (AbstractUnit ally : allies) {
+                LivingEntity allyTarget = ally.getTarget();
+                if (allyTarget != null && allyTarget.isAlive() && !semcs$isSameTeam(this.unit, allyTarget)) {
+                    LivingEntity picked = semcs$pickEnemyFromSquad(this.unit, allyTarget);
+                    semcs$alertAndAdvance(this.unit, picked);
+                    return;
+                }
+            }
+            return;
+        }
+
+        // We have a live target: broadcast it (and any nearby members of its squad)
+        // to all allied units within 48 blocks.
+        var allies = this.unit.level().getEntitiesOfClass(
+                AbstractUnit.class,
+                this.unit.getBoundingBox().inflate(48.0D, 20.0D, 48.0D),
+                other -> other != this.unit && other.isAlive() && semcs$isSameTeam(this.unit, other));
+
+        for (AbstractUnit ally : allies) {
+            LivingEntity allyTarget = ally.getTarget();
+            if (allyTarget == null || !allyTarget.isAlive()) {
+                LivingEntity picked = semcs$pickEnemyFromSquad(ally, myTarget);
+                semcs$alertAndAdvance(ally, picked);
+            } else if (!ally.getSensing().hasLineOfSight(allyTarget)
+                    && ally.getSensing().hasLineOfSight(myTarget)
+                    && ally.distanceToSqr(myTarget) <= ally.distanceToSqr(allyTarget) * 1.25D) {
+                ally.setTarget(myTarget);
+            }
+        }
+    }
+
+    @Unique
+    private static void semcs$alertAndAdvance(AbstractUnit ally, LivingEntity enemy) {
+        ally.setTarget(enemy);
+        ally.getEntityData().set(AbstractUnit.IS_IN_COMBAT, true);
+        if (ally instanceof PmcUnitEntity pmc && pmc.getOrder() == OrderType.HOLD_POSITION) {
+            return;
+        }
+        if (!ally.getSensing().hasLineOfSight(enemy) && !ally.isMovementLockedByManager()) {
+            ally.setSoldierState(SoldierState.TACTICAL_MOV);
+            if (ally.getNavigation().isDone()) {
+                ally.getNavigation().moveTo(enemy, 1.15D);
+            }
+        }
+    }
+
+    // Finds all hostile members of the spotted enemy's squad within 18 blocks
+    // of primaryEnemy and picks the best one for 'seeker' (preferring visible
+    // enemies, then closest distance) so a squad of allies spreads fire across
+    // the enemy squad instead of ignoring the rest of the enemy team.
+    @Unique
+    private static LivingEntity semcs$pickEnemyFromSquad(AbstractUnit seeker, LivingEntity primaryEnemy) {
+        var enemyGroup = primaryEnemy.level().getEntitiesOfClass(
+                LivingEntity.class,
+                primaryEnemy.getBoundingBox().inflate(18.0D, 8.0D, 18.0D),
+                e -> e.isAlive() && !e.isSpectator()
+                        && (e == primaryEnemy || semcs$isSameTeam(primaryEnemy, e))
+                        && !semcs$isSameTeam(seeker, e)
+                        && seeker.canAttack(e));
+        if (enemyGroup.isEmpty()) {
+            return primaryEnemy;
+        }
+        LivingEntity bestVisible = null;
+        double bestVisDist = Double.MAX_VALUE;
+        LivingEntity bestAny = primaryEnemy;
+        double bestAnyDist = seeker.distanceToSqr(primaryEnemy);
+
+        for (LivingEntity cand : enemyGroup) {
+            double d = seeker.distanceToSqr(cand);
+            if (d < bestAnyDist) {
+                bestAnyDist = d;
+                bestAny = cand;
+            }
+            if (seeker.getSensing().hasLineOfSight(cand) && d < bestVisDist) {
+                bestVisDist = d;
+                bestVisible = cand;
+            }
+        }
+        return bestVisible != null ? bestVisible : bestAny;
+    }
+
+    @Unique
+    private static boolean semcs$isSameTeam(LivingEntity a, LivingEntity b) {
+        if (a == b || a.isAlliedTo(b)) {
+            return true;
+        }
+        UnitClass fa = UnitClass.of(a);
+        UnitClass fb = UnitClass.of(b);
+        if (fa != null && fa == fb) {
+            return true;
+        }
+        // BHQ and PMC are both friendly operator factions
+        boolean aFriendlyOp = a instanceof PmcUnitEntity;
+        boolean bFriendlyOp = b instanceof PmcUnitEntity;
+        return aFriendlyOp && bFriendlyOp;
     }
 }

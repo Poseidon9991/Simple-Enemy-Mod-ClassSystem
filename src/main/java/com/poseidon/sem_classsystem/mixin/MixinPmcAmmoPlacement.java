@@ -1,40 +1,31 @@
-// Mixin package - keeps PMC reserve ammo out of the equipment slots
+// Mixin package - keeps PMC reserve ammo out of the equipment slots and splits oversized stacks
 package com.poseidon.sem_classsystem.mixin;
 
-// TaCZ ammo interface - detects "is this stack an ammo item"
 import com.tacz.guns.api.item.IAmmo;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
-// Forge capability + handler interfaces to reach the unit's inventory
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.items.IItemHandlerModifiable;
-// SEM's PMC equipper - THE CLASS WE PATCH
 import net.nekoyuni.SimpleEnemyMod.entity.equipment.PmcUnitWeaponEquipper;
-// Mixin annotations:
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// SEM's PmcUnitWeaponEquipper scans for the first EMPTY slot starting at
-// slot 1, so the reserve ammo stack lands in the OFFHAND slot - and
-// onContentsChanged() then visually equips the bullets in the unit's
-// left hand. If the offhand is occupied it can even land in armor slots.
-//
-// This TAIL inject runs after the equipper finishes: it sweeps every ammo
-// stack found in slots 1-5 (offhand + armor) into the first free storage
-// slot (6-17). Storage slots have no equipment sync, so the ammo stays
-// invisible while remaining consumable - TaCZ's reload scans the whole
-// item handler anyway.
+// 1. Moves any ammo placed by SEM into slots 1-5 (offhand + armor) into storage slots (6-17).
+// 2. Splits any oversized ammo stack (e.g. SEM's 30x6 = 180 rounds) into legal <= 60 stacks.
+//    In Minecraft 1.20.1, FriendlyByteBuf.writeItem and ItemStack.save write stack count as a
+//    signed byte (-128..127), so a single stack of 180 or 254 overflows to -76 / -2 and turns
+//    into ItemStack.EMPTY on client GUI sync and world save!
 @Mixin(PmcUnitWeaponEquipper.class)
 public abstract class MixinPmcAmmoPlacement {
 
-    // Slot 1 is the offhand; 2-5 are armor. Anything ammo found there after
-    // equipping gets relocated into the storage grid.
     private static final int STORAGE_START = 6;
+    private static final int MAX_SAFE_AMMO_STACK = 60;
 
-    // remap=false: equipRandomGun is a SEM-internal method, never obfuscated.
     @Inject(method = "equipRandomGun", at = @At("TAIL"), remap = false)
     private static void semcs$moveAmmoToStorage(LivingEntity entity, RandomSource random,
                                                 CallbackInfo ci) {
@@ -42,23 +33,48 @@ public abstract class MixinPmcAmmoPlacement {
             if (!(handler instanceof IItemHandlerModifiable modifiable)) {
                 return;
             }
-            // Check offhand + armor slots for stray ammo stacks
+            // Sweep offhand + armor slots (1..5) for stray ammo stacks
             for (int slot = 1; slot < STORAGE_START && slot < modifiable.getSlots(); slot++) {
                 ItemStack stack = modifiable.getStackInSlot(slot);
                 if (stack.isEmpty() || IAmmo.getIAmmoOrNull(stack) == null) {
-                    continue;   // empty or a real item (gun/armor) -> leave it
+                    continue;
                 }
-                // Find the first free storage slot and move the ammo there
-                for (int target = STORAGE_START; target < modifiable.getSlots(); target++) {
-                    if (modifiable.getStackInSlot(target).isEmpty()) {
-                        modifiable.setStackInSlot(target, stack.copy());
-                        // Clear the equipment slot - this also un-equips the
-                        // ammo from the offhand via onContentsChanged()
-                        modifiable.setStackInSlot(slot, ItemStack.EMPTY);
-                        break;
-                    }
+                int totalRounds = stack.getCount();
+                ItemStack template = stack.copy();
+                modifiable.setStackInSlot(slot, ItemStack.EMPTY);
+                if (slot == 1) {
+                    entity.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+                }
+                semcs$distributeAmmoIntoStorage(modifiable, template, totalRounds);
+            }
+
+            // Also normalize any oversized ammo stacks already in storage (6..17)
+            for (int slot = STORAGE_START; slot < modifiable.getSlots(); slot++) {
+                ItemStack stack = modifiable.getStackInSlot(slot);
+                if (!stack.isEmpty() && IAmmo.getIAmmoOrNull(stack) != null && stack.getCount() > MAX_SAFE_AMMO_STACK) {
+                    int extra = stack.getCount() - MAX_SAFE_AMMO_STACK;
+                    ItemStack template = stack.copy();
+                    stack.setCount(MAX_SAFE_AMMO_STACK);
+                    modifiable.setStackInSlot(slot, stack);
+                    semcs$distributeAmmoIntoStorage(modifiable, template, extra);
                 }
             }
         });
+    }
+
+    @Unique
+    private static void semcs$distributeAmmoIntoStorage(IItemHandlerModifiable modifiable,
+                                                        ItemStack template, int roundsToPlace) {
+        int remaining = roundsToPlace;
+        for (int target = STORAGE_START; target < modifiable.getSlots() && remaining > 0; target++) {
+            ItemStack existing = modifiable.getStackInSlot(target);
+            if (existing.isEmpty()) {
+                int chunk = Math.min(MAX_SAFE_AMMO_STACK, remaining);
+                ItemStack piece = template.copy();
+                piece.setCount(chunk);
+                modifiable.setStackInSlot(target, piece);
+                remaining -= chunk;
+            }
+        }
     }
 }

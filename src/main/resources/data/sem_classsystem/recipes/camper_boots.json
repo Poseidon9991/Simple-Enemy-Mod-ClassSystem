@@ -1,15 +1,21 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "P P",
-    "P S"
+    "SDS",
+    "LBL"
   ],
   "key": {
-    "P": {
+    "S": {
+      "item": "minecraft:string"
+    },
+    "D": {
+      "item": "minecraft:green_dye"
+    },
+    "L": {
       "item": "minecraft:leather"
     },
-    "S": {
-      "item": "minecraft:gold_ingot"
+    "B": {
+      "item": "minecraft:leather_boots"
     }
   },
   "result": {

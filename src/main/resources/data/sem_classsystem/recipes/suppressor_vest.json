@@ -1,16 +1,25 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "P P",
-    "PSP",
-    "PPP"
+    "LCL",
+    "DBD",
+    "III"
   ],
   "key": {
-    "P": {
+    "L": {
+      "item": "minecraft:leather"
+    },
+    "C": {
+      "item": "minecraft:chain"
+    },
+    "D": {
       "item": "minecraft:diamond"
     },
-    "S": {
-      "item": "minecraft:netherite_ingot"
+    "B": {
+      "item": "minecraft:iron_chestplate"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
     }
   },
   "result": {

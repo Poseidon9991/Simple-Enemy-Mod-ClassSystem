@@ -1,11 +1,22 @@
 {
+  "replace": false,
   "entities": [
+    "simpleenemymod:pmcunit",
+    "simpleenemymod:usunit",
+    "simpleenemymod:ruunit",
     "sem_classsystem:bhqunit"
   ],
   "slots": [
+    "curio",
     "head",
+    "necklace",
     "back",
     "body",
-    "belt"
+    "bracelet",
+    "hands",
+    "ring",
+    "belt",
+    "feet",
+    "charm"
   ]
 }

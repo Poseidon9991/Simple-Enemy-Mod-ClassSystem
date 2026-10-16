@@ -1,15 +1,28 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "PSP",
-    "P P"
+    "WGW",
+    "LHL",
+    "SDS"
   ],
   "key": {
-    "P": {
+    "W": {
+      "item": "minecraft:green_wool"
+    },
+    "G": {
+      "item": "minecraft:glass_pane"
+    },
+    "L": {
       "item": "minecraft:leather"
     },
+    "H": {
+      "item": "minecraft:leather_helmet"
+    },
     "S": {
-      "item": "minecraft:gold_ingot"
+      "item": "minecraft:string"
+    },
+    "D": {
+      "item": "minecraft:green_dye"
     }
   },
   "result": {

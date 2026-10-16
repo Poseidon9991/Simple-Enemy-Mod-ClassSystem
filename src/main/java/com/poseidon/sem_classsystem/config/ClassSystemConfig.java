@@ -32,6 +32,19 @@ public class ClassSystemConfig {
             new EnumMap<>(UnitClass.class);
     // BHQ recruit table price (assigned inside the static block below)
     private static ForgeConfigSpec.IntValue BHQ_RECRUIT_PRICE;
+    private static ForgeConfigSpec.IntValue MAX_OWNED_UNITS;
+    // Night raid knobs ([night_raids] section)
+    private static ForgeConfigSpec.BooleanValue NIGHT_RAIDS_ENABLED;
+    private static ForgeConfigSpec.DoubleValue NIGHT_RAID_CHANCE;
+    private static ForgeConfigSpec.IntValue NIGHT_RAID_MIN;
+    private static ForgeConfigSpec.IntValue NIGHT_RAID_MAX;
+    private static ForgeConfigSpec.DoubleValue NIGHT_RAID_DISTANCE;
+    // Global walk-speed nerf applied on top of every faction's speed value
+    private static ForgeConfigSpec.DoubleValue GLOBAL_WALK_SPEED;
+    // Map chunk claims: per-player cap ([map] section, Xaero integration)
+    private static ForgeConfigSpec.IntValue MAX_CLAIMED_CHUNKS;
+    // Whether a new claim must touch an existing claim of the same player
+    private static ForgeConfigSpec.BooleanValue REQUIRE_CONTIGUOUS_CLAIMS;
 
     // static {} runs once at class load - defines ALL keys before register()
     static {
@@ -153,13 +166,38 @@ public class ClassSystemConfig {
                                     "the target gets closer than this the unit back-pedals instead",
                                     "of holding position. 0 disables it; Campers use it to keep",
                                     "sniper standoff instead of standing still as enemies close in.")
-                            .defineInRange("tacticalKiteDistance", classKiteDistanceDefault(cls), 0.0, 96.0)
+                            .defineInRange("tacticalKiteDistance", classKiteDistanceDefault(cls), 0.0, 96.0),
+                    BUILDER.comment(
+                                    "Go-prone distance in blocks - past this range a stationary",
+                                    "unit lies flat to fire (smaller silhouette, braced shot).",
+                                    "0 disables prone; between crouch range and prone distance",
+                                    "the unit kneels instead.")
+                            .defineInRange("proneDistance", classProneDistanceDefault(cls), 0.0, 200.0)
             );
 
             CLASS_ENTRIES.put(cls, entry);
             BUILDER.pop();
         }
         BUILDER.pop();   // close [class_tuning]
+
+        // ================= GENERAL: global unit tweaks =================
+        BUILDER.push("general");
+        BUILDER.comment(
+                "Global multiplier applied to every faction's Walk Speed",
+                "attribute on top of its per-faction value. SEM units ship",
+                "with 0.27-0.30 which makes them jog everywhere; 0.78 brings",
+                "them down to a believable soldier pace. 1.0 = SEM default,",
+                "lower = slower, higher = faster.");
+        GLOBAL_WALK_SPEED = BUILDER
+                .comment("Global walk speed multiplier for ALL units")
+                .defineInRange("walkSpeedMultiplier", 0.78, 0.2, 2.0);
+        MAX_OWNED_UNITS = BUILDER
+                .comment("Maximum units a single player may own, counted",
+                        "across every dimension. Recruitment is refused past",
+                        "the limit on all paths (both recruit tables and",
+                        "SEM's interact-to-recruit). 0 = unlimited.")
+                .defineInRange("maxOwnedUnits", 32, 0, 512);
+        BUILDER.pop();   // close [general]
 
         // ================= COMPAT: other-mod defender behaviour =================
         BUILDER.push("compat");
@@ -196,6 +234,50 @@ public class ClassSystemConfig {
                 .defineInRange("price", 32, 1, 64);
         BUILDER.pop();   // close [bhq_recruit]
 
+        // ================= NIGHT RAIDS =================
+        BUILDER.push("night_raids");
+        BUILDER.comment(
+                "Night ambush raids: once per night each player rolls",
+                "chancePerNight; on success a hostile RU or US patrol spawns",
+                "spawnDistance blocks away and hunts the player's position.",
+                "The strike lands at a random minute of the night.");
+        NIGHT_RAIDS_ENABLED = BUILDER
+                .comment("Enable night raid ambush events")
+                .define("enabled", true);
+        NIGHT_RAID_CHANCE = BUILDER
+                .comment("Raid chance per night per player (0.35 = ~1 in 3 nights)")
+                .defineInRange("chancePerNight", 0.35, 0.0, 1.0);
+        NIGHT_RAID_MIN = BUILDER
+                .comment("Smallest raid squad size")
+                .defineInRange("squadSizeMin", 3, 1, 32);
+        NIGHT_RAID_MAX = BUILDER
+                .comment("Largest raid squad size")
+                .defineInRange("squadSizeMax", 6, 1, 32);
+        NIGHT_RAID_DISTANCE = BUILDER
+                .comment("How far from the player the patrol spawns")
+                .defineInRange("spawnDistance", 50.0, 16.0, 128.0);
+        BUILDER.pop();   // close [night_raids]
+
+        // ================= MAP / CHUNK CLAIMS (Xaero World Map) =================
+        BUILDER.push("map");
+        BUILDER.comment(
+                "Chunk claims and map command integration. When Xaero's World",
+                "Map is installed, units appear as markers and players can",
+                "claim chunks from the map's right-click menu, then post",
+                "recruited PMC/BHQ units to guard or patrol them. The mod runs",
+                "fine without Xaero - the claims and duty packets still work,",
+                "only the map UI is absent.");
+        MAX_CLAIMED_CHUNKS = BUILDER
+                .comment("Maximum chunks a single player may claim per dimension")
+                .defineInRange("maxClaimedChunks", 64, 1, 1024);
+        REQUIRE_CONTIGUOUS_CLAIMS = BUILDER
+                .comment("New claims must share an edge with one of the",
+                        "player's existing claims in that dimension - the",
+                        "first claim in a dimension is always allowed.",
+                        "Unclaiming is never blocked; orphaned claims are legal.")
+                .define("requireContiguousClaims", true);
+        BUILDER.pop();   // close [map]
+
         // Freeze the builder into the immutable spec Forge will register
         SPEC = BUILDER.build();
     }
@@ -229,6 +311,7 @@ public class ClassSystemConfig {
             case HEAVY_MG -> 1.15;
             case HEAVY -> 1.2;    // launchers are AoE - precision is optional
             case JACK -> 1.1;     // a touch sloppier than the Rifleman
+            case MEDIC -> 1.15;   // corpsman - self-defence grade accuracy
             case PISTOL -> 0.9;   // decent per-shot accuracy
         };
     }
@@ -242,6 +325,7 @@ public class ClassSystemConfig {
             case HEAVY_MG -> 1.1; // suppression still reaches out a bit
             case HEAVY -> 0.8;    // arc math does the ranging, not spread
             case JACK -> 1.5;     // fades faster than any specialist
+            case MEDIC -> 1.8;    // light weapon, poor reach
             case PISTOL -> 2.0;   // fades past mid-range
         };
     }
@@ -255,6 +339,7 @@ public class ClassSystemConfig {
             case HEAVY_MG -> 1.4;
             case HEAVY -> 0.2;    // one tube at a time
             case JACK -> 0.9;     // slightly shorter bursts than Rifleman
+            case MEDIC -> 0.8;    // short defensive bursts
             case PISTOL -> 0.4;   // short taps, mostly singles
         };
     }
@@ -268,6 +353,7 @@ public class ClassSystemConfig {
             case HEAVY_MG -> 0.65;
             case HEAVY -> 5.0;    // reload, shoulder, fire - deliberate pace
             case JACK -> 1.15;    // a beat slower than the Rifleman
+            case MEDIC -> 1.0;    // steady defensive cadence
             case PISTOL -> 0.7;   // snappy semi-auto cadence
         };
     }
@@ -282,6 +368,7 @@ public class ClassSystemConfig {
             case HEAVY_MG -> 55.0;// plants itself mid-field and suppresses
             case HEAVY -> 42.0;   // blast standoff - far enough not to splash
             case JACK -> 45.0;    // flexible mid-range
+            case MEDIC -> 32.0;   // stays with the squad, not the front
             case PISTOL -> 30.0;  // works mid-range, keeps moving
         };
     }
@@ -295,6 +382,7 @@ public class ClassSystemConfig {
             case HEAVY_MG -> 1.0;
             case HEAVY -> 0.8;    // lobbing far costs accuracy anyway
             case JACK -> 0.8;     // ~72 blocks - solid but not sniper reach
+            case MEDIC -> 0.55;   // holds fire past ~50 blocks
             case PISTOL -> 0.5;   // engages inside ~45 blocks
         };
     }
@@ -308,6 +396,7 @@ public class ClassSystemConfig {
             case HEAVY_MG -> 0.9; // lumbers into position
             case HEAVY -> 0.85;   // carrying a tube is heavy work
             case JACK -> 1.0;     // baseline mobility
+            case MEDIC -> 0.95;   // carries the aid bag, slightly slower
             case PISTOL -> 1.1;   // light on its feet, keeps closing
         };
     }
@@ -356,6 +445,7 @@ public class ClassSystemConfig {
         return switch (cls) {
             case SNIPER -> 20.0;  // back-pedals out of ~20 blocks, keeps standoff
             case HEAVY -> 16.0;   // own blast radius - never fires point blank
+            case MEDIC -> 10.0;   // corpsman stays out of the scrum
             default -> 0.0;       // everyone else holds their ground
         };
     }
@@ -386,6 +476,14 @@ public class ClassSystemConfig {
         };
     }
 
+    private static double classProneDistanceDefault(WeaponClass cls) {
+        return switch (cls) {
+            case SNIPER -> 26.0;
+            case HEAVY_MG -> 30.0;
+            default -> 0.0;
+        };
+    }
+
     // Called once from the mod constructor while Forge loads us
     public static void register() {
         // Type.COMMON -> config/sem_classsystem-common.toml (global, all worlds).
@@ -400,6 +498,11 @@ public class ClassSystemConfig {
 
     public static double speed(UnitClass unitClass) {
         return safeGet(ENTRIES.get(unitClass).speed, 0.27);
+    }
+
+    // Global walk-speed nerf stacked on every faction's configured speed
+    public static double globalWalkSpeedMultiplier() {
+        return safeGet(GLOBAL_WALK_SPEED, 0.78);
     }
 
     public static double detectionRange(UnitClass unitClass) {
@@ -510,6 +613,10 @@ public class ClassSystemConfig {
         return safeGet(CLASS_ENTRIES.get(cls).kiteDistance, 0.0);
     }
 
+    public static double classProneDistance(WeaponClass cls) {
+        return safeGet(CLASS_ENTRIES.get(cls).proneDistance, 0.0);
+    }
+
     // ================= Compat accessors =================
 
     // Should village defenders (unit_defenders tag) never target this faction?
@@ -520,6 +627,67 @@ public class ClassSystemConfig {
             return v.get();
         } catch (IllegalStateException notLoadedYet) {
             return unitClass == UnitClass.PMC_UNIT || unitClass == UnitClass.BHQ_UNIT;
+        }
+    }
+
+    // ================= Night raid accessors =================
+
+    public static boolean nightRaidsEnabled() {
+        try {
+            return NIGHT_RAIDS_ENABLED.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return true;
+        }
+    }
+
+    public static double nightRaidChance() {
+        return safeGet(NIGHT_RAID_CHANCE, 0.35);
+    }
+
+    public static int nightRaidSquadSizeMin() {
+        try {
+            return NIGHT_RAID_MIN.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 3;
+        }
+    }
+
+    public static int nightRaidSquadSizeMax() {
+        try {
+            return NIGHT_RAID_MAX.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 6;
+        }
+    }
+
+    public static double nightRaidSpawnDistance() {
+        return safeGet(NIGHT_RAID_DISTANCE, 50.0);
+    }
+
+    // Maximum chunks one player may claim per dimension ([map] section)
+    public static int maxClaimedChunks() {
+        try {
+            return MAX_CLAIMED_CHUNKS.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 64;
+        }
+    }
+
+    // Must a new claim edge-touch one of the player's own claims ([map])
+    public static boolean requireContiguousClaims() {
+        try {
+            return REQUIRE_CONTIGUOUS_CLAIMS.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return true;
+        }
+    }
+
+    // Maximum units one player may own across all dimensions ([general])
+    public static int maxOwnedUnits() {
+        try {
+            return MAX_OWNED_UNITS.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 32;
         }
     }
 
@@ -567,6 +735,7 @@ public class ClassSystemConfig {
                               ForgeConfigSpec.BooleanValue forcedRush,
                               ForgeConfigSpec.DoubleValue retreatHealthMultiplier,
                               ForgeConfigSpec.DoubleValue closeRangeMultiplier,
-                              ForgeConfigSpec.DoubleValue kiteDistance) {
+                              ForgeConfigSpec.DoubleValue kiteDistance,
+                              ForgeConfigSpec.DoubleValue proneDistance) {
     }
 }

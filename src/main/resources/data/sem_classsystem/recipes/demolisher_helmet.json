@@ -1,15 +1,25 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "PSP",
-    "P P"
+    "CCC",
+    "OHO",
+    "LGL"
   ],
   "key": {
-    "P": {
-      "item": "minecraft:diamond"
+    "C": {
+      "item": "minecraft:copper_ingot"
     },
-    "S": {
-      "item": "minecraft:iron_block"
+    "O": {
+      "item": "minecraft:obsidian"
+    },
+    "H": {
+      "item": "minecraft:iron_helmet"
+    },
+    "L": {
+      "item": "minecraft:leather"
+    },
+    "G": {
+      "item": "minecraft:glass_pane"
     }
   },
   "result": {

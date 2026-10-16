@@ -97,6 +97,20 @@
         "fire_mode": "SEMI"
       }
     },
+    "medic": {
+      "glock_17": {
+        "gun_id": "tacz:glock_17",
+        "ammo_count": 17,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:sight_exp3"
+      },
+      "cz75": {
+        "gun_id": "tacz:cz75",
+        "ammo_count": 12,
+        "fire_mode": "SEMI",
+        "grip_id": "tacz:laser_nightstick"
+      }
+    },
     "pistol": {
       "m1911": {
         "gun_id": "tacz:m1911",

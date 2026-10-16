@@ -1,0 +1,16 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.poseidon.sem_classsystem.mixin.client",
+  "plugin": "com.poseidon.sem_classsystem.mixin.XaeroSemcsMixinPlugin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "sem_classsystem.refmap.json",
+  "mixins": [],
+  "client": [
+    "MixinSemcsGuiMap"
+  ],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
