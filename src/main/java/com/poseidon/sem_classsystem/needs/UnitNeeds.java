@@ -3,6 +3,7 @@ package com.poseidon.sem_classsystem.needs;
 
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
 import com.poseidon.sem_classsystem.entity.BhqUnitEntity;
+import com.poseidon.sem_classsystem.registry.SemcsRegistries;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.damagesource.DamageSources;
@@ -232,11 +233,19 @@ public final class UnitNeeds {
         }
     }
 
-    // SEM ships RU + US voice sets only; owned PMC/BHQ units read as
-    // western contractors so they borrow the US clips. Critical barks get
-    // the sharper "warning" line instead of a routine "alert".
-    private static final String[] VOICE_ALERT = {
-            "sound_us_unit_alert", "sound_us_unit_alert1", "sound_us_unit_alert2"};
+    // Faction voice sets registered in SemcsRegistries (voice_pmc_*/voice_bhq_*);
+    // sounds.json currently aliases them to SEM's us_unit clips until real
+    // recordings are dropped in. BHQ operators get their own set, everything
+    // else owned reads as PMC. Critical barks get the sharper "warning" event.
+    private static net.minecraft.sounds.SoundEvent voiceFor(PmcUnitEntity unit, boolean critical) {
+        boolean bhq = unit instanceof BhqUnitEntity;
+        if (bhq) {
+            return critical ? SemcsRegistries.VOICE_BHQ_WARNING.get()
+                    : SemcsRegistries.VOICE_BHQ_ALERT.get();
+        }
+        return critical ? SemcsRegistries.VOICE_PMC_WARNING.get()
+                : SemcsRegistries.VOICE_PMC_ALERT.get();
+    }
 
     // One bark = a gray italic radio line to the owner + a voice line at the
     // unit's position (quiet - reads as radio chatter, not a shout).
@@ -245,12 +254,7 @@ public final class UnitNeeds {
         if (owner == null || !(unit.level() instanceof net.minecraft.server.level.ServerLevel sl)) {
             return;
         }
-        String sound = critical ? "sound_us_unit_warning"
-                : VOICE_ALERT[unit.getRandom().nextInt(VOICE_ALERT.length)];
-        sl.playSound(null, unit.blockPosition(),
-                net.minecraft.sounds.SoundEvent.createVariableRangeEvent(
-                        net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
-                                "simpleenemymod", sound)),
+        sl.playSound(null, unit.blockPosition(), voiceFor(unit, critical),
                 net.minecraft.sounds.SoundSource.NEUTRAL, 0.6F,
                 0.95F + unit.getRandom().nextFloat() * 0.1F);
         net.minecraft.server.level.ServerPlayer player = sl.getServer().getPlayerList().getPlayer(owner);

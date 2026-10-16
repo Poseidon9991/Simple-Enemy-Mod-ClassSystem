@@ -124,5 +124,9 @@
   "message.sem_classsystem.map.route_unclaimed": "Waypoints must sit inside a chunk you claimed",
   "message.sem_classsystem.map.route_full": "Routes are capped at %d waypoints",
   "message.sem_classsystem.map.route_cancelled": "Route plotting cancelled",
-  "semcs.raid_ping": "Raid"
+  "semcs.raid_ping": "Raid",
+  "subtitles.sem_classsystem.voice_pmc_alert": "Operator calls out",
+  "subtitles.sem_classsystem.voice_pmc_warning": "Operator warns",
+  "subtitles.sem_classsystem.voice_bhq_alert": "Operator calls out",
+  "subtitles.sem_classsystem.voice_bhq_warning": "Operator warns"
 }

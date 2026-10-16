@@ -1,0 +1,30 @@
+{
+  "voice_pmc_alert": {
+    "subtitle": "subtitles.sem_classsystem.voice_pmc_alert",
+    "sounds": [
+      "simpleenemymod:entity/us_unit/sound_us_unit_alert",
+      "simpleenemymod:entity/us_unit/sound_us_unit_alert1",
+      "simpleenemymod:entity/us_unit/sound_us_unit_alert2"
+    ]
+  },
+  "voice_pmc_warning": {
+    "subtitle": "subtitles.sem_classsystem.voice_pmc_warning",
+    "sounds": [
+      "simpleenemymod:entity/us_unit/sound_us_unit_warning"
+    ]
+  },
+  "voice_bhq_alert": {
+    "subtitle": "subtitles.sem_classsystem.voice_bhq_alert",
+    "sounds": [
+      "simpleenemymod:entity/us_unit/sound_us_unit_alert",
+      "simpleenemymod:entity/us_unit/sound_us_unit_alert1",
+      "simpleenemymod:entity/us_unit/sound_us_unit_alert2"
+    ]
+  },
+  "voice_bhq_warning": {
+    "subtitle": "subtitles.sem_classsystem.voice_bhq_warning",
+    "sounds": [
+      "simpleenemymod:entity/us_unit/sound_us_unit_warning"
+    ]
+  }
+}

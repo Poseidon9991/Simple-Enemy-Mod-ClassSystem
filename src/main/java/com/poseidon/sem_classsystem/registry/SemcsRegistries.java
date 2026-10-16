@@ -14,6 +14,8 @@ import com.poseidon.sem_classsystem.item.SquadWhistleItem;
 import com.poseidon.sem_classsystem.menu.RecruitTableMenu;
 import net.minecraft.core.particles.ParticleType;
 import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
@@ -78,6 +80,26 @@ public final class SemcsRegistries {
 
     public static final DeferredRegister<ParticleType<?>> PARTICLE_TYPES =
             DeferredRegister.create(ForgeRegistries.PARTICLE_TYPES, SemClassSystem.MODID);
+
+    public static final DeferredRegister<SoundEvent> SOUND_EVENTS =
+            DeferredRegister.create(ForgeRegistries.SOUND_EVENTS, SemClassSystem.MODID);
+
+    // Faction voice sets for owned units. sounds.json maps each event to its
+    // audio files - currently borrowing SEM's us_unit clips as placeholders;
+    // drop real .ogg files into assets/sem_classsystem/sounds/entity/ and
+    // repoint sounds.json to swap voices without touching code.
+    public static final RegistryObject<SoundEvent> VOICE_PMC_ALERT =
+            SOUND_EVENTS.register("voice_pmc_alert", () -> SoundEvent.createVariableRangeEvent(
+                    ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID, "voice_pmc_alert")));
+    public static final RegistryObject<SoundEvent> VOICE_PMC_WARNING =
+            SOUND_EVENTS.register("voice_pmc_warning", () -> SoundEvent.createVariableRangeEvent(
+                    ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID, "voice_pmc_warning")));
+    public static final RegistryObject<SoundEvent> VOICE_BHQ_ALERT =
+            SOUND_EVENTS.register("voice_bhq_alert", () -> SoundEvent.createVariableRangeEvent(
+                    ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID, "voice_bhq_alert")));
+    public static final RegistryObject<SoundEvent> VOICE_BHQ_WARNING =
+            SOUND_EVENTS.register("voice_bhq_warning", () -> SoundEvent.createVariableRangeEvent(
+                    ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID, "voice_bhq_warning")));
 
     // ---- custom particles ---------------------------------------------------
     // Zero-dependency unit VFX (see client/particle + event/UnitEffectsEvents).
@@ -421,6 +443,7 @@ public final class SemcsRegistries {
         CREATIVE_TABS.register(bus);
         MENU_TYPES.register(bus);
         PARTICLE_TYPES.register(bus);
+        SOUND_EVENTS.register(bus);
     }
 
     // Forge asks every entity type for its attribute table at startup.
