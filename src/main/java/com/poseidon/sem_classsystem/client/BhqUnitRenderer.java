@@ -36,7 +36,7 @@ public class BhqUnitRenderer extends PmcUnitRenderer {
 
     @Override
     public ResourceLocation getTextureLocation(PmcUnitEntity entity) {
-        int variant = entity instanceof BhqUnitEntity bhq
+        int variant = entity instanceof BhqUnitEntity
                 ? Math.floorMod(entity.getVariant(), BHQ_TEXTURES.length)
                 : 0;
         return BHQ_TEXTURES[variant];

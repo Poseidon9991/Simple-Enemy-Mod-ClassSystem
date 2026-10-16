@@ -1,1 +1,1 @@
-{"parent": "minecraft:item/generated", "textures": {"layer0": "sem_classsystem:item/sf911_beret"}}
+{"parent": "minecraft:builtin/entity"}

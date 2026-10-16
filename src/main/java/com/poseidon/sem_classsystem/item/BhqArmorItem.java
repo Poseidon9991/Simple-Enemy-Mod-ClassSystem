@@ -1,7 +1,9 @@
 package com.poseidon.sem_classsystem.item;
 
 import com.poseidon.sem_classsystem.client.BhqArmorModel;
+import com.poseidon.sem_classsystem.client.SemcsArmorItemRenderer;
 import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ArmorItem;
@@ -44,6 +46,15 @@ public class BhqArmorItem extends ArmorItem implements GeoItem {
     public void initializeClient(@NotNull Consumer<IClientItemExtensions> consumer) {
         consumer.accept(new IClientItemExtensions() {
             private GeoArmorRenderer<BhqArmorItem> renderer;
+            private BlockEntityWithoutLevelRenderer itemRenderer;
+
+            @Override
+            public @NotNull BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                if (this.itemRenderer == null) {
+                    this.itemRenderer = new SemcsArmorItemRenderer();
+                }
+                return this.itemRenderer;
+            }
 
             @Override
             public @NotNull HumanoidModel<?> getHumanoidArmorModel(LivingEntity entity,

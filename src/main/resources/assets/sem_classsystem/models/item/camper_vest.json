@@ -1,1 +1,1 @@
-{"parent": "minecraft:item/generated", "textures": {"layer0": "sem_classsystem:item/camper_vest"}}
+{"parent": "minecraft:builtin/entity"}

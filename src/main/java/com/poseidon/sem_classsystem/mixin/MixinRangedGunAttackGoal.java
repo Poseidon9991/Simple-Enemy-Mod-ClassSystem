@@ -319,16 +319,23 @@ public abstract class MixinRangedGunAttackGoal {
         // don't lead grounded entities' idle gravity drift - only airborne
         // motion (jumps/falls) moves the aim point vertically
         double leadY = entity.onGround() ? 0.0 : delta.y * t * leadScale;
-        double drop = Math.min(0.5 * bullet.getGravity() * t * t, dropCap);
+        boolean clearShot = !launcher
+                || this.mob.getSensing().hasLineOfSight(entity);
+        // With a clear shot, lobbers solve the flattest arc that still
+        // reaches - the aim-at-target-plus-drop estimate below steepens
+        // badly once the drop grows past a fraction of the range, which
+        // made Demolishers mortar targets standing in the open. Blind
+        // fire keeps the estimate plus a range-scaled loft to clear
+        // whatever blocks the view (a flat +10 over-lofts close targets).
+        double drop = launcher && clearShot
+                ? semcs$flatArcAimUp(pos, bullet)
+                : Math.min(0.5 * bullet.getGravity() * t * t, dropCap);
         // Fold in the learned fire correction - starts at 0 and walks in
         // each time a tracked shell lands short or long (see observeFire).
         double adjust = launcher && this.semcs$adjustTarget == entity
                 ? this.semcs$aimAdjustY : 0.0;
-        // Indirect fire: no line of sight -> throw the arc higher so the
-        // shell clears whatever is between us (roofs, walls). The bracket
-        // correction refines it from there.
-        double lob = launcher
-                && !this.mob.getSensing().hasLineOfSight(entity) ? 10.0 : 0.0;
+        double lob = launcher && !clearShot
+                ? Math.min(4.0 + dist * 0.3, 12.0) : 0.0;
         return pos.add(delta.x * t * leadScale,
                 leadY + drop + adjust + lob, delta.z * t * leadScale);
     }
@@ -342,6 +349,36 @@ public abstract class MixinRangedGunAttackGoal {
             case HEAVY -> monster ? 1.0 : 0.8;
             default -> monster ? 0.8 : 0.6;   // JACK: decent, not lethal
         };
+    }
+
+    // Low-arc launch solution for a lobber with line of sight: solves the
+    // ballistic quadratic for tan(theta) of the FLAT trajectory from eye to
+    // the aim point, then returns how far above that point the unit should
+    // look. The naive aim-above estimate equals this only for small drops;
+    // past that it keeps inflating the arc and the bracket loop needs
+    // several overshooting shots to walk it back down. When no flat
+    // solution exists (target beyond the shell's max range) it lofts at
+    // ~45 degrees - the best arc a slow shell can do - and observeFire
+    // walks it in from there.
+    @Unique
+    private double semcs$flatArcAimUp(Vec3 aimPos, BulletData bullet) {
+        double speed = bullet.getSpeed() / 20.0;   // m/s -> blocks per tick
+        double gravity = bullet.getGravity();      // blocks per tick^2
+        Vec3 eye = this.mob.getEyePosition();
+        double dx = aimPos.x - eye.x;
+        double dz = aimPos.z - eye.z;
+        double range = Math.sqrt(dx * dx + dz * dz);
+        double dy = aimPos.y - eye.y;
+        if (range < 1.0 || gravity <= 1.0E-4 || speed <= 0.0) {
+            return 0.0;   // point-blank or a flat shooter: aim straight
+        }
+        double v2 = speed * speed;
+        double disc = v2 * v2 - gravity * (gravity * range * range + 2.0 * dy * v2);
+        if (disc <= 0.0) {
+            return Math.min(range, 30.0);
+        }
+        double tan = (v2 - Math.sqrt(disc)) / (gravity * range);
+        return Math.min(range * tan - dy, 30.0);
     }
 
     // ---- crouch firing stance ----------------------------------------------

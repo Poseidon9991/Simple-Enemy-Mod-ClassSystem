@@ -19,7 +19,6 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.registries.RegistryObject;
 import net.nekoyuni.SimpleEnemyMod.compat.geckolib.GeckoCompat;
 import net.nekoyuni.SimpleEnemyMod.compat.geckolib.GeckoCompatClient;
-import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.RUunitEntity;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.USunitEntity;
 import net.nekoyuni.SimpleEnemyMod.registry.ModEntities;

@@ -1,1 +1,1 @@
-{"parent": "minecraft:item/generated", "textures": {"layer0": "sem_classsystem:item/raf_boots"}}
+{"parent": "minecraft:builtin/entity"}
