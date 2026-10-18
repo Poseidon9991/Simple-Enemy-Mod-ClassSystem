@@ -36,7 +36,6 @@ import java.util.Map;
 //   renders the 3D item badge directly on the matching body bone (chest, belt, back, head).
 public class UnitCuriosRenderLayer<T extends LivingEntity, M extends EntityModel<T>> extends RenderLayer<T, M> {
 
-    private final RenderLayerParent<T, M> parent;
     private final HumanoidModel<T> dummyHumanoid;
     private final RenderLayerParent<T, HumanoidModel<T>> humanoidProxy;
 
@@ -45,7 +44,6 @@ public class UnitCuriosRenderLayer<T extends LivingEntity, M extends EntityModel
 
     public UnitCuriosRenderLayer(RenderLayerParent<T, M> parent, HumanoidModel<T> dummyHumanoid) {
         super(parent);
-        this.parent = parent;
         this.dummyHumanoid = dummyHumanoid;
         this.humanoidProxy = new RenderLayerParent<>() {
             @Override

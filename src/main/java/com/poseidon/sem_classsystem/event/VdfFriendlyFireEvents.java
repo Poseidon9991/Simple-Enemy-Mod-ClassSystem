@@ -5,8 +5,6 @@ import com.poseidon.sem_classsystem.SemClassSystem;                    // MODID 
 import com.poseidon.sem_classsystem.entity.VdfUnitEntity;              // militia identity check
 import com.tacz.guns.api.event.common.EntityHurtByGunEvent;            // TaCZ's cancellable pre-hit event
 import net.minecraft.world.entity.Entity;                              // hurt entity type
-import net.minecraft.world.entity.animal.IronGolem;                    // village golem
-import net.minecraft.world.entity.npc.AbstractVillager;                // villagers + wandering traders
 import net.minecraftforge.eventbus.api.SubscribeEvent;                 // handler annotation
 import net.minecraftforge.fml.common.Mod;                              // subscriber annotation
 
