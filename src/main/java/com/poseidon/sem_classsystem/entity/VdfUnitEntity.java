@@ -101,6 +101,12 @@ public class VdfUnitEntity extends RUunitEntity {
         if (getRole() != null) {
             getRole().getGoals().addGoals(this);
         }
+
+        // Militia duties under the combat core: raid rally outranks the
+        // idle patrol but loses to SEM's own combat goals (priority 1-2).
+        this.goalSelector.addGoal(3, new com.poseidon.sem_classsystem.entity.ai.VdfRaidResponseGoal(this));
+        this.goalSelector.addGoal(4, new com.poseidon.sem_classsystem.entity.ai.VdfPatrolGoal(this));
+        this.goalSelector.addGoal(7, new com.poseidon.sem_classsystem.entity.ai.VdfInteractGoal(this));
     }
 
     // ---- armament -----------------------------------------------------------
