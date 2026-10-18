@@ -42,14 +42,24 @@ public class VillageDefenseSavedData extends SavedData {
     // living-VDF scan takes over as the real gate.
     public boolean recentlyGarrisoned(ResourceKey<Level> dimension, BlockPos pos,
                                       long gameTime, int graceTicks) {
-        Map<Long, Long> dim = this.anchors.getOrDefault(dimension.location().toString(), Map.of());
-        for (Map.Entry<Long, Long> anchor : dim.entrySet()) {
+        Map<Long, Long> dim = this.anchors.get(dimension.location().toString());
+        if (dim == null) {
+            return false;
+        }
+        boolean pruned = false;
+        for (java.util.Iterator<Map.Entry<Long, Long>> it = dim.entrySet().iterator(); it.hasNext();) {
+            Map.Entry<Long, Long> anchor = it.next();
             if (anchor.getValue() + graceTicks < gameTime) {            // stale anchor - doesn't block anymore
+                it.remove();                                            // keep the file bounded to active villages
+                pruned = true;
                 continue;
             }
             if (BlockPos.of(anchor.getKey()).distSqr(pos) <= SAME_VILLAGE_SQR) {
                 return true;                                            // fresh garrison nearby
             }
+        }
+        if (pruned) {
+            setDirty();
         }
         return false;
     }

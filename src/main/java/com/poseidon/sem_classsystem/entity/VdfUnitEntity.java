@@ -77,19 +77,22 @@ public class VdfUnitEntity extends RUunitEntity {
 
         // Retaliate when hit; alert nearby militia so the garrison reacts as
         // one. The varargs are damage sources we NEVER retaliate against -
-        // even if a golem clips the militia (defendersIgnore off, thorns,
-        // stray edge case) the militia never turns on its own village.
+        // villagers/golems/militia are protected, and PmcUnitEntity covers the
+        // PMC + BHQ neutrality pact (BhqUnitEntity extends it): a stray
+        // friendly shot must not start a war with the player's own soldiers.
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this,
                         net.minecraft.world.entity.npc.AbstractVillager.class,
                         net.minecraft.world.entity.animal.IronGolem.class,
-                        VdfUnitEntity.class)
+                        VdfUnitEntity.class,
+                        net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity.class)
                 .setAlertOthers(VdfUnitEntity.class)
                 .setUnseenMemoryTicks(300));
 
         // Raid members first - they get their own goal so raid response can
-        // outrank ambient monsters during an active raid
+        // outrank ambient monsters during an active raid. 32.0 matches the
+        // verticalRange SEM passes on its own units.
         this.targetSelector.addGoal(2, new VerticalAwareTargetGoal<>(
-                this, Raider.class, true, 24.0D));
+                this, Raider.class, true, 32.0D));
 
         // Every other hostile mob in the village's sight bubble (zombies,
         // skeletons, spiders, vexes...) - raiders handled above. The
@@ -97,13 +100,13 @@ public class VdfUnitEntity extends RUunitEntity {
         // this one) IS a Monster, so without it the militia would target
         // itself, its own kind, PMC and BHQ - violating the neutrality pact.
         this.targetSelector.addGoal(3, new VerticalAwareTargetGoal<>(
-                this, Monster.class, true, 24.0D,
+                this, Monster.class, true, 32.0D,
                 e -> !(e instanceof Raider) && !(e instanceof AbstractUnit)));
 
         // SEM's foreign armies - tag checks, NOT instanceof, so VDF (which is
         // in no faction tag) never targets itself
         this.targetSelector.addGoal(3, new VerticalAwareTargetGoal<>(
-                this, LivingEntity.class, true, 24.0D,
+                this, LivingEntity.class, true, 32.0D,
                 e -> UnitFactionTags.isRuUnit(e) || UnitFactionTags.isUsUnit(e)));
 
         // SEM's shared combat package: RangedGunAttackGoal, SeekCoverGoal,

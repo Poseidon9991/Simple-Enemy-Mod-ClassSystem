@@ -33,7 +33,8 @@ public final class VdfFriendlyFireEvents {
         Entity hurt = event.getHurtEntity();
         if (hurt instanceof AbstractVillager               // the villagers being protected
                 || hurt instanceof IronGolem               // the village's other defender
-                || hurt instanceof VdfUnitEntity) {        // militia never shoots militia
+                || hurt instanceof VdfUnitEntity           // militia never shoots militia
+                || hurt instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity) { // PMC + BHQ pact
             event.setCanceled(true);                       // the bullet simply doesn't land
         }
     }
