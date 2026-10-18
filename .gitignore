@@ -39,3 +39,24 @@ debug/
 
 # local asset-generation scripts
 tools/
+toolsout/
+
+# Gradle wrapper jar must stay tracked - required for gradlew on fresh clones
+!gradle/wrapper/gradle-wrapper.jar
+
+# VS Code
+.vscode/
+.factorypath
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+eclipse/
+*.launch
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
