@@ -14,12 +14,14 @@ import net.minecraft.world.item.Item;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.RegisterColorHandlersEvent;
+import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraftforge.client.event.RegisterParticleProvidersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.registries.RegistryObject;
+import com.poseidon.sem_classsystem.entity.VdfUnitEntity;
 import net.nekoyuni.SimpleEnemyMod.compat.geckolib.GeckoCompat;
 import net.nekoyuni.SimpleEnemyMod.compat.geckolib.GeckoCompatClient;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.RUunitEntity;
@@ -66,6 +68,8 @@ public final class ClientEventHandlers {
         // BhqUnitRenderer renders PmcUnitEntity (the generic bound), and
         // EntityType<BhqUnitEntity> satisfies EntityType<? extends PmcUnitEntity>
         event.registerEntityRenderer(SemcsRegistries.BHQ_UNIT.get(), BhqUnitRenderer::new);
+        // Same trick on the RU line: VdfUnitEntity extends RUunitEntity
+        event.registerEntityRenderer(SemcsRegistries.VDF_UNIT.get(), VdfUnitRenderer::new);
     }
 
     @SubscribeEvent
@@ -82,6 +86,15 @@ public final class ClientEventHandlers {
                 HumanoidModel geckoDummy = new HumanoidModel(event.getEntityModels().bakeLayer(ModelLayers.PLAYER_INNER_ARMOR));
                 usRenderer.addLayer(GeckoCompatClient.createArmorLayer((LivingEntityRenderer) usRenderer, geckoDummy));
             }
+            // VDF wears its own armor set - needs the Gecko armor layer too
+            attachGeckoArmorLayer(event, SemcsRegistries.VDF_UNIT.get());
+        }
+
+        // The militia's villager face - sits on the RU rig's head bone
+        LivingEntityRenderer<VdfUnitEntity, ?> vdfRenderer = event.getRenderer(SemcsRegistries.VDF_UNIT.get());
+        if (vdfRenderer != null) {
+            vdfRenderer.addLayer((net.minecraft.client.renderer.entity.layers.RenderLayer) new VdfHeadLayer(
+                    (RenderLayerParent) vdfRenderer, event.getEntityModels()));
         }
 
         if (ModList.get().isLoaded("curios")) {
@@ -89,8 +102,19 @@ public final class ClientEventHandlers {
             attachCuriosLayer(event, SemcsRegistries.BHQ_UNIT.get());
             attachCuriosLayer(event, ModEntities.RUUNIT.get());
             attachCuriosLayer(event, ModEntities.USUNIT.get());
+            attachCuriosLayer(event, SemcsRegistries.VDF_UNIT.get());
         }
 
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static <T extends net.minecraft.world.entity.LivingEntity> void attachGeckoArmorLayer(
+            EntityRenderersEvent.AddLayers event, net.minecraft.world.entity.EntityType<T> type) {
+        LivingEntityRenderer<T, ?> renderer = event.getRenderer(type);
+        if (renderer != null) {
+            HumanoidModel geckoDummy = new HumanoidModel(event.getEntityModels().bakeLayer(ModelLayers.PLAYER_INNER_ARMOR));
+            renderer.addLayer(GeckoCompatClient.createArmorLayer((LivingEntityRenderer) renderer, geckoDummy));
+        }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
