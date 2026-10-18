@@ -74,8 +74,14 @@ public class VdfUnitEntity extends RUunitEntity {
         this.targetSelector.removeAllGoals(goal -> true);               // wipe RU's anti-PMC targets
         this.goalSelector.removeAllGoals(goal -> true);                 // wipe inherited movement goals (re-added below)
 
-        // Retaliate when hit; alert nearby militia so the garrison reacts as one
-        this.targetSelector.addGoal(1, new HurtByTargetGoal(this)
+        // Retaliate when hit; alert nearby militia so the garrison reacts as
+        // one. The varargs are damage sources we NEVER retaliate against -
+        // even if a golem clips the militia (defendersIgnore off, thorns,
+        // stray edge case) the militia never turns on its own village.
+        this.targetSelector.addGoal(1, new HurtByTargetGoal(this,
+                        net.minecraft.world.entity.npc.AbstractVillager.class,
+                        net.minecraft.world.entity.animal.IronGolem.class,
+                        VdfUnitEntity.class)
                 .setAlertOthers(VdfUnitEntity.class)
                 .setUnseenMemoryTicks(300));
 

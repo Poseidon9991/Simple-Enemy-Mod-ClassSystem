@@ -19,6 +19,10 @@ public class VdfUnitRenderer extends RUunitRenderer {
                     SemClassSystem.MODID, "textures/entity/vdf_unit/vdf_unit_0.png"),
             ResourceLocation.fromNamespaceAndPath(
                     SemClassSystem.MODID, "textures/entity/vdf_unit/vdf_unit_1.png"),
+            ResourceLocation.fromNamespaceAndPath(
+                    SemClassSystem.MODID, "textures/entity/vdf_unit/vdf_unit_2.png"),
+            ResourceLocation.fromNamespaceAndPath(
+                    SemClassSystem.MODID, "textures/entity/vdf_unit/vdf_unit_3.png"),
     };
 
     public VdfUnitRenderer(EntityRendererProvider.Context context) {
