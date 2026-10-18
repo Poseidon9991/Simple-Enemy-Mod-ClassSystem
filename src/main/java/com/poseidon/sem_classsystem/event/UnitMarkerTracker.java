@@ -56,6 +56,11 @@ public final class UnitMarkerTracker {
     private static final double SPOT_RANGE = 160.0D;
     private static final double SPOT_RANGE_SQR = SPOT_RANGE * SPOT_RANGE;
 
+    // Per-player last synced state hashes for claims and KIA intel so we only
+    // send those packets when the data or dimension actually changes.
+    private static final Map<UUID, Integer> LAST_CLAIMS_HASH = new java.util.HashMap<>();
+    private static final Map<UUID, Integer> LAST_INTEL_HASH = new java.util.HashMap<>();
+
     private UnitMarkerTracker() {
     }
 
@@ -77,25 +82,34 @@ public final class UnitMarkerTracker {
                     new PacketSyncUnitMarkers(markers));
 
             String dim = level.dimension().location().toString();
-            List<PacketSyncClaims.ClaimEntry> entries = new ArrayList<>();
-            for (Map.Entry<UUID, Set<Long>> owner : claims.allIn(dim).entrySet()) {
-                for (Long pos : owner.getValue()) {
-                    entries.add(new PacketSyncClaims.ClaimEntry(
-                            owner.getKey(), ChunkPos.getX(pos), ChunkPos.getZ(pos)));
+            Map<UUID, Set<Long>> dimClaims = claims.allIn(dim);
+            int claimsHash = 31 * dim.hashCode() + dimClaims.hashCode();
+            Integer prevClaimsHash = LAST_CLAIMS_HASH.put(player.getUUID(), claimsHash);
+            if (prevClaimsHash == null || prevClaimsHash != claimsHash) {
+                List<PacketSyncClaims.ClaimEntry> entries = new ArrayList<>();
+                for (Map.Entry<UUID, Set<Long>> owner : dimClaims.entrySet()) {
+                    for (Long pos : owner.getValue()) {
+                        entries.add(new PacketSyncClaims.ClaimEntry(
+                                owner.getKey(), ChunkPos.getX(pos), ChunkPos.getZ(pos)));
+                    }
                 }
+                SemcsNetwork.CHANNEL.send(
+                        PacketDistributor.PLAYER.with(() -> player),
+                        new PacketSyncClaims(dim, entries));
             }
-            SemcsNetwork.CHANNEL.send(
-                    PacketDistributor.PLAYER.with(() -> player),
-                    new PacketSyncClaims(dim, entries));
 
             // Casualty board for the tablet INTEL app - newest 12 lines.
             List<String> kas = UnitEventLog.get(event.getServer().overworld())
                     .casualties(player.getUUID());
             if (!kas.isEmpty()) {
-                SemcsNetwork.CHANNEL.send(
-                        PacketDistributor.PLAYER.with(() -> player),
-                        new com.poseidon.sem_classsystem.network.PacketSyncIntel(
-                                kas.subList(Math.max(0, kas.size() - 12), kas.size())));
+                List<String> tail = kas.subList(Math.max(0, kas.size() - 12), kas.size());
+                int intelHash = tail.hashCode();
+                Integer prevIntelHash = LAST_INTEL_HASH.put(player.getUUID(), intelHash);
+                if (prevIntelHash == null || prevIntelHash != intelHash) {
+                    SemcsNetwork.CHANNEL.send(
+                            PacketDistributor.PLAYER.with(() -> player),
+                            new com.poseidon.sem_classsystem.network.PacketSyncIntel(tail));
+                }
             }
         }
     }
@@ -103,14 +117,17 @@ public final class UnitMarkerTracker {
     private static List<UnitMarker> collect(ServerLevel level, ServerPlayer viewer) {
         List<UnitMarker> out = new ArrayList<>();
         // Current dimension only - your own units map at any distance, and
-        // strangers must still be "spotted" within SPOT_RANGE.
+        // strangers (plus VDF village militia) must be "spotted" within SPOT_RANGE.
         for (Entity entity : level.getAllEntities()) {
+            boolean isVdf = entity instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity;
             if (!(entity instanceof AbstractUnit unit)
-                    || !WeaponClassSupport.isClassifiable(unit)) {
+                    || (!isVdf && !WeaponClassSupport.isClassifiable(unit))) {
                 continue;
             }
             UnitMarker.Allegiance allegiance;
-            if (unit instanceof PmcUnitEntity pmc && pmc.getOwnerUUID() != null) {
+            if (isVdf) {
+                allegiance = UnitMarker.Allegiance.FRIENDLY;
+            } else if (unit instanceof PmcUnitEntity pmc && pmc.getOwnerUUID() != null) {
                 allegiance = pmc.isOwnedBy(viewer)
                         ? UnitMarker.Allegiance.OWN : UnitMarker.Allegiance.FRIENDLY;
             } else {

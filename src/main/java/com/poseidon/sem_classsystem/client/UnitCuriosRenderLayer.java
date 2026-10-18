@@ -38,11 +38,26 @@ public class UnitCuriosRenderLayer<T extends LivingEntity, M extends EntityModel
 
     private final RenderLayerParent<T, M> parent;
     private final HumanoidModel<T> dummyHumanoid;
+    private final RenderLayerParent<T, HumanoidModel<T>> humanoidProxy;
+
+    private static final Map<Class<?>, java.util.List<Field>> HUMANOID_FIELDS_CACHE =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     public UnitCuriosRenderLayer(RenderLayerParent<T, M> parent, HumanoidModel<T> dummyHumanoid) {
         super(parent);
         this.parent = parent;
         this.dummyHumanoid = dummyHumanoid;
+        this.humanoidProxy = new RenderLayerParent<>() {
+            @Override
+            public HumanoidModel<T> getModel() {
+                return dummyHumanoid;
+            }
+
+            @Override
+            public ResourceLocation getTextureLocation(T e) {
+                return parent.getTextureLocation(e);
+            }
+        };
     }
 
     @Override
@@ -57,23 +72,15 @@ public class UnitCuriosRenderLayer<T extends LivingEntity, M extends EntityModel
             return;
         }
         ModelPart fakeRoot = hModel.root();
+        if (fakeRoot.hasChild("fakeRoot")) {
+            fakeRoot = fakeRoot.getChild("fakeRoot");
+        }
         if (!fakeRoot.hasChild("unit")) {
             return;
         }
-        ModelPart unitBone = fakeRoot.getChild("unit");
-        syncHumanoidFromUnit(unitBone, this.dummyHumanoid);
-
-        RenderLayerParent<T, HumanoidModel<T>> humanoidProxy = new RenderLayerParent<>() {
-            @Override
-            public HumanoidModel<T> getModel() {
-                return dummyHumanoid;
-            }
-
-            @Override
-            public ResourceLocation getTextureLocation(T e) {
-                return parent.getTextureLocation(e);
-            }
-        };
+        final ModelPart resolvedRoot = fakeRoot;
+        final ModelPart unitBone = fakeRoot.getChild("unit");
+        final boolean[] humanoidSynced = {false};
 
         CuriosApi.getCuriosInventory(entity).ifPresent(curiosInv -> {
             for (Map.Entry<String, ICurioStacksHandler> entry : curiosInv.getCurios().entrySet()) {
@@ -105,33 +112,29 @@ public class UnitCuriosRenderLayer<T extends LivingEntity, M extends EntityModel
                     if (isGeckoArmor || stack.getItem() instanceof ArmorItem) {
                         continue;
                     }
+                    if (!humanoidSynced[0]) {
+                        syncHumanoidFromUnit(unitBone, this.dummyHumanoid);
+                        humanoidSynced[0] = true;
+                    }
 
                     SlotContext slotCtx = new SlotContext(slotId, entity, i, cosmetic, true);
                     var rendererOpt = CuriosRendererRegistry.getRenderer(stack.getItem());
                     if (rendererOpt.isPresent()) {
                         ICurioRenderer curioRenderer = rendererOpt.get();
-                        // Two renderer families exist:
-                        // - Bone-attached (Artifacts): embed a HumanoidModel field,
-                        //   synced above, and need the unit-bone transform so the
-                        //   bones' unit-local poses land correctly.
-                        // - Model-space (Superb Warfare goggles/parachute): draw
-                        //   their own geometry where Curios would on a player -
-                        //   entity space. Applying the unit-bone transform here
-                        //   shifts their head-height geometry down to the feet.
                         boolean boneSynced = syncEmbeddedHumanoidModels(curioRenderer, this.dummyHumanoid);
                         poseStack.pushPose();
                         if (boneSynced) {
-                            fakeRoot.translateAndRotate(poseStack);
+                            resolvedRoot.translateAndRotate(poseStack);
                             unitBone.translateAndRotate(poseStack);
                         }
                         try {
-                            curioRenderer.render(stack, slotCtx, poseStack, humanoidProxy, buffer, packedLight,
+                            curioRenderer.render(stack, slotCtx, poseStack, this.humanoidProxy, buffer, packedLight,
                                     limbSwing, limbSwingAmount, partialTicks, ageInTicks, netHeadYaw, headPitch);
                         } catch (Throwable ignored) {
                         }
                         poseStack.popPose();
                     } else {
-                        renderFallbackBadge(poseStack, buffer, packedLight, entity, stack, slotId, i, fakeRoot, unitBone);
+                        renderFallbackBadge(poseStack, buffer, packedLight, entity, stack, slotId, i, resolvedRoot, unitBone);
                     }
                 }
             }
@@ -158,22 +161,32 @@ public class UnitCuriosRenderLayer<T extends LivingEntity, M extends EntityModel
     // animate 1:1 with the unit!
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static boolean syncEmbeddedHumanoidModels(ICurioRenderer renderer, HumanoidModel<?> synced) {
+        java.util.List<Field> fields = HUMANOID_FIELDS_CACHE.computeIfAbsent(renderer.getClass(), cls -> {
+            java.util.List<Field> list = new java.util.ArrayList<>();
+            try {
+                for (Field f : cls.getDeclaredFields()) {
+                    if (HumanoidModel.class.isAssignableFrom(f.getType())) {
+                        f.setAccessible(true);
+                        list.add(f);
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+            return list;
+        });
         boolean found = false;
         try {
-            for (Field f : renderer.getClass().getDeclaredFields()) {
-                if (HumanoidModel.class.isAssignableFrom(f.getType())) {
-                    f.setAccessible(true);
-                    Object obj = f.get(renderer);
-                    if (obj instanceof HumanoidModel hm) {
-                        ((HumanoidModel) synced).copyPropertiesTo(hm);
-                        hm.head.copyFrom(synced.head);
-                        hm.body.copyFrom(synced.body);
-                        hm.rightArm.copyFrom(synced.rightArm);
-                        hm.leftArm.copyFrom(synced.leftArm);
-                        hm.rightLeg.copyFrom(synced.rightLeg);
-                        hm.leftLeg.copyFrom(synced.leftLeg);
-                        found = true;
-                    }
+            for (Field f : fields) {
+                Object obj = f.get(renderer);
+                if (obj instanceof HumanoidModel hm) {
+                    ((HumanoidModel) synced).copyPropertiesTo(hm);
+                    hm.head.copyFrom(synced.head);
+                    hm.body.copyFrom(synced.body);
+                    hm.rightArm.copyFrom(synced.rightArm);
+                    hm.leftArm.copyFrom(synced.leftArm);
+                    hm.rightLeg.copyFrom(synced.rightLeg);
+                    hm.leftLeg.copyFrom(synced.leftLeg);
+                    found = true;
                 }
             }
         } catch (Throwable ignored) {

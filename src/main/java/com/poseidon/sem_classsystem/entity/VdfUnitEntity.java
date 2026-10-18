@@ -78,13 +78,28 @@ public class VdfUnitEntity extends RUunitEntity {
         this.villageCenter = pos;
     }
 
+    // True when a living entity is wearing all 4 pieces of the VDF militia
+    // armor set ("Village Warden" 4-piece bonus: VDF treats the wearer as a
+    // sworn village ally and rallies to their defense).
+    public static boolean isWearingFullVdfSet(@Nullable Entity entity) {
+        if (!(entity instanceof LivingEntity living)) {
+            return false;
+        }
+        return living.getItemBySlot(EquipmentSlot.HEAD).is(SemcsRegistries.VDF_HELMET.get())
+                && living.getItemBySlot(EquipmentSlot.CHEST).is(SemcsRegistries.VDF_VEST.get())
+                && living.getItemBySlot(EquipmentSlot.LEGS).is(SemcsRegistries.VDF_PANTS.get())
+                && living.getItemBySlot(EquipmentSlot.FEET).is(SemcsRegistries.VDF_BOOTS.get());
+    }
+
     // Entities a VDF militia member is sworn never to harm or target:
-    // villagers, golems, fellow VDF militia, and neutral PMC/BHQ operators.
+    // villagers, golems, fellow VDF militia, neutral PMC/BHQ operators, and
+    // anyone wearing the full 4-piece VDF Village Warden armor set.
     public static boolean isProtectedAlly(@Nullable Entity entity) {
         return entity instanceof VdfUnitEntity
                 || entity instanceof AbstractVillager
                 || entity instanceof IronGolem
-                || entity instanceof PmcUnitEntity;
+                || entity instanceof PmcUnitEntity
+                || isWearingFullVdfSet(entity);
     }
 
     @Override

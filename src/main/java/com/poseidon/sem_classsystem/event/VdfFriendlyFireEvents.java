@@ -41,4 +41,38 @@ public final class VdfFriendlyFireEvents {
             event.setCanceled(true);                       // PMC/BHQ bullets never harm VDF militia in crossfire
         }
     }
+
+    // 4-Piece VDF "Village Warden" Set Bonus: when a wearer of the full VDF
+    // militia armor set is attacked by (or attacks) a hostile entity, nearby
+    // idle VDF militia within 28 blocks rally to engage that threat.
+    @SubscribeEvent
+    public static void onWardenCombat(net.minecraftforge.event.entity.living.LivingHurtEvent event) {
+        if (event.getEntity().level().isClientSide()) {
+            return;
+        }
+        net.minecraft.world.entity.LivingEntity victim = event.getEntity();
+        Entity sourceEntity = event.getSource().getEntity();
+        if (!(sourceEntity instanceof net.minecraft.world.entity.LivingEntity attacker)) {
+            return;
+        }
+        net.minecraft.world.entity.LivingEntity warden = null;
+        net.minecraft.world.entity.LivingEntity threat = null;
+        if (VdfUnitEntity.isWearingFullVdfSet(victim) && !VdfUnitEntity.isProtectedAlly(attacker)) {
+            warden = victim;
+            threat = attacker;
+        } else if (VdfUnitEntity.isWearingFullVdfSet(attacker) && !VdfUnitEntity.isProtectedAlly(victim)) {
+            warden = attacker;
+            threat = victim;
+        }
+        if (warden == null || threat == null || threat instanceof net.minecraft.world.entity.player.Player) {
+            return;
+        }
+        final net.minecraft.world.entity.LivingEntity targetThreat = threat;
+        for (VdfUnitEntity vdf : warden.level().getEntitiesOfClass(
+                VdfUnitEntity.class, warden.getBoundingBox().inflate(28.0D), VdfUnitEntity::isAlive)) {
+            if (vdf.getTarget() == null) {
+                vdf.setTarget(targetThreat);
+            }
+        }
+    }
 }

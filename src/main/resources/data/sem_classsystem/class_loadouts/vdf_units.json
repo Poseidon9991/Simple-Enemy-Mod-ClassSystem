@@ -1,0 +1,82 @@
+{
+  "classes": {
+    "rifle": {
+      "ak47": {
+        "gun_id": "tacz:ak47",
+        "ammo_count": 30,
+        "fire_mode": "SEMI"
+      },
+      "type_81": {
+        "gun_id": "tacz:type_81",
+        "ammo_count": 30,
+        "fire_mode": "SEMI"
+      },
+      "sks_tactical": {
+        "gun_id": "tacz:sks_tactical",
+        "ammo_count": 10,
+        "fire_mode": "SEMI"
+      }
+    },
+    "shotgun": {
+      "m870": {
+        "gun_id": "tacz:m870",
+        "ammo_count": 7,
+        "fire_mode": "SEMI"
+      },
+      "spas_12": {
+        "gun_id": "tacz:spas_12",
+        "ammo_count": 8,
+        "fire_mode": "SEMI"
+      }
+    },
+    "smg": {
+      "uzi": {
+        "gun_id": "tacz:uzi",
+        "ammo_count": 32,
+        "fire_mode": "AUTO"
+      },
+      "hk_mp5a5": {
+        "gun_id": "tacz:hk_mp5a5",
+        "ammo_count": 30,
+        "fire_mode": "SEMI"
+      }
+    },
+    "sniper": {
+      "sks_marksman": {
+        "gun_id": "tacz:sks_tactical",
+        "ammo_count": 10,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_qmk152"
+      }
+    },
+    "jack": {
+      "ak47": {
+        "gun_id": "tacz:ak47",
+        "ammo_count": 30,
+        "fire_mode": "SEMI"
+      },
+      "m870": {
+        "gun_id": "tacz:m870",
+        "ammo_count": 7,
+        "fire_mode": "SEMI"
+      }
+    },
+    "pistol": {
+      "m1911": {
+        "gun_id": "tacz:m1911",
+        "ammo_count": 7,
+        "fire_mode": "SEMI"
+      },
+      "cz75": {
+        "gun_id": "tacz:cz75",
+        "ammo_count": 12,
+        "fire_mode": "SEMI"
+      },
+      "deagle": {
+        "gun_id": "tacz:deagle",
+        "ammo_count": 7,
+        "fire_mode": "SEMI"
+      }
+    }
+  }
+}

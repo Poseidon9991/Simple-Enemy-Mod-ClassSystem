@@ -268,8 +268,9 @@ public abstract class MixinUnitAmmoReserve {
             return;
         }
         String tableKey = entity instanceof BhqUnitEntity ? "bhq_units"
+                : (entity instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity ? "vdf_units"
                 : (entity instanceof RUunitEntity ? "ru_units"
-                : (entity instanceof USunitEntity ? "us_units" : "pmc_units"));
+                : (entity instanceof USunitEntity ? "us_units" : "pmc_units")));
         UnitLoadout pistolLoadout = ClassLoadouts.pick(tableKey, WeaponClass.PISTOL, random);
         if (pistolLoadout == null) {
             return;

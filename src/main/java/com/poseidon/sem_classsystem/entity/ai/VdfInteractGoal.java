@@ -18,11 +18,14 @@ public class VdfInteractGoal extends Goal {
     private static final double GREET_RANGE_SQR = 3.5D * 3.5D;          // must be right next to them to chat
     private static final int GREET_TICKS = 50;                          // how long the greeting pause lasts
     private static final int COOLDOWN_TICKS = 400;                      // min ticks between greetings (~20 s)
+    private static final int REPAIR_COOLDOWN_TICKS = 1200;              // min ticks between golem field-patches (60 s)
+    private static final float GOLEM_REPAIR_AMOUNT = 4.0F;              // HP restored when patching up the village golem
 
     private final VdfUnitEntity unit;                                   // the militia unit this goal drives
     private LivingEntity greeted;                                       // the villager/golem we're greeting
     private int greetTicks;                                             // remaining greet duration
     private int cooldown;                                               // ticks until we may greet again
+    private int repairCooldown;                                         // ticks until we may patch a golem again
 
     public VdfInteractGoal(VdfUnitEntity unit) {
         this.unit = unit;                                               // store the unit for all goal phases
@@ -31,6 +34,9 @@ public class VdfInteractGoal extends Goal {
 
     @Override
     public boolean canUse() {
+        if (this.repairCooldown > 0) {
+            this.repairCooldown--;
+        }
         if (this.cooldown > 0) {                                        // greeted recently - leave them be
             this.cooldown--;
             return false;
@@ -54,6 +60,18 @@ public class VdfInteractGoal extends Goal {
     @Override
     public void start() {
         this.greetTicks = GREET_TICKS;                                  // hold the pose for a couple of seconds
+        if (this.greeted instanceof IronGolem golem
+                && golem.getHealth() < golem.getMaxHealth()
+                && this.repairCooldown <= 0) {
+            golem.heal(GOLEM_REPAIR_AMOUNT);                            // field-patch the village's iron defender
+            this.repairCooldown = REPAIR_COOLDOWN_TICKS;
+            this.unit.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            this.unit.level().playSound(null, golem.blockPosition(),
+                    SoundEvents.IRON_GOLEM_REPAIR,
+                    this.unit.getSoundSource(), 1.0F,
+                    0.95F + this.unit.getRandom().nextFloat() * 0.1F);
+            return;
+        }
         this.unit.level().playSound(null, this.unit.blockPosition(),    // the signature villager "hmm"
                 SoundEvents.VILLAGER_YES,
                 this.unit.getSoundSource(), 1.0F,
