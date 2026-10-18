@@ -16,6 +16,7 @@ import net.minecraft.world.item.Items;                                // IRON_SW
 import net.minecraft.world.level.ServerLevelAccessor;                 // finalizeSpawn signature arg
 import net.minecraft.world.level.Level;                               // entity world reference
 import net.nekoyuni.SimpleEnemyMod.entity.ai.goals.VerticalAwareTargetGoal;  // SEM's 3D-aware nearest-target goal
+import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;           // all SEM units are Monsters - target exclusion
 import net.nekoyuni.SimpleEnemyMod.entity.ai.roles.utils.UnitRole;    // SEM role enum (DEFAULT = combat core)
 import net.nekoyuni.SimpleEnemyMod.entity.equipment.RuWeaponEquipper; // RU gun kit - unlimited ammo path
 import net.nekoyuni.SimpleEnemyMod.entity.unit.RUunitEntity;          // enemy-line unit base (no inventory, no owner)
@@ -91,9 +92,13 @@ public class VdfUnitEntity extends RUunitEntity {
                 this, Raider.class, true, 24.0D));
 
         // Every other hostile mob in the village's sight bubble (zombies,
-        // skeletons, spiders, vexes...) - raiders excluded above
+        // skeletons, spiders, vexes...) - raiders handled above. The
+        // AbstractUnit exclusion is LOAD-BEARING: every SEM unit (including
+        // this one) IS a Monster, so without it the militia would target
+        // itself, its own kind, PMC and BHQ - violating the neutrality pact.
         this.targetSelector.addGoal(3, new VerticalAwareTargetGoal<>(
-                this, Monster.class, true, 24.0D, e -> !(e instanceof Raider)));
+                this, Monster.class, true, 24.0D,
+                e -> !(e instanceof Raider) && !(e instanceof AbstractUnit)));
 
         // SEM's foreign armies - tag checks, NOT instanceof, so VDF (which is
         // in no faction tag) never targets itself

@@ -14,7 +14,6 @@ import net.minecraft.world.item.Item;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.RegisterColorHandlersEvent;
-import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraftforge.client.event.RegisterParticleProvidersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
@@ -64,6 +63,11 @@ public final class ClientEventHandlers {
     }
 
     @SubscribeEvent
+    public static void onRegisterLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
+        event.registerLayerDefinition(VdfUnitModel.LAYER_LOCATION, VdfUnitModel::createBodyLayer);
+    }
+
+    @SubscribeEvent
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         // BhqUnitRenderer renders PmcUnitEntity (the generic bound), and
         // EntityType<BhqUnitEntity> satisfies EntityType<? extends PmcUnitEntity>
@@ -88,13 +92,6 @@ public final class ClientEventHandlers {
             }
             // VDF wears its own armor set - needs the Gecko armor layer too
             attachGeckoArmorLayer(event, SemcsRegistries.VDF_UNIT.get());
-        }
-
-        // The militia's villager face - sits on the RU rig's head bone
-        LivingEntityRenderer<VdfUnitEntity, ?> vdfRenderer = event.getRenderer(SemcsRegistries.VDF_UNIT.get());
-        if (vdfRenderer != null) {
-            vdfRenderer.addLayer((net.minecraft.client.renderer.entity.layers.RenderLayer) new VdfHeadLayer(
-                    (RenderLayerParent) vdfRenderer, event.getEntityModels()));
         }
 
         if (ModList.get().isLoaded("curios")) {

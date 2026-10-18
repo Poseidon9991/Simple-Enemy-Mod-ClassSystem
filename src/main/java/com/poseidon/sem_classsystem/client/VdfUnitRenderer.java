@@ -27,6 +27,9 @@ public class VdfUnitRenderer extends RUunitRenderer {
 
     public VdfUnitRenderer(EntityRendererProvider.Context context) {
         super(context);
+        // Swap the borrowed RU rig for our own: same bones (animations and
+        // gun-layer anchor survive) but villager geometry - nose included.
+        this.model = new VdfUnitModel(context.bakeLayer(VdfUnitModel.LAYER_LOCATION));
     }
 
     @Override
