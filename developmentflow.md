@@ -245,6 +245,19 @@ sequenceDiagram
    - `TAIL`: Re-applies attributes from the current server config.
    - **Legacy Migration**: If a unit was created before `sem_classsystem` existed (`semcs_weapon_class` is absent), the mod reads the gun in its hand and calls `ClassLoadouts.inferClass(gunId)` to assign the matching class without re-rolling a random weapon.
 
+### VDF Village Garrison Flow
+
+The VDF (`VdfUnitEntity`, RU-enemy line: no owner, no inventory GUI, unlimited gun ammo) does not use SEM's class pipeline — it overrides `equipRandomGun()` to roll `[vdf] gunnerChance` (RU weapon kit vs. iron melee) and `setupRoleGoals()` to replace RU's anti-PMC target list with raiders → monsters → `ru_units`/`us_units` tag members.
+
+Garrisons spawn through `VdfGarrisonEvents.onVillagerJoin` (`EntityJoinLevelEvent` on `Villager`):
+
+1. Nearest `MEETING` POI (village bell) within 96 blocks — no bell, no militia.
+2. `VillageDefenseSavedData` (`semcs_vdf_garrisons`, overworld `dataStorage`) debounces group-joins per bell anchor (200-tick window).
+3. Living-VDF scan within 96 blocks is the real re-garrison gate — wipe the militia and the next *new* villager arrival re-arms the village.
+4. `garrisonSize` units spawn collision-checked around the bell via `finalizeSpawn(NATURAL)`, each anchored with `setVillageCenter(bell)` (persisted as `vdfCenter` in entity NBT for patrol/raid goals).
+
+Village safety is layered: target selection never includes villagers/golems/militia, `HurtByTargetGoal` ignore-classes block retaliation against them, and `VdfFriendlyFireEvents` cancels `EntityHurtByGunEvent.Pre` so stray militia bullets pass through villagers harmlessly. `defendersIgnoreVDF` (default true) keeps iron golems from attacking the garrison; `VdfDropEvents` adds the uncraftable armor rolls (player-kill only) on `LivingDropsEvent`.
+
 ---
 
 ## 4. The Combat & Tactical AI Engine
@@ -298,6 +311,14 @@ $$\text{Soldier Profile} = \text{UnitClass (Faction)} \times \text{WeaponClass (
 | **4** | `UnitMedicHealGoal` | Medic Only | Breaks combat to heal wounded squadmates within 24 blocks; triages downed allies first and revives them. |
 | **6** | `UnitLootGoal` | Owned PMC & BHQ | Scavenges nearby worthwhile drops (matching ammo, food, medical, guns, armour, ammo boxes) into storage slots while idle; pings the owner per pickup (throttled). |
 | **9** | `UnitWeaponFallbackGoal`| All Units | Swaps to backup pistol when primary magazine & reserve ammo run dry. |
+
+The VDF adds its own goal layer (registered in `VdfUnitEntity.setupRoleGoals`, on top of SEM's DEFAULT-role combat package):
+
+| Priority | Goal Class | Functional Description |
+|---|---|---|
+| **3** | `VdfRaidResponseGoal` | `ServerLevel.getRaidAt()` detects an active raid at the anchored village → horn hum on raid start, converge on the bell while raiders live. |
+| **4** | `VdfPatrolGoal` | Waypoint loop between village POIs (bells/beds/workstations via `PoiManager`), leashed to `[vdf] patrolRadius` of the anchor — never chases out of the village. |
+| **7** | `VdfInteractGoal` | Idle within ~3 blocks of a villager or iron golem → face it, pause, `VILLAGER_YES` hum. |
 
 ### Class Tactical Implementations
 

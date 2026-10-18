@@ -37,7 +37,7 @@
 
 A squad is no longer three identical riflemen. Now you'll face a **Breacher** pushing close with an SMG, a **Camper** calculating ballistic lead from a ridge, a **Suppressor** laying down continuous tracer fire to pin targets, a **Demolisher** walking explosive rounds over cover, and an adaptive **Jack** dynamically flexing between combat roles.
 
-On top of specialized AI, this addon adds **10 custom 3D GeckoLib tactical armor sets** (41 pieces total) with tailored bullet-damage resistance and survival recipes, **BHQ elite operators**, **field medics and self-heal logistics**, **squad command tools** (Field Tablet, Rally Whistle, Guard Posts, chunk-claim map control), **night raid ambushes**, **unit veterancy**, **Xaero's World Map integration**, **WTHIT (WAILA) HUD support**, and a dedicated creative tab with **33 custom spawn eggs**.
+On top of specialized AI, this addon adds **11 custom 3D GeckoLib tactical armor sets** (45 pieces total) with tailored bullet-damage resistance and survival recipes, **BHQ elite operators**, **field medics and self-heal logistics**, **squad command tools** (Field Tablet, Rally Whistle, Guard Posts, chunk-claim map control), **night raid ambushes**, **unit veterancy**, **Xaero's World Map integration**, **WTHIT (WAILA) HUD support**, and a dedicated creative tab with **33 custom spawn eggs**.
 
 > **Note:** This addon is built for Minecraft 1.20.1 (Forge). Back up your worlds before installing, and tweak the common configuration to match your pack's balance.
 
@@ -207,12 +207,25 @@ When Xaero's World Map is installed, the map becomes a real RTS surface:
 
 ***
 
+### 🏘️ Village Defense Force (VDF)
+
+Villages now raise their own militia. The first time villagers settle near a bell, a one-time **garrison** (default 3, `[vdf] garrisonSize`) musters around the meeting point — a villager-faced soldier with a genuine nose, built on SEM's enemy-unit line. They can't be recruited, commanded, or inventory-looted: the militia answers only to the village.
+
+*   **Militia loadout:** ~60% roll as gunners (`[vdf] gunnerChance`) on the RU weapon kit with **unlimited ammo**; the rest patrol as melee militia with iron swords and axes.
+*   **Village AI:** patrols a waypoint loop between village POIs (bells, beds, workstations), rallies to the center when a **raid** starts with a horn-blast hum, and idles up to villagers and iron golems for a friendly `VILLAGER_YES` hum.
+*   **Faction matrix:** neutral to players, PMC, and BHQ — hostile to zombies and other monsters, **raiders**, and invading **RU / US** units. Never targets villagers, golems, or its own militia — and stray militia bullets are vetoed outright (`EntityHurtByGunEvent.Pre` cancels the hit), so crossfire can't hurt the people they protect.
+*   **Re-garrison rule:** if the militia is wiped out, the next *new* villager arrival re-arms the village. Dead stays dead until life returns.
+*   **Militia armor:** an uncraftable 4-piece set (pot helm, scrap vest, field pants, boots) drops at `[vdf] armorDropChance` (default 3% per piece) on player kills only — militia gear is a trophy, not a farm.
+*   Iron golems leave them alone by default (`defendersIgnoreVDF = true`).
+
+***
+
 ## 🪖 Tactical 3D Armor Sets (GeckoLib)
 
-The mod includes **10 complete tactical armor sets (41 individual pieces)** with custom 3D models and textures powered by **GeckoLib**. Each set renders in full 3D on both **players** and **soldiers**, featuring tailored defense, durability, toughness, knockback resistance, and authentic TaCZ bullet-reduction stats.
+The mod includes **11 complete tactical armor sets (45 individual pieces)** with custom 3D models and textures powered by **GeckoLib**. Each set renders in full 3D on both **players** and **soldiers**, featuring tailored defense, durability, toughness, knockback resistance, and authentic TaCZ bullet-reduction stats.
 
 <p align="center">
-  <i>All 41 armor pieces are craftable in survival and accessible in the creative tab.</i>
+  <i>41 pieces are craftable in survival; the VDF militia set is uncraftable and only drops from fallen militia.</i>
 </p>
 
 ### 👕 Armor Sets Overview
@@ -227,6 +240,7 @@ The mod includes **10 complete tactical armor sets (41 individual pieces)** with
 8.  <img src="src/main/resources/assets/sem_classsystem/textures/item/pmc_helmet.png" width="18"> **PMC Contractor Set** *(4 pieces)* — Private-military operator kit: Ops-Core FAST ballistic helmet, Contractor Plate Carrier, Operator Cargo Pants, and Contractor Tactical Boots.
 9.  <img src="src/main/resources/assets/sem_classsystem/textures/item/ru_helmet.png" width="18"> **RU Ratnik Set** *(4 pieces)* — Russian infantry kit: Ratnik 6B47 ballistic helmet, 6B45 plate carrier, VKPO EMR combat trousers, and Ratnik combat boots.
 10. <img src="src/main/resources/assets/sem_classsystem/textures/item/us_helmet.png" width="18"> **US IOTV Set** *(4 pieces)* — American infantry kit: ACH ballistic helmet, IOTV tactical plate carrier, OCP combat pants, and Coyote combat boots.
+11. <img src="src/main/resources/assets/sem_classsystem/textures/item/vdf_helmet.png" width="18"> **VDF Militia Set** *(4 pieces)* — Village Defense Force improvised kit: worn militia pot helm, scrap-plate vest, field pants, and militia boots in olive-drab. **Uncraftable** — drops off fallen VDF at 3% per piece on player kills.
 
 ### 🛡️ Armor Stats & TaCZ Bullet Protection
 
@@ -244,6 +258,7 @@ TaCZ splits projectile hits into regular bullet damage (`tacz:bullet`, mitigated
 | **US IOTV** | 3 / 8 / 6 / 3 (20) | +1.5 | +0.05 | ×28 | Iron Ingot | **~68%** (Modern Infantry) |
 | **PMC Contractor** | 4 / 8 / 6 / 3 (21) | +1.5 | +0.10 | ×30 | Netherite Scrap | **~70%** (Elite Operator) |
 | **Suppressor** | 4 / 9 / 6 / 3 (22) | +2.0 | +0.20 | ×40 | Netherite Ingot | **~79%** (Maximum Ballistic) |
+| **VDF Militia** | 3 / 5 / 4 / 2 (14) | +0.5 | 0.0 | ×20 | Leather | **~42%** (Improvised Militia) |
 
 ### 🔨 Survival Crafting Recipes
 
@@ -256,6 +271,7 @@ All 41 pieces are crafted on a vanilla Crafting Table. The faction sets use them
 *   **Demolisher Set:** Diamond base + Iron Block center core.
 *   **Suppressor Set:** Diamond base + Netherite Ingot center core.
 *   **PMC / RU / US Sets:** Iron chestplate core + leather and faction-colored wool (black, green, and yellow respectively).
+*   **VDF Militia Set:** **Uncraftable** — no recipes by design. Each piece drops at 3% from VDF militia killed by a player.
 
 ***
 
