@@ -20,7 +20,11 @@ public enum UnitClass {
     PMC_UNIT("pmc_unit", "PMC Soldier"),
     // BHQ operators -> [bhq_unit] section (our own elite PMC variant;
     // sits in SEM's pmc_units tag but gets its own stat profile)
-    BHQ_UNIT("bhq_unit", "BHQ Operator");
+    BHQ_UNIT("bhq_unit", "BHQ Operator"),
+    // VDF militia -> [vdf_unit] section (village garrison; RU-lineage
+    // entity but in NO faction tag - instanceof check below is the only
+    // way UnitClass.of() can ever see it)
+    VDF_UNIT("vdf_unit", "VDF Militia");
 
     // Name of the [section] this faction uses in sem_classsystem-server.toml
     private final String configSection;
@@ -58,6 +62,12 @@ public enum UnitClass {
         // operator would resolve as PMC_UNIT and get the worse stats.
         if (entity instanceof com.poseidon.sem_classsystem.entity.BhqUnitEntity) {
             return BHQ_UNIT;
+        }
+        // VDF extends RUunitEntity but is deliberately in NO faction tag -
+        // without this instanceof branch it falls through to null and loses
+        // its [vdf_unit] stat profile + faction identity in combat checks.
+        if (entity instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
+            return VDF_UNIT;
         }
         // SEM tags RU entities with simpleenemymod:ru_units -> this checks that tag
         if (UnitFactionTags.isRuUnit(entity)) {

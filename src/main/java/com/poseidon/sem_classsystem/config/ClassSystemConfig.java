@@ -66,6 +66,13 @@ public class ClassSystemConfig {
     private static ForgeConfigSpec.DoubleValue DOWNED_REVIVE_FRAC;
     private static ForgeConfigSpec.BooleanValue LOOT_PICKUP;
 
+    // ---- [vdf]: Village Defense Force garrison + militia tuning --------
+    private static ForgeConfigSpec.BooleanValue VDF_ENABLED;
+    private static ForgeConfigSpec.IntValue VDF_GARRISON_SIZE;
+    private static ForgeConfigSpec.DoubleValue VDF_GUNNER_CHANCE;
+    private static ForgeConfigSpec.DoubleValue VDF_PATROL_RADIUS;
+    private static ForgeConfigSpec.DoubleValue VDF_ARMOR_DROP_CHANCE;
+
     // static {} runs once at class load - defines ALL keys before register()
     static {
 
@@ -232,8 +239,10 @@ public class ClassSystemConfig {
 
         for (UnitClass unitClass : UnitClass.values()) {
             // PMC + BHQ default to true: recruited allies should not be
-            // attacked by the player's own village. RU/US stay hostile.
-            boolean def = unitClass == UnitClass.PMC_UNIT || unitClass == UnitClass.BHQ_UNIT;
+            // attacked by the player's own village. VDF is the village's
+            // own militia - golems must never turn on them. RU/US stay hostile.
+            boolean def = unitClass == UnitClass.PMC_UNIT || unitClass == UnitClass.BHQ_UNIT
+                    || unitClass == UnitClass.VDF_UNIT;
             // RU_UNIT -> "RU" -> key "defendersIgnoreRU" etc.
             String key = "defendersIgnore" + unitClass.name().split("_")[0];
             DEFENDER_IGNORE.put(unitClass, BUILDER.comment(
@@ -253,6 +262,32 @@ public class ClassSystemConfig {
                 .comment("Amount of the recruit item required to hire a BHQ operator")
                 .defineInRange("price", 32, 1, 64);
         BUILDER.pop();   // close [bhq_recruit]
+
+        // ================= VDF (Village Defense Force) =================
+        BUILDER.push("vdf");
+        BUILDER.comment(
+                "Village Defense Force: a village militia garrison that",
+                "spawns once when a village's first villager arrives, patrols",
+                "between POIs, answers pillager raids, and fights monsters",
+                "plus RU/US intruders. Neutral to players, PMC and BHQ.",
+                "Unrecruitable, inventory-free, unlimited ammo.");
+        VDF_ENABLED = BUILDER
+                .comment("Enable VDF village garrisons")
+                .define("enabled", true);
+        VDF_GARRISON_SIZE = BUILDER
+                .comment("Militia units spawned per village garrison")
+                .defineInRange("garrisonSize", 3, 0, 12);
+        VDF_GUNNER_CHANCE = BUILDER
+                .comment("Chance a militia member spawns with a gun",
+                        "(rest carry iron melee weapons)")
+                .defineInRange("gunnerChance", 0.6, 0.0, 1.0);
+        VDF_PATROL_RADIUS = BUILDER
+                .comment("How far from the village bell militia may patrol/chase")
+                .defineInRange("patrolRadius", 64.0, 16.0, 256.0);
+        VDF_ARMOR_DROP_CHANCE = BUILDER
+                .comment("Chance each VDF armor piece drops on militia death")
+                .defineInRange("armorDropChance", 0.03, 0.0, 1.0);
+        BUILDER.pop();   // close [vdf]
 
         // ================= NIGHT RAIDS =================
         BUILDER.push("night_raids");
@@ -404,19 +439,35 @@ public class ClassSystemConfig {
     // RU/US/PMC keep SEM's vanilla-feel numbers (20 HP / 0.27 / 96 / x1.0).
     // BHQ is the elite tier: tougher, faster, spots further, shoots straighter.
     private static double factionHealthDefault(UnitClass c) {
-        return c == UnitClass.BHQ_UNIT ? 35.0 : 20.0;
+        return switch (c) {
+            case BHQ_UNIT -> 35.0;
+            case VDF_UNIT -> 22.0;      // militia: a touch tougher than line troops
+            default -> 20.0;
+        };
     }
 
     private static double factionSpeedDefault(UnitClass c) {
-        return c == UnitClass.BHQ_UNIT ? 0.30 : 0.27;
+        return switch (c) {
+            case BHQ_UNIT -> 0.30;
+            case VDF_UNIT -> 0.28;      // brisk patrol pace
+            default -> 0.27;
+        };
     }
 
     private static double factionRangeDefault(UnitClass c) {
-        return c == UnitClass.BHQ_UNIT ? 112.0 : 96.0;
+        return switch (c) {
+            case BHQ_UNIT -> 112.0;
+            case VDF_UNIT -> 80.0;      // defends the village, not the horizon
+            default -> 96.0;
+        };
     }
 
     private static double factionSpreadDefault(UnitClass c) {
-        return c == UnitClass.BHQ_UNIT ? 0.65 : 1.0;
+        return switch (c) {
+            case BHQ_UNIT -> 0.65;
+            case VDF_UNIT -> 1.15;      // farmers with rifles - looser groupings
+            default -> 1.0;
+        };
     }
 
     // ---- per-class default multipliers (match the README table) ----
@@ -936,6 +987,48 @@ public class ClassSystemConfig {
             return OFFLINE_REPORT.get();
         } catch (IllegalStateException notLoadedYet) {
             return true;
+        }
+    }
+
+    // ---- [vdf] accessors ------------------------------------------------
+
+    public static boolean vdfEnabled() {
+        try {
+            return VDF_ENABLED.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return true;
+        }
+    }
+
+    public static int vdfGarrisonSize() {
+        try {
+            return VDF_GARRISON_SIZE.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 3;
+        }
+    }
+
+    public static double vdfGunnerChance() {
+        try {
+            return VDF_GUNNER_CHANCE.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 0.6;
+        }
+    }
+
+    public static double vdfPatrolRadius() {
+        try {
+            return VDF_PATROL_RADIUS.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 64.0;
+        }
+    }
+
+    public static double vdfArmorDropChance() {
+        try {
+            return VDF_ARMOR_DROP_CHANCE.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 0.03;
         }
     }
 

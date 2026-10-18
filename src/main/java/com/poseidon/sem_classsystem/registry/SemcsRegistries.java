@@ -6,6 +6,7 @@ import com.poseidon.sem_classsystem.block.BhqRecruitTableBlock;
 import com.poseidon.sem_classsystem.block.GuardPostBlock;
 import com.poseidon.sem_classsystem.block.GuardPostBlockEntity;
 import com.poseidon.sem_classsystem.entity.BhqUnitEntity;
+import com.poseidon.sem_classsystem.entity.VdfUnitEntity;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.item.BhqArmorItem;
 import com.poseidon.sem_classsystem.item.ClassSpawnEggItem;
@@ -124,6 +125,17 @@ public final class SemcsRegistries {
                             .sized(0.6F, 1.95F)
                             .clientTrackingRange(256)
                             .build("bhqunit"));
+
+    // ---- VDF militia ------------------------------------------------------
+    // Village Defense Force - RU-lineage entity (no inventory, no owner,
+    // unlimited ammo) that garrisons villages. Same box + tracking as the
+    // other unit types.
+    public static final RegistryObject<EntityType<VdfUnitEntity>> VDF_UNIT =
+            ENTITY_TYPES.register("vdfunit",
+                    () -> EntityType.Builder.of(VdfUnitEntity::new, MobCategory.MONSTER)
+                            .sized(0.6F, 1.95F)
+                            .clientTrackingRange(256)
+                            .build("vdfunit"));
 
     // ---- BHQ recruit table ------------------------------------------------
     public static final RegistryObject<Block> BHQ_RECRUIT_TABLE = BLOCKS.register(
@@ -324,6 +336,20 @@ public final class SemcsRegistries {
             )
     );
 
+    // VDF egg uses the DEFAULT (enemy-line) role - militia fight as lone
+    // wolves, never as commandable squad members.
+    // Colors: farmer tan shell + work-worn brown spots.
+    public static final RegistryObject<Item> VDF_UNIT_SPAWN_EGG = ITEMS.register(
+            "vdf_unit_spawn_egg",
+            () -> new RoleSpawnEggItem(
+                    VDF_UNIT::get,
+                    0x7A5C2E,   // primary - militia tan
+                    0x4E3B1F,   // secondary - worn brown
+                    new Item.Properties().stacksTo(64),
+                    UnitRole.DEFAULT
+            )
+    );
+
     // ---- per-class spawn eggs ----------------------------------------------
     // One egg per (faction x main weapon class): 4 factions x 7 classes.
     // Egg colour = faction base, spots = class accent. PISTOL is a subclass -
@@ -412,6 +438,7 @@ public final class SemcsRegistries {
                         output.accept(SQUAD_WHISTLE.get());
                         output.accept(FIELD_TABLET.get());
                         output.accept(BHQ_UNIT_SPAWN_EGG.get());
+                        output.accept(VDF_UNIT_SPAWN_EGG.get());
                         for (RegistryObject<Item> egg : CLASS_SPAWN_EGGS) {
                             output.accept(egg.get());
                         }
@@ -458,6 +485,7 @@ public final class SemcsRegistries {
         @SubscribeEvent
         public static void registerAttributes(EntityAttributeCreationEvent event) {
             event.put(BHQ_UNIT.get(), BhqUnitEntity.createAttributes().build());
+            event.put(VDF_UNIT.get(), VdfUnitEntity.createAttributes().build());
         }
 
         // Put our items in vanilla creative tabs so players can find them
@@ -476,6 +504,7 @@ public final class SemcsRegistries {
             }
             if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
                 event.accept(BHQ_UNIT_SPAWN_EGG.get());
+                event.accept(VDF_UNIT_SPAWN_EGG.get());
                 for (RegistryObject<Item> egg : CLASS_SPAWN_EGGS) {
                     event.accept(egg.get());
                 }

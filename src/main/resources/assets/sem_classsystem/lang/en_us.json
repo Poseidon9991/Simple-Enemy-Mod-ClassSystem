@@ -1,6 +1,7 @@
 {
   "itemGroup.sem_classsystem": "SEM Class System",
   "entity.sem_classsystem.bhqunit": "BHQ Operator",
+  "entity.sem_classsystem.vdfunit": "Village Defense Force",
   "block.sem_classsystem.bhq_recruit_table": "BHQ Recruit Table",
   "block.sem_classsystem.guard_post": "Guard Post",
   "block.sem_classsystem.ration_crate": "Ration Crate",
@@ -48,6 +49,7 @@
   "item.sem_classsystem.pmc_pants": "Operator Cargo Pants",
   "item.sem_classsystem.pmc_boots": "Contractor Tactical Boots",
   "item.sem_classsystem.bhq_unit_spawn_egg": "BHQ Operator Spawn Egg",
+  "item.sem_classsystem.vdf_unit_spawn_egg": "VDF Militia Spawn Egg",
   "item.sem_classsystem.ru_smg_spawn_egg": "RU Breacher Spawn Egg",
   "item.sem_classsystem.ru_rifle_spawn_egg": "RU Rifleman Spawn Egg",
   "item.sem_classsystem.ru_shotgun_spawn_egg": "RU Sweeper Spawn Egg",

@@ -266,6 +266,7 @@ public final class UnitMarkerTracker {
             case US_UNIT -> 0x4A7BC0;      // NATO blue
             case PMC_UNIT -> 0x9C8B6B;     // contractor tan
             case BHQ_UNIT -> 0x4BC06A;     // royal green
+            case VDF_UNIT -> 0x7A5C2E;     // militia earth
         };
     }
 }
