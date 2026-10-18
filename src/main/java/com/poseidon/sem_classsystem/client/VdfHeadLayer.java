@@ -16,8 +16,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.nekoyuni.SimpleEnemyMod.entity.client.ru_unit.RUunitModel;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.RUunitEntity;
 
-import java.util.NoSuchElementException;
-
 // Renders a genuine villager head - nose, brim and all - on top of the
 // soldier body. The head mesh comes from the vanilla VillagerModel layer
 // (we grab its "head" part, which carries nose+brim children) and follows
@@ -54,17 +52,18 @@ public class VdfHeadLayer extends RenderLayer<RUunitEntity, RUunitModel<RUunitEn
         poseStack.popPose();
     }
 
-    // SEM bakes its rig as fakeRoot > unit > head (seen in RUunitModel's
-    // createBodyLayer). Looked up once, cached forever; a missing bone
-    // disables the layer instead of crashing the renderer.
+    // SEM rigs nest the skeleton under "unit" - RUunitModel wraps it in a
+    // "fakeRoot" first while other rigs hang it straight off root. Handle
+    // both shapes, cache the hit, and a missing bone disables the layer
+    // instead of crashing the renderer.
     private ModelPart rigHead() {
         if (this.rigHead == null) {
-            try {
-                this.rigHead = getParentModel().root()
-                        .getChild("fakeRoot").getChild("unit").getChild("head");
-            } catch (NoSuchElementException missing) {
-                return null;
-            }
+            ModelPart root = getParentModel().root();
+            ModelPart unit = root.hasChild("fakeRoot") ? root.getChild("fakeRoot")
+                    : root.hasChild("unit") ? root : null;
+            this.rigHead = unit != null && unit.hasChild("unit") && unit.getChild("unit").hasChild("head")
+                    ? unit.getChild("unit").getChild("head")
+                    : null;
         }
         return this.rigHead;
     }

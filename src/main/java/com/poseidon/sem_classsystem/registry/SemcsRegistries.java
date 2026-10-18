@@ -302,6 +302,18 @@ public final class SemcsRegistries {
     public static final RegistryObject<Item> RU_BOOTS = ITEMS.register("ru_boots",
             () -> new BhqArmorItem("ru_boots", ArmorItem.Type.BOOTS));
 
+    // ---- VDF militia set ----------------------------------------------------
+    // Uncraftable by design - no recipes ship. The militia's improvised kit
+    // only enters circulation as a rare drop off fallen VDF.
+    public static final RegistryObject<Item> VDF_HELMET = ITEMS.register("vdf_helmet",
+            () -> new BhqArmorItem("vdf_helmet", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> VDF_VEST = ITEMS.register("vdf_vest",
+            () -> new BhqArmorItem("vdf_vest", ArmorItem.Type.CHESTPLATE));
+    public static final RegistryObject<Item> VDF_PANTS = ITEMS.register("vdf_pants",
+            () -> new BhqArmorItem("vdf_pants", ArmorItem.Type.LEGGINGS));
+    public static final RegistryObject<Item> VDF_BOOTS = ITEMS.register("vdf_boots",
+            () -> new BhqArmorItem("vdf_boots", ArmorItem.Type.BOOTS));
+
     // ---- US (OCP MultiCam) set ---------------------------------------------
     public static final RegistryObject<Item> US_HELMET = ITEMS.register("us_helmet",
             () -> new BhqArmorItem("us_helmet", ArmorItem.Type.HELMET));
@@ -435,6 +447,10 @@ public final class SemcsRegistries {
                         output.accept(PMC_VEST.get());
                         output.accept(PMC_PANTS.get());
                         output.accept(PMC_BOOTS.get());
+                        output.accept(VDF_HELMET.get());
+                        output.accept(VDF_VEST.get());
+                        output.accept(VDF_PANTS.get());
+                        output.accept(VDF_BOOTS.get());
                         output.accept(SQUAD_WHISTLE.get());
                         output.accept(FIELD_TABLET.get());
                         output.accept(BHQ_UNIT_SPAWN_EGG.get());
