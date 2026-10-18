@@ -104,6 +104,9 @@ public abstract class MixinGeckoArmorTexture {
     @Unique
     private void semcs$syncHierarchicalUnitParts(HierarchicalModel<?> hModel) {
         ModelPart root = hModel.root();
+        if (root.hasChild("fakeRoot")) {
+            root = root.getChild("fakeRoot");
+        }
         if (!root.hasChild("unit")) {
             return;
         }

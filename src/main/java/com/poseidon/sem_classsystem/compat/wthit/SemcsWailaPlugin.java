@@ -53,16 +53,22 @@ public class SemcsWailaPlugin implements IWailaPlugin {
         public void appendData(IDataWriter data, IServerAccessor<AbstractUnit> accessor,
                                IPluginConfig config) {
             AbstractUnit unit = accessor.getTarget();
+            var faction = com.poseidon.sem_classsystem.faction.UnitClass.of(unit);
+            CompoundTag raw = data.raw();
+            if (faction != null) {
+                raw.putString(TAG_FACTION, faction.name().split("_")[0]);   // "RU","PMC","BHQ","VDF"
+            }
+            if (unit instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
+                boolean melee = com.poseidon.sem_classsystem.entity.ai.UnitMeleeAttackGoal
+                        .isMeleeWeapon(unit.getMainHandItem());
+                raw.putString(TAG_CLASS, melee ? "VDF_MELEE" : "VDF_GUNNER");
+                return;
+            }
             WeaponClass cls = WeaponClassSupport.get(unit);
             if (cls == null) {
                 return;
             }
-            var faction = com.poseidon.sem_classsystem.faction.UnitClass.of(unit);
-            CompoundTag raw = data.raw();
             raw.putString(TAG_CLASS, cls.name());
-            if (faction != null) {
-                raw.putString(TAG_FACTION, faction.name().split("_")[0]);   // "RU","PMC","BHQ"
-            }
             // Recruit callsign + veterancy record for the overlay line
             if (unit.getCustomName() != null) {
                 raw.putString(TAG_NAME, unit.getCustomName().getString());
@@ -91,6 +97,13 @@ public class SemcsWailaPlugin implements IWailaPlugin {
             CompoundTag raw = accessor.getData().raw();
             String clsName = raw.getString(TAG_CLASS);
             if (clsName.isEmpty()) {
+                return;
+            }
+            if ("VDF_MELEE".equals(clsName) || "VDF_GUNNER".equals(clsName)) {
+                String roleLabel = "VDF_MELEE".equals(clsName) ? "Vanguard (Melee)" : "Rifleman (Gunner)";
+                tooltip.addLine(Component.literal("VDF Militia · ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(roleLabel)
+                                .withStyle(style -> style.withColor(0x6FAF4E))));
                 return;
             }
             WeaponClass cls;

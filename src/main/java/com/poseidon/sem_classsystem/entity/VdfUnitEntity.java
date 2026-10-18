@@ -24,7 +24,20 @@ import net.nekoyuni.SimpleEnemyMod.entity.unit.util.UnitFactionTags;  // ru_unit
 import net.minecraft.sounds.SoundEvent;                               // custom sound return type
 import net.minecraft.sounds.SoundEvents;                              // villager hums
 import net.minecraft.core.BlockPos;                                   // village center anchor
+import net.minecraft.server.level.ServerLevel;                        // POI scan on spawn/load
+import net.minecraft.world.entity.Entity;                             // alliance & friendly-fire checks
+import net.minecraft.world.entity.ai.village.poi.PoiManager;          // village bell/bed lookup
+import net.minecraft.world.entity.ai.village.poi.PoiTypes;            // MEETING / HOME POIs
+import net.minecraft.world.entity.animal.IronGolem;                   // protected village defender
+import net.minecraft.world.entity.npc.AbstractVillager;               // protected villagers
+import net.minecraft.world.entity.player.Player;                      // player neutrality gate
+import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;         // PMC + BHQ neutrality pact
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;         // [vdf] garrison + armament options
+import com.poseidon.sem_classsystem.registry.SemcsRegistries;         // vdf_* militia armor set
+import com.tacz.guns.api.item.IGun;                                   // launcher safety check
+import com.tacz.guns.api.item.builder.GunItemBuilder;                 // fallback militia rifle
+import com.tacz.guns.api.item.gun.FireMode;                           // SEMI/AUTO
+import net.minecraft.resources.ResourceLocation;                      // gun id check
 import org.jetbrains.annotations.Nullable;                            // Nullable marker for the anchor
 
 // VDF (Village Defense Force) - village militia, NOT a faction soldier.
@@ -63,6 +76,49 @@ public class VdfUnitEntity extends RUunitEntity {
 
     public void setVillageCenter(@Nullable BlockPos pos) {              // garrison spawner assigns the bell
         this.villageCenter = pos;
+    }
+
+    // Entities a VDF militia member is sworn never to harm or target:
+    // villagers, golems, fellow VDF militia, and neutral PMC/BHQ operators.
+    public static boolean isProtectedAlly(@Nullable Entity entity) {
+        return entity instanceof VdfUnitEntity
+                || entity instanceof AbstractVillager
+                || entity instanceof IronGolem
+                || entity instanceof PmcUnitEntity;
+    }
+
+    @Override
+    public boolean isAlliedTo(Entity other) {
+        if (other != null && isProtectedAlly(other)) {
+            return true;
+        }
+        return super.isAlliedTo(other);
+    }
+
+    @Override
+    public boolean canAttack(LivingEntity target) {
+        if (isProtectedAlly(target)) {
+            return false;
+        }
+        if (target instanceof Player && target != this.getLastHurtByMob()) {
+            return false;
+        }
+        return super.canAttack(target);
+    }
+
+    // Single chokepoint for all target assignment (goals, SEM's
+    // BulletImpactEventHandler block-hit reactions, and radio target sharing).
+    @Override
+    public void setTarget(@Nullable LivingEntity target) {
+        if (target != null) {
+            if (isProtectedAlly(target)) {
+                return;
+            }
+            if (target instanceof Player && target != this.getLastHurtByMob()) {
+                return;
+            }
+        }
+        super.setTarget(target);
     }
 
     // ---- combat targeting ---------------------------------------------------
@@ -130,8 +186,11 @@ public class VdfUnitEntity extends RUunitEntity {
     // melee militia gets a blade and relies on the mixin-injected melee goal.
     @Override
     public void equipRandomGun() {
+        equipMilitiaArmor();
         if (this.random.nextFloat() < ClassSystemConfig.vdfGunnerChance()) {
             RuWeaponEquipper.equipRandomGun(this, this.random);          // gunner militia - rifle/pistol
+            sanitizeMilitiaGun();                                        // no explosive launchers in villages
+            equipMilitiaArmor();                                         // re-assert VDF armor over RU default
         } else {
             ItemStack melee = new ItemStack(                             // melee militia - farm-tool weapons
                     this.random.nextBoolean() ? Items.IRON_SWORD : Items.IRON_AXE);
@@ -139,6 +198,58 @@ public class VdfUnitEntity extends RUunitEntity {
             // Keep the village drops rare: militia gear stays on the corpse
             this.setDropChance(EquipmentSlot.MAINHAND, 0.0F);
         }
+    }
+
+    // Equips the VDF militia armor set with 0% vanilla drop chance so only
+    // VdfDropEvents' configured player-kill roll awards pieces.
+    public void equipMilitiaArmor() {
+        this.setItemSlot(EquipmentSlot.HEAD, new ItemStack(SemcsRegistries.VDF_HELMET.get()));
+        this.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SemcsRegistries.VDF_VEST.get()));
+        this.setItemSlot(EquipmentSlot.LEGS, new ItemStack(SemcsRegistries.VDF_PANTS.get()));
+        this.setItemSlot(EquipmentSlot.FEET, new ItemStack(SemcsRegistries.VDF_BOOTS.get()));
+        this.setDropChance(EquipmentSlot.HEAD, 0.0F);
+        this.setDropChance(EquipmentSlot.CHEST, 0.0F);
+        this.setDropChance(EquipmentSlot.LEGS, 0.0F);
+        this.setDropChance(EquipmentSlot.FEET, 0.0F);
+    }
+
+    // Replaces any explosive launcher (RPG/MGL) rolled by the RU equipper with
+    // a standard militia rifle so VDF never blows up the village it defends.
+    private void sanitizeMilitiaGun() {
+        ItemStack held = this.getMainHandItem();
+        IGun iGun = IGun.getIGunOrNull(held);
+        if (iGun == null) {
+            return;
+        }
+        ResourceLocation id = iGun.getGunId(held);
+        String path = id != null ? id.getPath() : "";
+        if (path.contains("rpg") || path.contains("mgl") || path.contains("m202") || path.contains("m320")) {
+            ResourceLocation fallbackId = ResourceLocation.fromNamespaceAndPath("tacz", "ak47");
+            ItemStack rifle = GunItemBuilder.create()
+                    .setId(fallbackId)
+                    .setAmmoCount(30)
+                    .setFireMode(FireMode.SEMI)
+                    .setCount(1)
+                    .build();
+            IGun rifleGun = IGun.getIGunOrNull(rifle);
+            if (rifleGun != null) {
+                rifleGun.setMaxDummyAmmoAmount(rifle, Integer.MAX_VALUE);
+                rifleGun.setDummyAmmoAmount(rifle, 9999);
+                this.setItemSlot(EquipmentSlot.MAINHAND, rifle);
+                this.setDropChance(EquipmentSlot.MAINHAND, 0.0F);
+            }
+        }
+    }
+
+    private void ensureVillageAnchor() {
+        if (this.villageCenter != null || !(this.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        BlockPos origin = this.blockPosition();
+        this.villageCenter = serverLevel.getPoiManager()
+                .findClosest(h -> h.is(PoiTypes.MEETING) || h.is(PoiTypes.HOME),
+                        origin, 96, PoiManager.Occupancy.ANY)
+                .orElse(origin);
     }
 
     // ---- spawn / persistence --------------------------------------------------
@@ -153,7 +264,9 @@ public class VdfUnitEntity extends RUunitEntity {
         // squads, no commander chain. Must run before super so the combat
         // core SEM adds inside finalizeSpawn sees the right role.
         setRole(UnitRole.DEFAULT);
-        return super.finalizeSpawn(level, difficulty, spawnType, groupData, tag);
+        SpawnGroupData data = super.finalizeSpawn(level, difficulty, spawnType, groupData, tag);
+        ensureVillageAnchor();
+        return data;
     }
 
     @Override
@@ -170,6 +283,10 @@ public class VdfUnitEntity extends RUunitEntity {
         this.villageCenter = tag.contains("vdfCenter")
                 ? BlockPos.of(tag.getLong("vdfCenter"))
                 : null;
+        ensureVillageAnchor();
+        if (this.getItemBySlot(EquipmentSlot.HEAD).isEmpty()) {
+            equipMilitiaArmor();
+        }
     }
 
     // ---- voice ---------------------------------------------------------------

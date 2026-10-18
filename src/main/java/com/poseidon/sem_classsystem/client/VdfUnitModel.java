@@ -47,13 +47,14 @@ public class VdfUnitModel extends RUunitModel<RUunitEntity> {
 
         // Head: soldier-sized shell (armor layers expect the 8x8 fit) but
         // the face carries the villager signature - a 2x4x2 nose hanging
-        // off the chin line, same spot vanilla puts it.
+        // off the chin line and a 3D unibrow ridge above the eyes.
         PartDefinition head = unit.addOrReplaceChild("head", CubeListBuilder.create()
                         .texOffs(0, 0).addBox(-4.0F, -8.0F, -4.0F, 8.0F, 8.0F, 8.0F, new CubeDeformation(0.0F))
                         .texOffs(32, 0).addBox(-4.0F, -8.0F, -4.0F, 8.0F, 8.0F, 8.0F, new CubeDeformation(0.5F)),
                 PartPose.offsetAndRotation(0.0F, -6.16F, 1.0616F, -0.0105F, 0.0735F, 0.0228F));
         head.addOrReplaceChild("nose", CubeListBuilder.create()
-                        .texOffs(24, 0).addBox(-1.0F, -3.0F, -6.0F, 2.0F, 4.0F, 2.0F, new CubeDeformation(0.0F)),
+                        .texOffs(24, 0).addBox(-1.0F, -3.2F, -6.0F, 2.0F, 4.0F, 2.0F, new CubeDeformation(0.0F))
+                        .texOffs(24, 6).addBox(-3.0F, -4.5F, -4.5F, 6.0F, 1.0F, 1.0F, new CubeDeformation(0.0F)),
                 PartPose.ZERO);
 
         unit.addOrReplaceChild("body", CubeListBuilder.create()

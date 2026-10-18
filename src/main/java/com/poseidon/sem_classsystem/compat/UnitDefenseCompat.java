@@ -49,6 +49,21 @@ public final class UnitDefenseCompat {
         }
 
         Entity attacker = event.getEntity();
+        // Enforce VDF two-way neutrality pact: VDF never locks onto protected
+        // allies (villagers, golems, fellow VDF, PMC/BHQ) or unprovoked players,
+        // and PMC/BHQ never lock onto VDF militia.
+        if (attacker instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity vdf) {
+            if (com.poseidon.sem_classsystem.entity.VdfUnitEntity.isProtectedAlly(newTarget)
+                    || (newTarget instanceof Player && newTarget != vdf.getLastHurtByMob())) {
+                event.setNewTarget(null);
+            }
+            return;
+        }
+        if (attacker instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity
+                && newTarget instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
+            event.setNewTarget(null);
+            return;
+        }
         // Players choose their own targets - never filtered
         // SEM units fighting each other is core SEM behaviour - leave it
         if (attacker instanceof Player || attacker instanceof AbstractUnit) {

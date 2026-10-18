@@ -26,16 +26,19 @@ public final class VdfFriendlyFireEvents {
 
     @SubscribeEvent
     public static void onGunHurtPre(EntityHurtByGunEvent.Pre event) {
-        // Only police militia bullets - every other gun owner plays by normal rules
-        if (!(event.getAttacker() instanceof VdfUnitEntity)) {
+        Entity attacker = event.getAttacker();
+        Entity hurt = event.getHurtEntity();
+        if (attacker instanceof VdfUnitEntity vdf) {
+            if (VdfUnitEntity.isProtectedAlly(hurt)
+                    || (hurt instanceof net.minecraft.world.entity.player.Player
+                        && hurt != vdf.getLastHurtByMob())) {
+                event.setCanceled(true);                   // militia bullet passes through allies/unprovoked players
+            }
             return;
         }
-        Entity hurt = event.getHurtEntity();
-        if (hurt instanceof AbstractVillager               // the villagers being protected
-                || hurt instanceof IronGolem               // the village's other defender
-                || hurt instanceof VdfUnitEntity           // militia never shoots militia
-                || hurt instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity) { // PMC + BHQ pact
-            event.setCanceled(true);                       // the bullet simply doesn't land
+        if (attacker instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity
+                && hurt instanceof VdfUnitEntity) {
+            event.setCanceled(true);                       // PMC/BHQ bullets never harm VDF militia in crossfire
         }
     }
 }

@@ -151,7 +151,12 @@ public abstract class MixinUnitAmmoReserve {
         Item pants;
         Item boots;
 
-        if (cls == WeaponClass.SNIPER) {
+        if (entity instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
+            helmet = SemcsRegistries.VDF_HELMET.get();
+            vest = SemcsRegistries.VDF_VEST.get();
+            pants = SemcsRegistries.VDF_PANTS.get();
+            boots = SemcsRegistries.VDF_BOOTS.get();
+        } else if (cls == WeaponClass.SNIPER) {
             helmet = SemcsRegistries.CAMPER_HELMET.get();
             vest = SemcsRegistries.CAMPER_VEST.get();
             pants = SemcsRegistries.CAMPER_PANTS.get();
@@ -247,10 +252,11 @@ public abstract class MixinUnitAmmoReserve {
                 entity.setItemSlot(EquipmentSlot.HEAD, new ItemStack(helmet));
             }
             if (entity instanceof Mob mob) {
-                mob.setDropChance(EquipmentSlot.FEET, 0.05F);
-                mob.setDropChance(EquipmentSlot.LEGS, 0.05F);
-                mob.setDropChance(EquipmentSlot.CHEST, 0.05F);
-                mob.setDropChance(EquipmentSlot.HEAD, 0.05F);
+                float dropChance = entity instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity ? 0.0F : 0.05F;
+                mob.setDropChance(EquipmentSlot.FEET, dropChance);
+                mob.setDropChance(EquipmentSlot.LEGS, dropChance);
+                mob.setDropChance(EquipmentSlot.CHEST, dropChance);
+                mob.setDropChance(EquipmentSlot.HEAD, dropChance);
             }
         }
     }

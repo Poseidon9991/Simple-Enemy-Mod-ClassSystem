@@ -5,14 +5,17 @@ import com.poseidon.sem_classsystem.SemClassSystem;
 import com.poseidon.sem_classsystem.client.particle.MuzzleFlashParticle;
 import com.poseidon.sem_classsystem.client.particle.SparkParticle;
 import com.poseidon.sem_classsystem.client.particle.ZzzParticle;
+import com.poseidon.sem_classsystem.item.BhqArmorItem;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
+import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.event.RegisterColorHandlersEvent;
 import net.minecraftforge.client.event.RegisterParticleProvidersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -65,6 +68,21 @@ public final class ClientEventHandlers {
     @SubscribeEvent
     public static void onRegisterLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(VdfUnitModel.LAYER_LOCATION, VdfUnitModel::createBodyLayer);
+    }
+
+    // SemcsArmorItemRenderer swaps GUI rendering to "<piece>_flat#inventory" so
+    // slots draw crisp 2D sprites while ground/hand draws the 3D GeckoLib geo.
+    // ModelBakery only auto-loads models for registered Item ids, so every
+    // *_flat model must be registered explicitly here or ModelManager falls
+    // back to the black-and-purple missing model in GUIs.
+    @SubscribeEvent
+    public static void onRegisterAdditionalModels(ModelEvent.RegisterAdditional event) {
+        for (RegistryObject<Item> entry : SemcsRegistries.ITEMS.getEntries()) {
+            if (entry.get() instanceof BhqArmorItem armor) {
+                event.register(new ModelResourceLocation(
+                        SemClassSystem.MODID, armor.piece() + "_flat", "inventory"));
+            }
+        }
     }
 
     @SubscribeEvent
@@ -129,7 +147,9 @@ public final class ClientEventHandlers {
     // render in true color without being darkened.
     @SubscribeEvent
     public static void onItemColors(RegisterColorHandlersEvent.Item event) {
-        event.register((stack, tintIndex) -> 0xFFFFFFFF, SemcsRegistries.BHQ_UNIT_SPAWN_EGG.get());
+        event.register((stack, tintIndex) -> 0xFFFFFFFF,
+                SemcsRegistries.BHQ_UNIT_SPAWN_EGG.get(),
+                SemcsRegistries.VDF_UNIT_SPAWN_EGG.get());
         for (RegistryObject<Item> egg : SemcsRegistries.CLASS_SPAWN_EGGS) {
             event.register((stack, tintIndex) -> 0xFFFFFFFF, egg.get());
         }

@@ -24,8 +24,14 @@ public final class VdfDropEvents {
 
     @SubscribeEvent
     public static void onVdfDrops(LivingDropsEvent event) {
-        if (!(event.getEntity() instanceof VdfUnitEntity militia)       // only our militia bleeds militia gear
-                || !(event.getSource().getEntity() instanceof Player)) { // trophy rule - player kills only
+        if (!(event.getEntity() instanceof VdfUnitEntity militia)) {     // only our militia bleeds militia gear
+            return;
+        }
+        boolean playerKill = event.getSource().getEntity() instanceof Player
+                || militia.getKillCredit() instanceof Player
+                || militia.getLastHurtByMob() instanceof Player
+                || event.isRecentlyHit();
+        if (!playerKill) {                                               // trophy rule - player kills only
             return;
         }
         double chance = ClassSystemConfig.vdfArmorDropChance();          // [vdf] armorDropChance, default 0.03
