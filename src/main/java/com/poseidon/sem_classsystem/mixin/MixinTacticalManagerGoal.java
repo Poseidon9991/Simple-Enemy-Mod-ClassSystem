@@ -616,7 +616,8 @@ public abstract class MixinTacticalManagerGoal {
             for (AbstractUnit ally : allies) {
                 LivingEntity allyTarget = ally.getTarget();
                 if (allyTarget != null && allyTarget.isAlive() && !semcs$isSameTeam(this.unit, allyTarget)) {
-                    LivingEntity picked = semcs$pickEnemyFromSquad(this.unit, allyTarget);
+                    LivingEntity picked = semcs$pickEnemyFromSquad(this.unit, allyTarget,
+                            semcs$enemySquadMembers(allyTarget));
                     semcs$alertAndAdvance(this.unit, picked);
                     return;
                 }
@@ -631,10 +632,16 @@ public abstract class MixinTacticalManagerGoal {
                 this.unit.getBoundingBox().inflate(48.0D, 20.0D, 48.0D),
                 other -> other != this.unit && other.isAlive() && semcs$isSameTeam(this.unit, other));
 
+        // The enemy-squad box scan depends only on myTarget, not the ally -
+        // compute it lazily once instead of once per un-targeted ally.
+        java.util.List<LivingEntity> enemyGroup = null;
         for (AbstractUnit ally : allies) {
             LivingEntity allyTarget = ally.getTarget();
             if (allyTarget == null || !allyTarget.isAlive()) {
-                LivingEntity picked = semcs$pickEnemyFromSquad(ally, myTarget);
+                if (enemyGroup == null) {
+                    enemyGroup = semcs$enemySquadMembers(myTarget);
+                }
+                LivingEntity picked = semcs$pickEnemyFromSquad(ally, myTarget, enemyGroup);
                 semcs$alertAndAdvance(ally, picked);
             } else if (!ally.getSensing().hasLineOfSight(allyTarget)
                     && ally.getSensing().hasLineOfSight(myTarget)
@@ -659,28 +666,34 @@ public abstract class MixinTacticalManagerGoal {
         }
     }
 
+    // Hostile members of the spotted enemy's squad within 18 blocks of
+    // primaryEnemy. Only seeker-independent filters live here so the box
+    // scan can be shared by every ally in one sync call.
+    @Unique
+    private static java.util.List<LivingEntity> semcs$enemySquadMembers(LivingEntity primaryEnemy) {
+        return primaryEnemy.level().getEntitiesOfClass(
+                LivingEntity.class,
+                primaryEnemy.getBoundingBox().inflate(18.0D, 8.0D, 18.0D),
+                e -> e.isAlive() && !e.isSpectator()
+                        && (e == primaryEnemy || semcs$isSameTeam(primaryEnemy, e)));
+    }
+
     // Finds all hostile members of the spotted enemy's squad within 18 blocks
     // of primaryEnemy and picks the best one for 'seeker' (preferring visible
     // enemies, then closest distance) so a squad of allies spreads fire across
     // the enemy squad instead of ignoring the rest of the enemy team.
     @Unique
-    private static LivingEntity semcs$pickEnemyFromSquad(AbstractUnit seeker, LivingEntity primaryEnemy) {
-        var enemyGroup = primaryEnemy.level().getEntitiesOfClass(
-                LivingEntity.class,
-                primaryEnemy.getBoundingBox().inflate(18.0D, 8.0D, 18.0D),
-                e -> e.isAlive() && !e.isSpectator()
-                        && (e == primaryEnemy || semcs$isSameTeam(primaryEnemy, e))
-                        && !semcs$isSameTeam(seeker, e)
-                        && seeker.canAttack(e));
-        if (enemyGroup.isEmpty()) {
-            return primaryEnemy;
-        }
+    private static LivingEntity semcs$pickEnemyFromSquad(AbstractUnit seeker,
+            LivingEntity primaryEnemy, java.util.List<LivingEntity> enemyGroup) {
         LivingEntity bestVisible = null;
         double bestVisDist = Double.MAX_VALUE;
         LivingEntity bestAny = primaryEnemy;
         double bestAnyDist = seeker.distanceToSqr(primaryEnemy);
 
         for (LivingEntity cand : enemyGroup) {
+            if (semcs$isSameTeam(seeker, cand) || !seeker.canAttack(cand)) {
+                continue;
+            }
             double d = seeker.distanceToSqr(cand);
             if (d < bestAnyDist) {
                 bestAnyDist = d;

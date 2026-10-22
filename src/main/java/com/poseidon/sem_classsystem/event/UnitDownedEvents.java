@@ -36,9 +36,15 @@ public final class UnitDownedEvents {
     private UnitDownedEvents() {
     }
 
-    // Lethal hit -> collapse instead of dying. Runs LAST so a downed unit
-    // that is deliberately killed (bleedout timeout, /kill, void) still dies.
-    @SubscribeEvent(priority = EventPriority.LOWEST)
+    // Lethal hit -> collapse instead of dying. Must run FIRST: the death
+    // side-effect handlers (UnitNeedsEvents' KIA board + owner message +
+    // squad morale hit, VeterancyEvents' callsign release) all listen at
+    // NORMAL, and none of them opt into receiveCanceled - cancelling here,
+    // before they fire, is what keeps a downed-revive off the casualty
+    // board and keeps the unit's name out of the free pool.
+    // A unit that is deliberately killed (bleedout timeout, /kill, void)
+    // still dies: the isDowned check below early-returns on the real death.
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onDeath(LivingDeathEvent event) {
         if (!(event.getEntity() instanceof PmcUnitEntity unit)
                 || unit.level().isClientSide) {

@@ -29,6 +29,7 @@ import net.minecraft.world.item.alchemy.PotionUtils;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.items.IItemHandler;
@@ -72,11 +73,16 @@ public final class UnitMarkerTracker {
         }
         PlayerChunkClaims claims = PlayerChunkClaims.get(event.getServer().overworld());
 
+        // The full-level entity enumeration inside collect() is identical
+        // for every viewer in a dimension - run it once per level per sync
+        // tick and share it, so N players no longer mean N sweeps/second.
+        Map<ServerLevel, List<AbstractUnit>> unitsByLevel = new java.util.IdentityHashMap<>();
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             if (!(player.level() instanceof ServerLevel level)) {
                 continue;
             }
-            List<UnitMarker> markers = collect(level, player);
+            List<UnitMarker> markers = collect(level, player,
+                    unitsByLevel.computeIfAbsent(level, UnitMarkerTracker::unitsIn));
             SemcsNetwork.CHANNEL.send(
                     PacketDistributor.PLAYER.with(() -> player),
                     new PacketSyncUnitMarkers(markers));
@@ -114,16 +120,35 @@ public final class UnitMarkerTracker {
         }
     }
 
-    private static List<UnitMarker> collect(ServerLevel level, ServerPlayer viewer) {
+    // Drop the per-player sync hashes on logout - otherwise both maps gain
+    // an entry for every player who has ever joined.
+    @SubscribeEvent
+    public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        LAST_CLAIMS_HASH.remove(event.getEntity().getUUID());
+        LAST_INTEL_HASH.remove(event.getEntity().getUUID());
+    }
+
+    // Every classifiable unit (plus VDF militia) in the level - the shared,
+    // viewer-independent half of collect().
+    private static List<AbstractUnit> unitsIn(ServerLevel level) {
+        List<AbstractUnit> units = new ArrayList<>();
+        for (Entity entity : level.getAllEntities()) {
+            if (entity instanceof AbstractUnit unit
+                    && (entity instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity
+                        || WeaponClassSupport.isClassifiable(unit))) {
+                units.add(unit);
+            }
+        }
+        return units;
+    }
+
+    private static List<UnitMarker> collect(ServerLevel level, ServerPlayer viewer,
+            List<AbstractUnit> units) {
         List<UnitMarker> out = new ArrayList<>();
         // Current dimension only - your own units map at any distance, and
         // strangers (plus VDF village militia) must be "spotted" within SPOT_RANGE.
-        for (Entity entity : level.getAllEntities()) {
-            boolean isVdf = entity instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity;
-            if (!(entity instanceof AbstractUnit unit)
-                    || (!isVdf && !WeaponClassSupport.isClassifiable(unit))) {
-                continue;
-            }
+        for (AbstractUnit unit : units) {
+            boolean isVdf = unit instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity;
             UnitMarker.Allegiance allegiance;
             if (isVdf) {
                 allegiance = UnitMarker.Allegiance.FRIENDLY;
@@ -252,6 +277,11 @@ public final class UnitMarkerTracker {
         return new int[]{rounds, infinite, food, med};
     }
 
+    // Keyword verdicts cached per Item - registry ids don't change at
+    // runtime. Potions skip the cache: their effect list is stack NBT.
+    private static final Map<net.minecraft.world.item.Item, Boolean> MED_ITEM_CACHE =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     public static boolean isMedicalItem(ItemStack stack) {
         if (stack.getItem() instanceof PotionItem) {
             for (MobEffectInstance eff : PotionUtils.getMobEffects(stack)) {
@@ -261,17 +291,19 @@ public final class UnitMarkerTracker {
                 }
             }
         }
-        ResourceLocation key = ForgeRegistries.ITEMS.getKey(stack.getItem());
-        if (key == null) {
-            return false;
-        }
-        String id = key.toString().toLowerCase(Locale.ROOT);
-        for (String kw : MED_KEYWORDS) {
-            if (id.contains(kw)) {
-                return true;
+        return MED_ITEM_CACHE.computeIfAbsent(stack.getItem(), item -> {
+            ResourceLocation key = ForgeRegistries.ITEMS.getKey(item);
+            if (key == null) {
+                return false;
             }
-        }
-        return false;
+            String id = key.toString().toLowerCase(Locale.ROOT);
+            for (String kw : MED_KEYWORDS) {
+                if (id.contains(kw)) {
+                    return true;
+                }
+            }
+            return false;
+        });
     }
 
     private static int factionRgb(UnitClass faction) {

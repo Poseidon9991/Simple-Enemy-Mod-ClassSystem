@@ -52,9 +52,13 @@ public final class WeaponClassSupport {
     // mixins call this several times per tick per fighting unit (aim, both
     // spread calls, shoot, suppression). The hand-slot stack instance is
     // stable within a tick, so (same stack, same game time) => reuse.
+    // synchronizedMap: server-thread combat code AND the client render
+    // thread (UnitProceduralAnimState, MixinUnitModelCrouch) both call
+    // getEffective - in single-player those run concurrently, and a plain
+    // WeakHashMap can corrupt its table on a racing put/expunge.
     private record EffCache(ItemStack held, WeaponClass cls, long gameTime) {}
-    private static final java.util.WeakHashMap<Entity, EffCache> EFFECTIVE_CACHE =
-            new java.util.WeakHashMap<>();
+    private static final java.util.Map<Entity, EffCache> EFFECTIVE_CACHE =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
 
     // The class that actually drives combat tuning RIGHT NOW: if the unit
     // is holding a gun that belongs to a known class, that gun's class wins

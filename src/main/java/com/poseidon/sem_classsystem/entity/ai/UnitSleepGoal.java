@@ -11,11 +11,13 @@ import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.village.poi.PoiManager;
 import net.minecraft.world.entity.ai.village.poi.PoiTypes;
 import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;
 
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
@@ -41,12 +43,14 @@ public class UnitSleepGoal extends Goal {
             OrderType.MOVE_TO_POSITION, OrderType.ATTACK_THAT_TARGET);
 
     private static final int SCAN_TICKS = 60;
+    private static final int BED_RECHECK_TICKS = 10;
     private static final double REACH_SQR = 2.8 * 2.8;
 
     private final PmcUnitEntity unit;
     private BlockPos bed;
     private int scanTicks = 0;
     private int sleepTicks = 0;
+    private int bedRecheck = 0;
 
     public UnitSleepGoal(PmcUnitEntity unit) {
         this.unit = unit;
@@ -89,7 +93,16 @@ public class UnitSleepGoal extends Goal {
             return true;
         }
         // Still walking to the bunk - bail if it vanished or got unclaimed.
-        return this.bed != null && bedUsable(this.bed);
+        // bedUsable sweeps for competing claims, so re-verify on a cadence
+        // instead of every tick.
+        if (this.bed == null) {
+            return false;
+        }
+        if (--this.bedRecheck <= 0) {
+            this.bedRecheck = BED_RECHECK_TICKS;
+            return bedUsable(this.bed);
+        }
+        return true;
     }
 
     @Override
@@ -191,10 +204,18 @@ public class UnitSleepGoal extends Goal {
         PlayerChunkClaims claims =
                 PlayerChunkClaims.get(level.getServer().overworld());
         int radius = ClassSystemConfig.needsSearchRadius();
+        // Snapshot claimed beds once for the whole search: a competing
+        // claimer only needs to be within a search radius of the CANDIDATE,
+        // so the union area reaches 2x radius out from this unit. Without
+        // this every POI candidate ran its own entity sweep.
+        Set<Long> claimed = claimedBedsNear(level, this.unit.blockPosition(),
+                radius * 2.0D);
         Predicate<Holder<net.minecraft.world.entity.ai.village.poi.PoiType>> isBed =
                 h -> h.is(PoiTypes.HOME);
         Predicate<BlockPos> inClaims = p -> claims.isClaimedBy(
-                owner, dim, p.getX() >> 4, p.getZ() >> 4) && bedUsable(p);
+                owner, dim, p.getX() >> 4, p.getZ() >> 4)
+                && level.getBlockState(p).getBlock() instanceof BedBlock
+                && !claimed.contains(p.asLong());
         return level.getPoiManager()
                 .findAll(isBed, inClaims, this.unit.blockPosition(), radius,
                         PoiManager.Occupancy.HAS_SPACE)
@@ -217,13 +238,26 @@ public class UnitSleepGoal extends Goal {
                 .isClaimedBy(owner, dim, pos.getX() >> 4, pos.getZ() >> 4)) {
             return false;
         }
-        long key = pos.asLong();
+        return !claimedBedsNear(level, pos, ClassSystemConfig.needsSearchRadius())
+                .contains(pos.asLong());
+    }
+
+    // Bed positions currently claimed by OTHER units near a center point.
+    // The scan centers on the bed, not the searcher - the competing
+    // claimer is whoever is within reach of the bunk, and the old
+    // unit-centered box could miss a claimer standing far from this unit.
+    private Set<Long> claimedBedsNear(ServerLevel level, BlockPos center,
+            double radius) {
+        Set<Long> claimed = new HashSet<>();
         for (PmcUnitEntity other : level.getEntitiesOfClass(PmcUnitEntity.class,
-                this.unit.getBoundingBox().inflate(64.0))) {
-            if (other != this.unit && UnitNeeds.bedPos(other) == key) {
-                return false;
+                new AABB(center).inflate(radius))) {
+            if (other != this.unit) {
+                long bp = UnitNeeds.bedPos(other);
+                if (bp != 0) {
+                    claimed.add(bp);
+                }
             }
         }
-        return true;
+        return claimed;
     }
 }

@@ -1,5 +1,6 @@
 package com.poseidon.sem_classsystem.entity.ai;
 
+import com.poseidon.sem_classsystem.event.UnitMarkerTracker;
 import com.poseidon.sem_classsystem.faction.UnitClass;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
@@ -141,25 +142,13 @@ public class UnitMedicHealGoal extends Goal {
         }
         for (int slot = 6; slot < handler.getSlots(); slot++) {
             ItemStack stack = handler.getStackInSlot(slot);
-            if (!stack.isEmpty() && isMedicalItem(stack)) {
+            if (!stack.isEmpty() && UnitMarkerTracker.isMedicalItem(stack)) {
                 stack.shrink(1);
                 handler.setStackInSlot(slot, stack);
                 return true;
             }
         }
         return false;
-    }
-
-    private static boolean isMedicalItem(ItemStack stack) {
-        var key = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
-        if (key == null) {
-            return false;
-        }
-        String id = key.toString().toLowerCase(java.util.Locale.ROOT);
-        return id.contains("bandage") || id.contains("medkit") || id.contains("medical")
-                || id.contains("first_aid") || id.contains("firstaid") || id.contains("heal")
-                || id.contains("splint") || id.contains("tourniquet") || id.contains("syringe")
-                || stack.getItem() instanceof net.minecraft.world.item.PotionItem;
     }
 
     @Nullable

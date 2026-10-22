@@ -41,6 +41,7 @@ public final class VdfGarrisonEvents {
     // every villager after the initial SavedData debounce window expires.
     private static final Map<Long, Long> CHUNK_SCAN_TICK = new ConcurrentHashMap<>();
     private static final Map<Long, Long> BELL_GUARDED_UNTIL = new ConcurrentHashMap<>();
+    private static long lastSweepTick = 0L;
 
     private VdfGarrisonEvents() {
     }
@@ -62,6 +63,15 @@ public final class VdfGarrisonEvents {
             return;                                                     // another villager in this chunk just checked
         }
         CHUNK_SCAN_TICK.put(chunkKey, now);
+
+        // Both maps only ever grow otherwise - every explored chunk and
+        // bell leaves an entry behind on long-running servers. Entries past
+        // their debounce window are dead weight, so sweep occasionally.
+        if (now - lastSweepTick > 6000L) {
+            lastSweepTick = now;
+            CHUNK_SCAN_TICK.values().removeIf(t -> now - t > DEBOUNCE_TICKS);
+            BELL_GUARDED_UNTIL.values().removeIf(t -> t < now);
+        }
 
         Optional<BlockPos> bell = level.getPoiManager().findClosest(    // the village's meeting point
                 holder -> holder.is(PoiTypes.MEETING),
