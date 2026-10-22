@@ -313,6 +313,20 @@ public final class UnitNeeds {
         addMorale(unit, 3);
     }
 
+    // Sergeant's Insignia aura (Curios charm): a slow sustainment trickle
+    // while a commander stands nearby - tops hunger and energy a little so a
+    // supervised garrison outlasts an abandoned one. Not a replacement for
+    // the stockpile: +0.5 per call against per-tick drain rates.
+    public static void sustain(PmcUnitEntity unit) {
+        if (!appliesTo(unit)) {
+            return;
+        }
+        CompoundTag data = unit.getPersistentData();
+        ensureInit(unit, data);
+        data.putFloat(TAG_HUNGER, Math.min(MAX, data.getFloat(TAG_HUNGER) + 0.5F));
+        data.putFloat(TAG_ENERGY, Math.min(MAX, data.getFloat(TAG_ENERGY) + 0.5F));
+    }
+
     public static void onKill(PmcUnitEntity unit) {
         addMorale(unit, 4);
     }

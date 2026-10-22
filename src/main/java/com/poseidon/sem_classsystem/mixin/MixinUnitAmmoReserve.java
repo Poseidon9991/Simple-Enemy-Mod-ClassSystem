@@ -1,6 +1,7 @@
 // Mixin package - guarantees every class unit spawns with enough reserve ammo and built-in armor
 package com.poseidon.sem_classsystem.mixin;
 
+import com.poseidon.sem_classsystem.config.ClassSystemConfig;
 import com.poseidon.sem_classsystem.entity.BhqUnitEntity;
 import com.poseidon.sem_classsystem.faction.ClassLoadouts;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
@@ -146,6 +147,9 @@ public abstract class MixinUnitAmmoReserve {
     @Unique
     private static void semcs$equipBuiltInArmor(LivingEntity entity, RandomSource random) {
         WeaponClass cls = WeaponClassSupport.get(entity);
+        // [loadout] uniformFactionArmor: true = faction sets on every unit;
+        // false = legacy per-class gear (Camper/Suppressor/Demolisher/SF911/GRK/RAF)
+        boolean uniform = ClassSystemConfig.uniformFactionArmor();
         Item helmet;
         Item vest;
         Item pants;
@@ -156,33 +160,33 @@ public abstract class MixinUnitAmmoReserve {
             vest = SemcsRegistries.VDF_VEST.get();
             pants = SemcsRegistries.VDF_PANTS.get();
             boots = SemcsRegistries.VDF_BOOTS.get();
-        } else if (cls == WeaponClass.SNIPER) {
+        } else if (!uniform && cls == WeaponClass.SNIPER) {
             helmet = SemcsRegistries.CAMPER_HELMET.get();
             vest = SemcsRegistries.CAMPER_VEST.get();
             pants = SemcsRegistries.CAMPER_PANTS.get();
             boots = SemcsRegistries.CAMPER_BOOTS.get();
-        } else if (cls == WeaponClass.HEAVY_MG) {
+        } else if (!uniform && cls == WeaponClass.HEAVY_MG) {
             helmet = SemcsRegistries.SUPPRESSOR_HELMET.get();
             vest = SemcsRegistries.SUPPRESSOR_VEST.get();
             pants = SemcsRegistries.SUPPRESSOR_PANTS.get();
             boots = SemcsRegistries.SUPPRESSOR_BOOTS.get();
-        } else if (cls == WeaponClass.HEAVY) {
+        } else if (!uniform && cls == WeaponClass.HEAVY) {
             helmet = SemcsRegistries.DEMOLISHER_HELMET.get();
             vest = SemcsRegistries.DEMOLISHER_VEST.get();
             pants = SemcsRegistries.DEMOLISHER_PANTS.get();
             boots = SemcsRegistries.DEMOLISHER_BOOTS.get();
         } else if (entity instanceof BhqUnitEntity) {
-            if (cls == WeaponClass.SMG) {
+            if (!uniform && cls == WeaponClass.SMG) {
                 helmet = SemcsRegistries.SF911_BERET.get();
                 vest = SemcsRegistries.SF911_VEST.get();
                 pants = SemcsRegistries.SF911_PANTS.get();
                 boots = SemcsRegistries.SF911_BOOTS.get();
-            } else if (cls == WeaponClass.SHOTGUN) {
+            } else if (!uniform && cls == WeaponClass.SHOTGUN) {
                 helmet = SemcsRegistries.GRK_HELMET.get();
                 vest = SemcsRegistries.GRK_VEST.get();
                 pants = SemcsRegistries.GRK_PANTS.get();
                 boots = SemcsRegistries.GRK_BOOTS.get();
-            } else if (cls == WeaponClass.JACK) {
+            } else if (!uniform && cls == WeaponClass.JACK) {
                 helmet = SemcsRegistries.RAF_HELMET.get();
                 vest = SemcsRegistries.RAF_VEST.get();
                 pants = SemcsRegistries.RAF_PANTS.get();

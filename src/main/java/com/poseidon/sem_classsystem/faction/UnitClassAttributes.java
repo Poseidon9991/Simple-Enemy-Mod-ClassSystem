@@ -76,6 +76,10 @@ public final class UnitClassAttributes {
         // Veterans shoot tighter: -6% spread per rank, floor -30%
         if (entity instanceof LivingEntity living) {
             base *= UnitVeterancy.spreadScale(living);
+            if (net.minecraftforge.fml.ModList.get().isLoaded("curios")
+                    && com.poseidon.sem_classsystem.compat.SemcsCurios.hasSpottingScope(living)) {
+                base *= 0.82;
+            }
         }
         // Low morale shakes the aim ([needs] mode only, 1.0 otherwise)
         base *= com.poseidon.sem_classsystem.needs.UnitNeeds.spreadPenaltyScale(entity);

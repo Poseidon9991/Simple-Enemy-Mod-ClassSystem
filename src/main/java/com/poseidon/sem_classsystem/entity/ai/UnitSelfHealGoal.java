@@ -418,6 +418,18 @@ public class UnitSelfHealGoal extends Goal {
             if (handler instanceof IItemHandlerModifiable mod) {
                 ItemStack cur = mod.getStackInSlot(slotIdx);
                 if (cur.isEmpty()) return ItemStack.EMPTY;
+                if (cur.isDamageableItem()) {
+                    ItemStack used = cur.copy();
+                    used.setCount(1);
+                    int nextDmg = cur.getDamageValue() + 1;
+                    if (nextDmg >= cur.getMaxDamage()) {
+                        mod.setStackInSlot(slotIdx, ItemStack.EMPTY);
+                    } else {
+                        cur.setDamageValue(nextDmg);
+                        mod.setStackInSlot(slotIdx, cur);
+                    }
+                    return used;
+                }
                 ItemStack one = cur.split(1);
                 mod.setStackInSlot(slotIdx, cur.isEmpty() ? ItemStack.EMPTY : cur);
                 return one;

@@ -11,6 +11,7 @@ import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.item.BhqArmorItem;
 import com.poseidon.sem_classsystem.item.ClassSpawnEggItem;
 import com.poseidon.sem_classsystem.item.FieldTabletItem;
+import com.poseidon.sem_classsystem.item.SemcsCurioItem;
 import com.poseidon.sem_classsystem.item.SquadWhistleItem;
 import com.poseidon.sem_classsystem.menu.RecruitTableMenu;
 import net.minecraft.core.particles.ParticleType;
@@ -38,7 +39,9 @@ import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -215,6 +218,24 @@ public final class SemcsRegistries {
     public static final RegistryObject<Item> FIELD_TABLET = ITEMS.register(
             "field_tablet",
             () -> new FieldTabletItem(new Item.Properties().stacksTo(1))
+    );
+
+    // ---- Curios accessories -------------------------------------------------
+    // Plain items; their Curios behaviour is bound by compat.SemcsCurios only
+    // when the Curios mod is present. Slot fit comes from data/curios/tags.
+    public static final RegistryObject<Item> SPOTTING_SCOPE = ITEMS.register(
+            "spotting_scope",
+            () -> new SemcsCurioItem(new Item.Properties().stacksTo(1))
+    );
+
+    public static final RegistryObject<Item> SERGEANTS_INSIGNIA = ITEMS.register(
+            "sergeants_insignia",
+            () -> new SemcsCurioItem(new Item.Properties().stacksTo(1))
+    );
+
+    public static final RegistryObject<Item> IFAK_POUCH = ITEMS.register(
+            "ifak_pouch",
+            () -> new SemcsCurioItem(new Item.Properties().stacksTo(1).durability(8))
     );
 
     // ---- BHQ armor set -----------------------------------------------------
@@ -453,6 +474,9 @@ public final class SemcsRegistries {
                         output.accept(VDF_BOOTS.get());
                         output.accept(SQUAD_WHISTLE.get());
                         output.accept(FIELD_TABLET.get());
+                        output.accept(SPOTTING_SCOPE.get());
+                        output.accept(SERGEANTS_INSIGNIA.get());
+                        output.accept(IFAK_POUCH.get());
                         output.accept(BHQ_UNIT_SPAWN_EGG.get());
                         output.accept(VDF_UNIT_SPAWN_EGG.get());
                         for (RegistryObject<Item> egg : CLASS_SPAWN_EGGS) {
@@ -498,6 +522,18 @@ public final class SemcsRegistries {
         private ModEvents() {
         }
 
+        // Curios is a soft dependency - SemcsCurios is only referenced inside
+        // the ModList guard so its Curios imports never resolve on installs
+        // without the mod (the items stay registered regardless).
+        @SubscribeEvent
+        public static void commonSetup(FMLCommonSetupEvent event) {
+            event.enqueueWork(() -> {
+                if (ModList.get().isLoaded("curios")) {
+                    com.poseidon.sem_classsystem.compat.SemcsCurios.register();
+                }
+            });
+        }
+
         @SubscribeEvent
         public static void registerAttributes(EntityAttributeCreationEvent event) {
             event.put(BHQ_UNIT.get(), BhqUnitEntity.createAttributes().build());
@@ -517,6 +553,9 @@ public final class SemcsRegistries {
             if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
                 event.accept(SQUAD_WHISTLE.get());
                 event.accept(FIELD_TABLET.get());
+                event.accept(SPOTTING_SCOPE.get());
+                event.accept(SERGEANTS_INSIGNIA.get());
+                event.accept(IFAK_POUCH.get());
             }
             if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
                 event.accept(BHQ_UNIT_SPAWN_EGG.get());

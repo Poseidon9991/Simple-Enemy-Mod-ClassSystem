@@ -66,6 +66,9 @@ public class ClassSystemConfig {
     private static ForgeConfigSpec.DoubleValue DOWNED_REVIVE_FRAC;
     private static ForgeConfigSpec.BooleanValue LOOT_PICKUP;
 
+    // ---- [loadout]: unit armor policy ----------------------------------
+    private static ForgeConfigSpec.BooleanValue UNIFORM_FACTION_ARMOR;
+
     // ---- [vdf]: Village Defense Force garrison + militia tuning --------
     private static ForgeConfigSpec.BooleanValue VDF_ENABLED;
     private static ForgeConfigSpec.IntValue VDF_GARRISON_SIZE;
@@ -250,6 +253,21 @@ public class ClassSystemConfig {
                     .define(key, def));
         }
         BUILDER.pop();   // close [compat]
+
+        // ================= LOADOUT: unit armor policy ====================
+        BUILDER.push("loadout");
+        BUILDER.comment(
+                "Unit armor loadouts. true = every unit wears its faction's",
+                "own armor set (BHQ keeps its cap/helmet variation; VDF",
+                "always wears the Village Warden set). false = legacy",
+                "per-class gear: campers wear the Camper recon set,",
+                "suppressors the Suppressor juggernaut set, demolishers the",
+                "Demolisher EOD set, and BHQ classes their SF911/GRK/RAF",
+                "kits. Class sets stay craftable for players either way.");
+        UNIFORM_FACTION_ARMOR = BUILDER
+                .comment("Dress every unit in its faction armor set")
+                .define("uniformFactionArmor", true);
+        BUILDER.pop();   // close [loadout]
 
         // ================= BHQ recruit table =================
         BUILDER.push("bhq_recruit");
@@ -896,6 +914,15 @@ public class ClassSystemConfig {
             return BHQ_RECRUIT_PRICE.get();
         } catch (IllegalStateException notLoadedYet) {
             return 32;
+        }
+    }
+
+    // Unit armor policy ([loadout]): true = faction sets on every unit
+    public static boolean uniformFactionArmor() {
+        try {
+            return UNIFORM_FACTION_ARMOR.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return true;
         }
     }
 
