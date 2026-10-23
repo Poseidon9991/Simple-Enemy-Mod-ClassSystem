@@ -1,7 +1,6 @@
 {
   "replace": false,
   "values": [
-    "tacz:ammo_box",
-    "sem_classsystem:ifak_pouch"
+    "tacz:ammo_box"
   ]
 }

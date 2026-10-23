@@ -2,7 +2,6 @@
   "replace": false,
   "values": [
     "tacz:ammo_box",
-    "sem_classsystem:ifak_pouch",
-    "sem_classsystem:spotting_scope"
+    "sem_classsystem:ifak_pouch"
   ]
 }
