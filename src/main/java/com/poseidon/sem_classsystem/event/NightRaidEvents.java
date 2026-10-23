@@ -5,6 +5,8 @@ import com.poseidon.sem_classsystem.SemClassSystem;
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
 import com.poseidon.sem_classsystem.network.PacketRaidPing;
 import com.poseidon.sem_classsystem.network.SemcsNetwork;
+import com.poseidon.sem_classsystem.block.GuardPostBlockEntity;
+import com.poseidon.sem_classsystem.world.PlayerChunkClaims;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -14,6 +16,10 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.ChunkStatus;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;
 import net.nekoyuni.SimpleEnemyMod.registry.ModEntities;
@@ -32,6 +38,7 @@ public final class NightRaidEvents {
     private static final String LAST_CHECK_DAY = "semcs_raid_check_day";
     private static final String RAID_AT = "semcs_raid_at";        // dayTime of the strike
     private static final String LAST_RAID_DAY = "semcs_last_raid_day";
+    private static final String WARNED_DAY = "semcs_raid_warn_day";
 
     private static final long NIGHT_START = 13000;
     private static final long NIGHT_END = 23000;
@@ -63,6 +70,19 @@ public final class NightRaidEvents {
                         data.putLong(RAID_AT, NIGHT_START + offset);
                     }
                 }
+                // Early warning ~a minute out: a manned Guard Post inside
+                // the player's claims overhears the inbound patrol. Once
+                // per night per player; a post with no bound unit is
+                // furniture, not a listener.
+                int warnTicks = ClassSystemConfig.nightRaidEarlyWarningTicks();
+                if (warnTicks > 0 && raidAt > NO_RAID
+                        && dayTime >= raidAt - warnTicks && dayTime < raidAt
+                        && data.getLong(WARNED_DAY) != today
+                        && !player.isSpectator() && !player.isCreative()
+                        && watchPostOnline(level, player)) {
+                    data.putLong(WARNED_DAY, today);
+                    warnPlayer(level, player, raidAt - dayTime);
+                }
                 // Strike when the scheduled minute arrives
                 if (raidAt > NO_RAID && dayTime >= raidAt
                         && data.getLong(LAST_RAID_DAY) != today
@@ -75,6 +95,45 @@ public final class NightRaidEvents {
                 data.putLong(RAID_AT, NO_RAID);   // daybreak cancels a pending raid
             }
         }
+    }
+
+    // The early-warning net: a Guard Post with at least one bound unit
+    // inside the player's claimed chunks in the raid dimension. Only
+    // already-loaded chunks are scanned - same rule as stockpile searches.
+    private static boolean watchPostOnline(ServerLevel level, ServerPlayer player) {
+        String dim = level.dimension().location().toString();
+        java.util.Set<Long> claims = PlayerChunkClaims.get(level.getServer().overworld())
+                .allIn(dim).get(player.getUUID());
+        if (claims == null || claims.isEmpty()) {
+            return false;
+        }
+        for (long chunkLong : claims) {
+            int cx = ChunkPos.getX(chunkLong);
+            int cz = ChunkPos.getZ(chunkLong);
+            if (!(level.getChunk(cx, cz, ChunkStatus.FULL, false) instanceof LevelChunk chunk)) {
+                continue;
+            }
+            for (java.util.Map.Entry<BlockPos, BlockEntity> be : chunk.getBlockEntities().entrySet()) {
+                if (be.getValue() instanceof GuardPostBlockEntity post && !post.isEmpty()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Softer horn + ETA text; the map ping centers on the player because
+    // the threat is on them - the exact spawn bearing isn't rolled until
+    // the strike fires.
+    private static void warnPlayer(ServerLevel level, ServerPlayer player, long ticksLeft) {
+        player.displayClientMessage(Component.literal(
+                "§eGuard post reports hostile chatter - raid inbound in ~"
+                        + (ticksLeft / 20) + "s!"), true);
+        level.playSound(null, player.blockPosition(), SoundEvents.RAID_HORN.get(),
+                SoundSource.HOSTILE, 0.4F, 1.1F);
+        SemcsNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
+                new PacketRaidPing(level.dimension().location().toString(),
+                        player.getX(), player.getZ()));
     }
 
     private static void spawnRaid(ServerLevel level, ServerPlayer player) {
