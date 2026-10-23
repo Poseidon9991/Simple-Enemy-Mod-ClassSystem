@@ -36,7 +36,7 @@ public final class CuriosUnitEffectsHandler {
     private CuriosUnitEffectsHandler() {
     }
 
-    // 1. Intercept lethal damage BEFORE death / downed triggers so a Totem /
+    // 1. Intercept lethal damage BEFORE death triggers so a Totem /
     //    Charm of Undying in Curios (or offhand/storage) saves the unit!
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onUnitLethalDamage(LivingDamageEvent event) {

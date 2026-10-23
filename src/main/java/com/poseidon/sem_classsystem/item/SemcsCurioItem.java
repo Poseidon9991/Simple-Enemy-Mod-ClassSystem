@@ -2,7 +2,6 @@
 package com.poseidon.sem_classsystem.item;
 
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
-import com.poseidon.sem_classsystem.entity.DownedState;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;
@@ -27,7 +26,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -36,7 +34,7 @@ import java.util.List;
 // IFAK Pouch). Carries zero Curios imports so these items work even on installs
 // without Curios:
 //  - Spotting Scope: right-click in hand to laser-range and ping a distant target
-//  - IFAK Pouch: right-click in hand to self-treat, or right-click an ally/downed unit
+//  - IFAK Pouch: right-click in hand to self-treat, or right-click an injured ally
 public class SemcsCurioItem extends Item {
 
     public SemcsCurioItem(Properties properties) {
@@ -59,16 +57,11 @@ public class SemcsCurioItem extends Item {
         if (!stack.is(SemcsRegistries.IFAK_POUCH.get())) {
             return super.interactLivingEntity(stack, player, target, hand);
         }
-        boolean downedUnit = target instanceof PmcUnitEntity pmc && DownedState.isDowned(pmc);
-        if (!downedUnit && target.getHealth() >= target.getMaxHealth() - 0.1F) {
+        if (target.getHealth() >= target.getMaxHealth() - 0.1F) {
             return InteractionResult.PASS;
         }
         if (!player.level().isClientSide) {
-            if (downedUnit && target instanceof PmcUnitEntity pmc) {
-                DownedState.revive(pmc, 0.50D);
-            } else {
-                target.heal(8.0F);
-            }
+            target.heal(8.0F);
             target.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 100, 1));
             target.removeEffect(MobEffects.POISON);
             target.removeEffect(MobEffects.WITHER);

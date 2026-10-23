@@ -39,6 +39,7 @@ public class ClassSystemConfig {
     private static ForgeConfigSpec.IntValue NIGHT_RAID_MIN;
     private static ForgeConfigSpec.IntValue NIGHT_RAID_MAX;
     private static ForgeConfigSpec.DoubleValue NIGHT_RAID_DISTANCE;
+    private static ForgeConfigSpec.IntValue NIGHT_RAID_WARN_TICKS;
     // Global walk-speed nerf applied on top of every faction's speed value
     private static ForgeConfigSpec.DoubleValue GLOBAL_WALK_SPEED;
     // Map chunk claims: per-player cap ([map] section, Xaero integration)
@@ -60,10 +61,6 @@ public class ClassSystemConfig {
     private static ForgeConfigSpec.BooleanValue AMMO_RESUPPLY;
     private static ForgeConfigSpec.BooleanValue OFFLINE_REPORT;
 
-    // ---- [downed]: downed-not-dead for owned units ---------------------
-    private static ForgeConfigSpec.BooleanValue DOWNED_ENABLED;
-    private static ForgeConfigSpec.IntValue DOWNED_BLEEDOUT_TICKS;
-    private static ForgeConfigSpec.DoubleValue DOWNED_REVIVE_FRAC;
     private static ForgeConfigSpec.BooleanValue LOOT_PICKUP;
 
     // ---- [loadout]: unit armor policy ----------------------------------
@@ -329,6 +326,13 @@ public class ClassSystemConfig {
         NIGHT_RAID_DISTANCE = BUILDER
                 .comment("How far from the player the patrol spawns")
                 .defineInRange("spawnDistance", 50.0, 16.0, 128.0);
+        NIGHT_RAID_WARN_TICKS = BUILDER
+                .comment("Early warning before a scheduled raid strikes, in",
+                        "ticks. Only fires if a manned Guard Post sits inside",
+                        "the player's claimed chunks - the post's watchman",
+                        "overhears the inbound patrol's chatter.",
+                        "1200 = ~60 seconds. 0 = no early warning.")
+                .defineInRange("earlyWarningTicks", 1200, 0, 12000);
         BUILDER.pop();   // close [night_raids]
 
         // ================= MAP / CHUNK CLAIMS (Xaero World Map) =================
@@ -414,33 +418,6 @@ public class ClassSystemConfig {
                         "deaths, unit losses, night raids).")
                 .define("offlineReport", true);
         BUILDER.pop();   // close [needs]
-
-        // ================= DOWNED-NOT-DEAD =================
-        BUILDER.push("downed");
-        BUILDER.comment(
-                "Downed-not-dead for OWNED units (mirrors the PlayerRevive",
-                "mod's behaviour for players). A lethal hit leaves the unit",
-                "downed instead of dead: it collapses, cannot fight, and",
-                "bleeds out after bleedoutTicks unless revived - right-click",
-                "it with a medical item (bandage/medkit/potion) or",
-                "sneak-click with an empty hand for a weaker field",
-                "stabilize. Medic-class units triage downed allies",
-                "automatically. Works with or without PlayerRevive",
-                "installed - that mod only ever touches players, so the",
-                "two never collide.");
-        DOWNED_ENABLED = BUILDER
-                .comment("Owned units drop to a downed state instead of dying")
-                .define("enabled", true);
-        DOWNED_BLEEDOUT_TICKS = BUILDER
-                .comment("Ticks a downed unit survives without aid.",
-                        "1200 = 60 seconds, matching PlayerRevive's default.")
-                .defineInRange("bleedoutTicks", 1200, 100, 72000);
-        DOWNED_REVIVE_FRAC = BUILDER
-                .comment("Fraction of max health a unit stands back up with",
-                        "when revived with a medical item (empty-hand",
-                        "stabilize uses half of this).")
-                .defineInRange("reviveHealthFrac", 0.35, 0.05, 1.0);
-        BUILDER.pop();   // close [downed]
 
         LOOT_PICKUP = BUILDER
                 .comment("Owned units pick up nearby useful drops - ammo",
@@ -851,6 +828,14 @@ public class ClassSystemConfig {
         return safeGet(NIGHT_RAID_DISTANCE, 50.0);
     }
 
+    public static int nightRaidEarlyWarningTicks() {
+        try {
+            return NIGHT_RAID_WARN_TICKS.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return 1200;
+        }
+    }
+
     // Maximum chunks one player may claim per dimension ([map] section)
     public static int maxClaimedChunks() {
         try {
@@ -858,28 +843,6 @@ public class ClassSystemConfig {
         } catch (IllegalStateException notLoadedYet) {
             return 64;
         }
-    }
-
-    // ================= Downed / loot accessors =================
-
-    public static boolean downedEnabled() {
-        try {
-            return DOWNED_ENABLED.get();
-        } catch (IllegalStateException notLoadedYet) {
-            return true;
-        }
-    }
-
-    public static int downedBleedoutTicks() {
-        try {
-            return DOWNED_BLEEDOUT_TICKS.get();
-        } catch (IllegalStateException notLoadedYet) {
-            return 1200;
-        }
-    }
-
-    public static double downedReviveFrac() {
-        return safeGet(DOWNED_REVIVE_FRAC, 0.35);
     }
 
     public static boolean lootPickupEnabled() {

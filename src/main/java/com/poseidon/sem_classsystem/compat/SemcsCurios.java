@@ -3,7 +3,6 @@ package com.poseidon.sem_classsystem.compat;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
-import com.poseidon.sem_classsystem.entity.DownedState;
 import com.poseidon.sem_classsystem.needs.UnitNeeds;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;
 import net.minecraft.core.particles.ParticleTypes;
@@ -20,7 +19,6 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
-import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;
 import top.theillusivec4.curios.api.CuriosApi;
 import top.theillusivec4.curios.api.SlotContext;
@@ -47,7 +45,7 @@ public final class SemcsCurios {
                 && opt.get().findFirstCurio(SemcsRegistries.SPOTTING_SCOPE.get()).isPresent();
     }
 
-    // 1. Spotting Scope (head / belt / curio):
+    // 1. Spotting Scope (head):
     //    - +35% detection range (FOLLOW_RANGE)
     //    - -18% bullet spread on units (via UnitClassAttributes.spreadMultiplier)
     //    - Every 4s in combat, marks the wearer's current target with Glowing
@@ -78,7 +76,7 @@ public final class SemcsCurios {
         }
     }
 
-    // 2. Sergeant's Insignia (charm / necklace / curio):
+    // 2. Sergeant's Insignia (charm):
     //    - Grants the wearer +2.0 Armor Toughness and +10% Knockback Resistance
     //    - Command Aura (24m, every 5s): inspires nearby allied units with
     //      Resistance I in combat, plus hunger/energy/morale sustain when [needs] is on.
@@ -126,9 +124,8 @@ public final class SemcsCurios {
         }
     }
 
-    // 3. IFAK Pouch (belt / back / curio):
+    // 3. IFAK Pouch (belt):
     //    - 8 doses (repairable with wool or golden apples)
-    //    - Auto-stabilizes a Downed unit after 3s (self-revive at 50% HP)
     //    - Auto-heals 4 hearts + Regeneration II (5s) + cleanses Poison/Wither
     //      when health drops below 40% (8s cooldown between doses).
     private static final class Ifak implements ICurioItem {
@@ -150,23 +147,7 @@ public final class SemcsCurios {
                 return;
             }
 
-            // A. If an owned unit is Downed while wearing an IFAK, self-revive!
-            if (wearer instanceof PmcUnitEntity pmc && DownedState.isDowned(pmc)) {
-                long downedAt = tag.getLong("semcs_ifak_down_tick");
-                if (downedAt == 0L || now - downedAt > 200L) {
-                    tag.putLong("semcs_ifak_down_tick", now);
-                    return;
-                }
-                if (now - downedAt >= 60L) {
-                    tag.remove("semcs_ifak_down_tick");
-                    tag.putLong("semcs_ifak_last", now);
-                    DownedState.revive(pmc, 0.50D);
-                    applyTraumaDose(pmc, stack);
-                }
-                return;
-            }
-
-            // B. Standard emergency trigger below 40% HP
+            // Standard emergency trigger below 40% HP
             if (wearer.getHealth() >= wearer.getMaxHealth() * TRIGGER) {
                 return;
             }

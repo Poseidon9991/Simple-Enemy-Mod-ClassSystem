@@ -2,7 +2,6 @@
 package com.poseidon.sem_classsystem.entity.ai;
 
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
-import com.poseidon.sem_classsystem.entity.DownedState;
 import com.poseidon.sem_classsystem.event.UnitMarkerTracker;
 import com.tacz.guns.api.item.IAmmo;
 import com.tacz.guns.api.item.IAmmoBox;
@@ -50,8 +49,7 @@ public class UnitLootGoal extends Goal {
         if (!ClassSystemConfig.lootPickupEnabled()
                 || this.unit.getOwnerUUID() == null
                 || this.unit.getTarget() != null
-                || this.unit.isSleeping()
-                || DownedState.isDowned(this.unit)) {
+                || this.unit.isSleeping()) {
             return false;
         }
         if (this.scanCooldown > 0) {
@@ -68,7 +66,6 @@ public class UnitLootGoal extends Goal {
         return this.target != null
                 && this.target.isAlive()
                 && this.unit.getTarget() == null
-                && !DownedState.isDowned(this.unit)
                 && this.unit.distanceToSqr(this.target) < SCAN_RANGE * SCAN_RANGE * 4;
     }
 

@@ -224,7 +224,7 @@ public class TabletScreen extends Screen {
                     (UnitMarker m) -> m.ammoInfinite() ? Integer.MAX_VALUE : m.ammoRounds());
             case NEEDS -> Comparator.comparingInt(this::needScore);
             case STATUS -> Comparator.comparingInt(
-                    (UnitMarker m) -> (m.downed() ? -2 : 0) - m.dutyMode());
+                    (UnitMarker m) -> -m.dutyMode());
             case NAME -> Comparator.comparing(UnitMarker::name);
         };
         own.sort((this.sortAsc ? cmp : cmp.reversed())
@@ -242,7 +242,7 @@ public class TabletScreen extends Screen {
     }
 
     private static boolean isCritical(UnitMarker m) {
-        if (m.downed() || m.healthFrac() < 0.35F) {
+        if (m.healthFrac() < 0.35F) {
             return true;
         }
         return m.hunger() >= 0
@@ -321,7 +321,7 @@ public class TabletScreen extends Screen {
                         + (m.rankTitle().isEmpty() ? "" : m.rankTitle() + " ")
                         + (m.name().isEmpty() ? "Unit #" + m.entityId() : m.name());
                 g.drawString(this.font, this.font.plainSubstrByWidth(name, 112),
-                        colName, ry + 4, m.downed() ? COL_BAD : COL_TEXT, false);
+                        colName, ry + 4, COL_TEXT, false);
                 g.drawString(this.font, classLabel(m), colClass, ry + 4,
                         COL_SUB, false);
                 renderHp(g, m, colHp, ry + 4);
@@ -337,8 +337,7 @@ public class TabletScreen extends Screen {
                 g.drawString(this.font, m.hasFood() ? "*" : "-", colFood,
                         ry + 4, m.hasFood() ? 0xFFE3B86F : 0xFF4A5538, false);
                 g.drawString(this.font, statusLabel(m), colStatus, ry + 4,
-                        m.downed() ? COL_BAD
-                                : m.dutyMode() != 0 ? 0xFFE3B86F : COL_SUB, false);
+                        m.dutyMode() != 0 ? 0xFFE3B86F : COL_SUB, false);
                 renderNeeds(g, m, colNeeds, ry + 4);
             }
             ry += ROW_H;
@@ -531,7 +530,7 @@ public class TabletScreen extends Screen {
                 g.drawString(this.font, classLabel(m), cx + 190, ry + 3,
                         COL_SUB, false);
                 g.drawString(this.font, statusLabel(m), cx + cw - 60, ry + 3,
-                        m.downed() ? COL_BAD : COL_SUB, false);
+                        COL_SUB, false);
             }
             ry += ROW_H;
         }
@@ -844,9 +843,6 @@ public class TabletScreen extends Screen {
     }
 
     private static String statusLabel(UnitMarker m) {
-        if (m.downed()) {
-            return "DOWNED";     // collapsed - needs a revive before bleedout
-        }
         if (m.sleeping()) {
             return "Sleeping";   // off-shift: bunked down on a claimed bed
         }

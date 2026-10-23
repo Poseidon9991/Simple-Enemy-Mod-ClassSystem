@@ -218,8 +218,6 @@ public final class UnitMarkerTracker {
                     ammoRounds, ammoInfinite, hasFood, hasMedical,
                     hunger, energy, morale, sleeping,
                     unit instanceof PmcUnitEntity pmc
-                            && com.poseidon.sem_classsystem.entity.DownedState.isDowned(pmc),
-                    unit instanceof PmcUnitEntity pmc
                             && allegiance == UnitMarker.Allegiance.OWN
                             ? com.poseidon.sem_classsystem.entity.Squads.squad(pmc) : ""));
         }

@@ -1,7 +1,6 @@
 // Entity.ai package - badly hurt units break contact and fall back
 package com.poseidon.sem_classsystem.entity.ai;
 
-import com.poseidon.sem_classsystem.entity.DownedState;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
 import net.minecraft.world.entity.LivingEntity;
@@ -15,7 +14,7 @@ import java.util.List;
 // seconds: runs away from the threat - toward the nearest same-owner medic
 // when one's close, else straight back - then re-engages (a cooldown stops
 // it flickering in and out of retreat). Keep firing while moving: this is
-// a fighting withdrawal, not a rout. Downed/sleeping units never trigger.
+// a fighting withdrawal, not a rout. Sleeping units never trigger.
 public class UnitWoundedGoal extends Goal {
 
     private static final double TRIGGER_FRAC = 0.30D;
@@ -39,7 +38,6 @@ public class UnitWoundedGoal extends Goal {
             return false;
         }
         return this.unit.getOwnerUUID() != null
-                && !DownedState.isDowned(this.unit)
                 && !this.unit.isSleeping()
                 && this.unit.getTarget() != null
                 && this.unit.getHealth() < this.unit.getMaxHealth() * TRIGGER_FRAC;
@@ -50,8 +48,7 @@ public class UnitWoundedGoal extends Goal {
         // Stop early when the threat dies or we're stable again (>50%).
         return this.retreatTicks > 0
                 && this.unit.getTarget() != null
-                && this.unit.getHealth() < this.unit.getMaxHealth() * 0.5D
-                && !DownedState.isDowned(this.unit);
+                && this.unit.getHealth() < this.unit.getMaxHealth() * 0.5D;
     }
 
     @Override

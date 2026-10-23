@@ -66,10 +66,6 @@ public class UnitMedicHealGoal extends Goal {
                 || this.mob.distanceToSqr(this.patient) >= SCAN_RANGE * SCAN_RANGE) {
             return false;
         }
-        // A downed patient is treated until revived, not until healthy.
-        if (isDowned(this.patient)) {
-            return true;
-        }
         return this.patient.getHealth() < this.patient.getMaxHealth() - 0.5F;
     }
 
@@ -106,22 +102,6 @@ public class UnitMedicHealGoal extends Goal {
     }
 
     private void performHeal(LivingEntity patient) {
-        // Downed ally -> field revive, not a bandage wrap.
-        if (patient instanceof PmcUnitEntity pmc
-                && com.poseidon.sem_classsystem.entity.DownedState.isDowned(pmc)) {
-            consumeMedicalKit();   // supplies make the revive cost real
-            com.poseidon.sem_classsystem.entity.DownedState.revive(pmc,
-                    com.poseidon.sem_classsystem.config.ClassSystemConfig
-                            .downedReviveFrac());
-            if (patient.level() instanceof ServerLevel serverLevel) {
-                serverLevel.sendParticles(ParticleTypes.HEART,
-                        patient.getX(), patient.getY() + 0.6D, patient.getZ(),
-                        5, 0.3D, 0.3D, 0.3D, 0.02D);
-            }
-            patient.level().playSound(null, patient.blockPosition(),
-                    SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.NEUTRAL, 0.7F, 1.4F);
-            return;
-        }
         boolean usedKit = consumeMedicalKit();
         patient.heal(usedKit ? 8.0F : 3.0F);
         if (patient.level() instanceof ServerLevel serverLevel) {
@@ -163,8 +143,7 @@ public class UnitMedicHealGoal extends Goal {
                     if (e == this.mob || !e.isAlive()) {
                         return false;
                     }
-                    // Downed allies always qualify - triage first.
-                    if (!isDowned(e) && e.getHealth() >= e.getMaxHealth() - 0.5F) {
+                    if (e.getHealth() >= e.getMaxHealth() - 0.5F) {
                         return false;
                     }
                     if (owner != null && e instanceof PmcUnitEntity pmc && owner.equals(pmc.getOwnerUUID())) {
@@ -184,9 +163,6 @@ public class UnitMedicHealGoal extends Goal {
         LivingEntity worst = null;
         double worstPct = 0.85D;
         for (LivingEntity ally : allies) {
-            if (isDowned(ally)) {
-                return ally;   // downed beats every other triage priority
-            }
             double pct = ally.getHealth() / ally.getMaxHealth();
             if (pct < worstPct) {
                 worstPct = pct;
@@ -194,10 +170,5 @@ public class UnitMedicHealGoal extends Goal {
             }
         }
         return worst;
-    }
-
-    private static boolean isDowned(LivingEntity e) {
-        return e instanceof PmcUnitEntity pmc
-                && com.poseidon.sem_classsystem.entity.DownedState.isDowned(pmc);
     }
 }
