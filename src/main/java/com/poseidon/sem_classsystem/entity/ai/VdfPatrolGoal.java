@@ -52,6 +52,12 @@ public class VdfPatrolGoal extends Goal {
     }
 
     @Override
+    public void stop() {
+        this.unit.getNavigation().stop();                               // halt leftover path when combat/greeting preempts us
+        this.stuckTicks = 0;                                            // re-enter with a clean stuck clock
+    }
+
+    @Override
     public void tick() {
         BlockPos center = this.unit.getVillageCenter();                 // re-read - SavedData restores it async
         if (center == null) {
@@ -63,35 +69,58 @@ public class VdfPatrolGoal extends Goal {
                 center.getX() + 0.5, center.getY(), center.getZ() + 0.5);
 
         if (distSq > leash * leash) {                                   // wandered outside the village bubble
-            this.unit.getNavigation().moveTo(                           // ...walk straight back toward the bell
-                    center.getX() + 0.5, center.getY(), center.getZ() + 0.5, 1.0D);
+            if (this.unit.getNavigation().isDone()) {                   // re-issue only once the last try finished
+                this.unit.getNavigation().moveTo(                       // ...walk straight back toward the bell
+                        center.getX() + 0.5, center.getY(), center.getZ() + 0.5, 1.0D);
+            }
             return;                                                     // leash recovery beats waypoint walking
         }
 
-        if (--this.scanCooldown > 0 && !this.unit.getNavigation().isDone()) {
+        if (!this.unit.getNavigation().isDone()) {
             return;                                                     // still walking to the last waypoint
         }
-        this.scanCooldown = RESCAN_INTERVAL;                            // throttle POI scans (they touch chunk data)
-
-        BlockPos next = this.pickPoiWaypoint(center, leash);            // try a real POI first
-        if (next == null) {
-            Vec3 random = DefaultRandomPos.getPos(                      // fall back to a random walk near the bell
-                    this.unit, 12, 4);
+        if (--this.scanCooldown > 0) {
+            return;                                                     // hold at the post until the next leg
+        }
+        // Waypoint pick: prefer a spot near a real POI, else a plain random
+        // stroll point - and only commit when a reachable path exists. Beds
+        // sit inside sealed houses, so we aim for the POI's vicinity rather
+        // than the block itself; on a miss we retry soon instead of freezing
+        // in place until the next scan window.
+        BlockPos next = null;
+        BlockPos poi = this.pickPoiWaypoint(center, leash);
+        if (poi != null) {
+            Vec3 near = DefaultRandomPos.getPosTowards(                 // reachable spot beside the POI
+                    this.unit, 8, 4, Vec3.atBottomCenterOf(poi), 1.5D);
+            next = near != null ? BlockPos.containing(near) : null;
+        }
+        if (next == null || !this.tryWalkTo(next)) {
+            Vec3 random = DefaultRandomPos.getPos(this.unit, 12, 4);    // POI leg failed - plain stroll
             next = random != null ? BlockPos.containing(random) : null;
-        }
-
-        if (next == null) {
-            if (++this.stuckTicks > STUCK_REPATH) {                     // nothing reachable for a while
-                this.stuckTicks = 0;                                    // reset and idle until the next scan
+            if (next != null && this.tryWalkTo(next)) {
+                this.stuckTicks = 0;
+                this.scanCooldown = RESCAN_INTERVAL + this.unit.getRandom().nextInt(40);
+                return;
             }
-            return;                                                     // nowhere to go this tick
+            if (++this.stuckTicks > STUCK_REPATH) {                     // nothing reachable for a long while
+                this.stuckTicks = 0;
+            }
+            this.scanCooldown = 15;                                     // retry soon - never freeze in place
+            return;
         }
+        this.stuckTicks = 0;
+        this.scanCooldown = RESCAN_INTERVAL + this.unit.getRandom().nextInt(40); // jittered hold so squads don't march in sync
+    }
 
-        this.stuckTicks = 0;                                            // found a destination - clear the stuck timer
-        Path path = this.unit.getNavigation().createPath(next, 0);      // path-check before committing
-        if (path != null && path.canReach()) {
-            this.unit.getNavigation().moveTo(path, WALK_SPEED);         // walk the waypoint at patrol pace
+    // Commits the unit to a path only when the destination is reachable -
+    // returns false so the caller can fall back instead of idling.
+    private boolean tryWalkTo(BlockPos pos) {
+        Path path = this.unit.getNavigation().createPath(pos, 0);
+        if (path == null || !path.canReach()) {
+            return false;
         }
+        this.unit.getNavigation().moveTo(path, WALK_SPEED);
+        return true;
     }
 
     // Picks a random POI (bell, bed, job site) inside the patrol bubble.

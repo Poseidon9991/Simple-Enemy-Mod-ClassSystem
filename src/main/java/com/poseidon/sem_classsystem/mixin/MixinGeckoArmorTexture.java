@@ -101,6 +101,59 @@ public abstract class MixinGeckoArmorTexture {
         }
     }
 
+    // Corrects GeckoArmorAdjuster's asymmetric leg/boot offsets and aligns
+    // CHEST sleeve bones when a unit (such as melee VDF) uses square humanoid
+    // shoulder pivots instead of SEM's bladed gun-cradle shoulder offsets.
+    @Inject(
+            method = "renderArmorPiece",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/nekoyuni/SimpleEnemyMod/compat/geckolib/internal/GeckoArmorAdjuster;applyAdjustments(Lsoftware/bernie/geckolib/renderer/GeoArmorRenderer;Lnet/minecraft/client/model/HumanoidModel;Lnet/minecraft/world/entity/EquipmentSlot;)V",
+                    shift = At.Shift.AFTER
+            ),
+            remap = false
+    )
+    private void semcs$fixGeckoArmorAlignment(PoseStack poseStack, MultiBufferSource buffer, int packedLight,
+                                              AbstractUnit entity, ItemStack stack, EquipmentSlot slot,
+                                              float limbSwing, float limbSwingAmount, float partialTicks,
+                                              float ageInTicks, float netHeadYaw, float headPitch,
+                                              CallbackInfo ci) {
+        if (this.dummyHumanoidModel == null) {
+            return;
+        }
+        boolean melee = com.poseidon.sem_classsystem.entity.ai.UnitMeleeAttackGoal.isMeleeWeapon(
+                entity.getMainHandItem());
+        if (slot == EquipmentSlot.CHEST && melee) {
+            // Undo GeckoArmorAdjuster's gun-cradle arm X shift (-0.2 / +0.2) and
+            // match the square melee shoulder pivots (-5 / +5 in HumanoidModel space)
+            this.dummyHumanoidModel.rightArm.x -= 0.80F;
+            this.dummyHumanoidModel.leftArm.x += 0.80F;
+            this.dummyHumanoidModel.rightArm.y += 0.25F;
+            this.dummyHumanoidModel.leftArm.y += 0.25F;
+            this.dummyHumanoidModel.rightArm.z -= 0.20F;
+            this.dummyHumanoidModel.leftArm.z -= 0.20F;
+        } else if (slot == EquipmentSlot.LEGS) {
+            // GeckoArmorAdjuster added (-0.25, +5.5, -0.45) to rightLeg vs
+            // (+0.10, +5.98, -0.50) to leftLeg - equalize both legs to (+0.0, +6.0, -0.85)
+            this.dummyHumanoidModel.rightLeg.x += 0.25F;
+            this.dummyHumanoidModel.rightLeg.y += 0.50F;
+            this.dummyHumanoidModel.rightLeg.z -= 0.40F;
+            this.dummyHumanoidModel.leftLeg.x -= 0.10F;
+            this.dummyHumanoidModel.leftLeg.y += 0.02F;
+            this.dummyHumanoidModel.leftLeg.z -= 0.35F;
+        } else if (slot == EquipmentSlot.FEET) {
+            // GeckoArmorAdjuster added (+0.25, +7.0, -0.25) to rightLeg and
+            // (-0.25, +7.0, -0.65) to leftLeg - pull boots up 1px to sit flush
+            // on the feet and align horizontally with the pant legs.
+            this.dummyHumanoidModel.rightLeg.x -= 0.25F;
+            this.dummyHumanoidModel.rightLeg.y -= 1.00F;
+            this.dummyHumanoidModel.rightLeg.z -= 0.60F;
+            this.dummyHumanoidModel.leftLeg.x += 0.25F;
+            this.dummyHumanoidModel.leftLeg.y -= 1.00F;
+            this.dummyHumanoidModel.leftLeg.z -= 0.20F;
+        }
+    }
+
     @Unique
     private void semcs$syncHierarchicalUnitParts(HierarchicalModel<?> hModel) {
         ModelPart root = hModel.root();

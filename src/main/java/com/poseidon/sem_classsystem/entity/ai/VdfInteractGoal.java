@@ -29,7 +29,10 @@ public class VdfInteractGoal extends Goal {
 
     public VdfInteractGoal(VdfUnitEntity unit) {
         this.unit = unit;                                               // store the unit for all goal phases
-        this.setFlags(EnumSet.of(Flag.LOOK));                           // only borrows the head - walk legs keep going
+        // MOVE+LOOK: without MOVE the patrol keeps strolling while this goal
+        // locks the head on a villager - a sideways crab-walk that reads as
+        // "walking weird". Claiming MOVE lets the greeting halt the stroll.
+        this.setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
     }
 
     @Override
@@ -72,6 +75,7 @@ public class VdfInteractGoal extends Goal {
                     0.95F + this.unit.getRandom().nextFloat() * 0.1F);
             return;
         }
+        this.unit.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
         this.unit.level().playSound(null, this.unit.blockPosition(),    // the signature villager "hmm"
                 SoundEvents.VILLAGER_YES,
                 this.unit.getSoundSource(), 1.0F,

@@ -191,7 +191,8 @@ public class VdfUnitEntity extends RUunitEntity {
         // idle patrol but loses to SEM's own combat goals (priority 1-2).
         this.goalSelector.addGoal(3, new com.poseidon.sem_classsystem.entity.ai.VdfRaidResponseGoal(this));
         this.goalSelector.addGoal(4, new com.poseidon.sem_classsystem.entity.ai.VdfPatrolGoal(this));
-        this.goalSelector.addGoal(7, new com.poseidon.sem_classsystem.entity.ai.VdfInteractGoal(this));
+        this.goalSelector.addGoal(3, new com.poseidon.sem_classsystem.entity.ai.VdfInteractGoal(this)); // outranks patrol so the greeting can preempt the stroll
+        this.goalSelector.addGoal(3, new com.poseidon.sem_classsystem.entity.ai.VdfNightWatchGoal(this)); // dusk watch + rain shelter, below raid response
     }
 
     // ---- armament -----------------------------------------------------------
@@ -207,8 +208,7 @@ public class VdfUnitEntity extends RUunitEntity {
             sanitizeMilitiaGun();                                        // no explosive launchers in villages
             equipMilitiaArmor();                                         // re-assert VDF armor over RU default
         } else {
-            ItemStack melee = new ItemStack(                             // melee militia - farm-tool weapons
-                    this.random.nextBoolean() ? Items.IRON_SWORD : Items.IRON_AXE);
+            ItemStack melee = new ItemStack(Items.IRON_SWORD);           // melee militia - swords only (axes read as 2H greatswords)
             this.setItemSlot(EquipmentSlot.MAINHAND, melee);
             // Keep the village drops rare: militia gear stays on the corpse
             this.setDropChance(EquipmentSlot.MAINHAND, 0.0F);

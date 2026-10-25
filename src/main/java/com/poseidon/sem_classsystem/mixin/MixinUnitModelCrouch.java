@@ -49,6 +49,7 @@ public abstract class MixinUnitModelCrouch {
 
     // ModelPart fields exist in all three targets with identical names.
     // remap=false: SEM-internal names, same in dev and production.
+    @Shadow(remap = false) @Final private ModelPart unit;
     @Shadow(remap = false) @Final private ModelPart head;
     @Shadow(remap = false) @Final private ModelPart body;
     @Shadow(remap = false) @Final private ModelPart rightArm;
@@ -67,8 +68,8 @@ public abstract class MixinUnitModelCrouch {
         if (!(entity instanceof LivingEntity living) || !living.isAlive()) {
             return;
         }
-        if (entity instanceof AbstractUnit unit
-                && (unit.deathAnimationState.isStarted() || unit.hurtAnimationState.isStarted())) {
+        if (entity instanceof AbstractUnit unitEntity
+                && (unitEntity.deathAnimationState.isStarted() || unitEntity.hurtAnimationState.isStarted())) {
             return;
         }
 
@@ -80,22 +81,24 @@ public abstract class MixinUnitModelCrouch {
         UnitProceduralAnimState animState = UnitProceduralAnimState.get(living);
         animState.update(living, ageInTicks);
 
-        // 1. Dynamic locomotion polish (stride scaling, rush torso lean, weapon carry bob)
-        applyLocomotionPolish(limbSwing, limbSwingAmount, animState.smoothCombatBlend());
+        // 1. Dynamic distance-locked locomotion (replaces SEM's fixed-speed piston leg slide)
+        applyLocomotionPolish(limbSwing, limbSwingAmount, ageInTicks,
+                animState.smoothWalkBlend(), animState.smoothCombatBlend());
 
         // 2. Gun procedural animations: recoil kick, tactical reload, bolt-action cycling
         if (main.getItem() instanceof GunItemDataAccessor) {
             applyGunProceduralAnimations(living, animState);
         }
 
-        // 3. Eating food / applying bandage or medkit animation
-        if (living.isUsingItem() && !living.getOffhandItem().isEmpty()) {
+        // 3. Smoothly blended eating food / applying bandage or medkit animation
+        float useBlend = animState.smoothUseItemBlend();
+        if (useBlend > 0.001F) {
             float chew = Mth.sin(ageInTicks * 0.85F);
-            this.leftArm.xRot = -1.45F + chew * 0.14F;
-            this.leftArm.yRot = 0.52F;
-            this.leftArm.zRot = 0.18F;
-            this.rightArm.xRot = Mth.lerp(0.55F, this.rightArm.xRot, -0.85F);
-            this.head.xRot += 0.18F + chew * 0.05F;
+            this.leftArm.xRot = Mth.lerp(useBlend, this.leftArm.xRot, -1.45F + chew * 0.14F);
+            this.leftArm.yRot = Mth.lerp(useBlend, this.leftArm.yRot, 0.52F);
+            this.leftArm.zRot = Mth.lerp(useBlend, this.leftArm.zRot, 0.18F);
+            this.rightArm.xRot = Mth.lerp(0.55F * useBlend, this.rightArm.xRot, -0.85F);
+            this.head.xRot += (0.18F + chew * 0.05F) * useBlend;
         }
 
         // 4. Prone firing stance (smoothly blended when Pose.SWIMMING is active).
@@ -110,8 +113,9 @@ public abstract class MixinUnitModelCrouch {
             }
         }
 
-        // Only apply crouch stances when the fire-goal has set the sneak flag.
-        if (!living.isShiftKeyDown()) {
+        // 5. Smoothly blended class crouch/kneel stances (no 1-frame snap)
+        float crouch = animState.smoothCrouchBlend() * (1.0F - prone);
+        if (crouch <= 0.001F) {
             return;
         }
 
@@ -121,13 +125,13 @@ public abstract class MixinUnitModelCrouch {
         if (cls == null) cls = WeaponClass.RIFLE; // safe default
 
         switch (cls) {
-            case SNIPER -> applyMarksMankKneel();
-            case HEAVY_MG -> applyBipodCrouch();
-            case HEAVY -> applyDemolisherBlastStance();
-            case SMG -> applyBreacherCqcCrouch();
-            case SHOTGUN -> applySweeperStance();
-            case PISTOL -> applyPistolStance();
-            default -> applyTacticalHalfKneel();
+            case SNIPER -> applyMarksMankKneel(crouch);
+            case HEAVY_MG -> applyBipodCrouch(crouch);
+            case HEAVY -> applyDemolisherBlastStance(crouch);
+            case SMG -> applyBreacherCqcCrouch(crouch);
+            case SHOTGUN -> applySweeperStance(crouch);
+            case PISTOL -> applyPistolStance(crouch);
+            default -> applyTacticalHalfKneel(crouch);
         }
     }
 
@@ -136,30 +140,30 @@ public abstract class MixinUnitModelCrouch {
     //   Low hunch, compact silhouette for clearing doorways/corners.
     //   Right elbow tucked in, body pitched sharply forward.
     // -------------------------------------------------------------------
-    private void applyBreacherCqcCrouch() {
-        this.body.xRot  += 0.50F;
-        this.body.y     += 2.4F;
-        this.body.z     += 0.6F;
+    private void applyBreacherCqcCrouch(float c) {
+        this.body.xRot  += 0.50F * c;
+        this.body.y     += 2.4F * c;
+        this.body.z     += 0.6F * c;
 
-        this.head.y     += 3.8F;
-        this.head.z     += 1.4F;
+        this.head.y     += 3.8F * c;
+        this.head.z     += 1.4F * c;
 
         // Tight forward step, shins tucked
-        this.rightLeg.xRot += 0.35F;
-        this.rightLeg.y    -= 0.4F;
-        this.leftLeg.xRot  -= 0.50F;
-        this.leftLeg.y     += 1.4F;
+        this.rightLeg.xRot += 0.35F * c;
+        this.rightLeg.y    -= 0.4F * c;
+        this.leftLeg.xRot  -= 0.50F * c;
+        this.leftLeg.y     += 1.4F * c;
 
         // Tucked arms: tight to chest, CQB ready position
-        this.rightArm.y    += 3.4F;
-        this.rightArm.z    += 1.2F;
-        this.rightArm.xRot -= 0.10F;
-        this.rightArm.zRot -= 0.15F; // elbow tucked inward
+        this.rightArm.y    += 3.4F * c;
+        this.rightArm.z    += 1.2F * c;
+        this.rightArm.xRot -= 0.10F * c;
+        this.rightArm.zRot -= 0.15F * c; // elbow tucked inward
 
-        this.leftArm.y     += 3.4F;
-        this.leftArm.z     += 1.2F;
-        this.leftArm.xRot  += 0.10F;
-        this.leftArm.zRot  += 0.10F;
+        this.leftArm.y     += 3.4F * c;
+        this.leftArm.z     += 1.2F * c;
+        this.leftArm.xRot  += 0.10F * c;
+        this.leftArm.zRot  += 0.10F * c;
     }
 
     // -------------------------------------------------------------------
@@ -167,27 +171,27 @@ public abstract class MixinUnitModelCrouch {
     //   Stance is spread wider to brace against heavy 12-gauge kick,
     //   torso angled slightly, forward knee bent deep.
     // -------------------------------------------------------------------
-    private void applySweeperStance() {
-        this.body.xRot  += 0.46F;
-        this.body.yRot  -= 0.08F; // slightly angled torso
-        this.body.y     += 2.2F;
+    private void applySweeperStance(float c) {
+        this.body.xRot  += 0.46F * c;
+        this.body.yRot  -= 0.08F * c; // slightly angled torso
+        this.body.y     += 2.2F * c;
 
-        this.head.y     += 3.6F;
-        this.head.z     += 1.2F;
+        this.head.y     += 3.6F * c;
+        this.head.z     += 1.2F * c;
 
         // Wide stance for recoil stability
-        this.rightLeg.xRot += 0.40F;
-        this.rightLeg.zRot -= 0.15F;
-        this.rightLeg.y    -= 0.3F;
+        this.rightLeg.xRot += 0.40F * c;
+        this.rightLeg.zRot -= 0.15F * c;
+        this.rightLeg.y    -= 0.3F * c;
 
-        this.leftLeg.xRot  -= 0.45F;
-        this.leftLeg.zRot  += 0.15F;
-        this.leftLeg.y     += 1.2F;
+        this.leftLeg.xRot  -= 0.45F * c;
+        this.leftLeg.zRot  += 0.15F * c;
+        this.leftLeg.y     += 1.2F * c;
 
-        this.rightArm.y    += 3.2F;
-        this.rightArm.z    += 1.2F;
-        this.leftArm.y     += 3.2F;
-        this.leftArm.z     += 1.2F;
+        this.rightArm.y    += 3.2F * c;
+        this.rightArm.z    += 1.2F * c;
+        this.leftArm.y     += 3.2F * c;
+        this.leftArm.z     += 1.2F * c;
     }
 
     // -------------------------------------------------------------------
@@ -195,29 +199,29 @@ public abstract class MixinUnitModelCrouch {
     //   Both arms extended forward in a locked Weaver/Isosceles grip,
     //   one knee fully grounded.
     // -------------------------------------------------------------------
-    private void applyPistolStance() {
-        this.body.xRot  += 0.38F;
-        this.body.y     += 2.2F;
+    private void applyPistolStance(float c) {
+        this.body.xRot  += 0.38F * c;
+        this.body.y     += 2.2F * c;
 
-        this.head.y     += 3.2F;
-        this.head.z     += 1.0F;
+        this.head.y     += 3.2F * c;
+        this.head.z     += 1.0F * c;
 
         // Grounded right knee, left foot planted
-        this.rightLeg.xRot -= 0.70F;
-        this.rightLeg.y    += 2.0F;
+        this.rightLeg.xRot -= 0.70F * c;
+        this.rightLeg.y    += 2.0F * c;
 
-        this.leftLeg.xRot  += 0.45F;
-        this.leftLeg.y     -= 0.5F;
+        this.leftLeg.xRot  += 0.45F * c;
+        this.leftLeg.y     -= 0.5F * c;
 
         // Both arms punch forward toward the target
-        this.rightArm.y    += 3.0F;
-        this.rightArm.z    += 1.5F;
-        this.rightArm.xRot -= 0.20F;
+        this.rightArm.y    += 3.0F * c;
+        this.rightArm.z    += 1.5F * c;
+        this.rightArm.xRot -= 0.20F * c;
 
-        this.leftArm.y     += 3.0F;
-        this.leftArm.z     += 1.5F;
-        this.leftArm.xRot  -= 0.20F;
-        this.leftArm.yRot  += 0.15F; // left hand supports right wrist
+        this.leftArm.y     += 3.0F * c;
+        this.leftArm.z     += 1.5F * c;
+        this.leftArm.xRot  -= 0.20F * c;
+        this.leftArm.yRot  += 0.15F * c; // left hand supports right wrist
     }
 
     // -------------------------------------------------------------------
@@ -228,33 +232,33 @@ public abstract class MixinUnitModelCrouch {
     //   elbow resting on the forward knee. The head barely moves because
     //   SEM's HeadTrackingLayer still owns the aim direction.
     // -------------------------------------------------------------------
-    private void applyMarksMankKneel() {
+    private void applyMarksMankKneel(float c) {
         // Strong forward body lean
-        this.body.xRot  += 0.65F;
-        this.body.y     += 2.8F;
-        this.body.z     += 0.8F;
+        this.body.xRot  += 0.65F * c;
+        this.body.y     += 2.8F * c;
+        this.body.z     += 0.8F * c;
 
         // Head rides the torso lean
-        this.head.y += 4.5F;
-        this.head.z += 1.8F;
+        this.head.y += 4.5F * c;
+        this.head.z += 1.8F * c;
 
         // Right leg - knee swings well forward, shin planted
-        this.rightLeg.xRot  += 0.50F;  // knee forward
-        this.rightLeg.y     -= 1.0F;
+        this.rightLeg.xRot  += 0.50F * c;  // knee forward
+        this.rightLeg.y     -= 1.0F * c;
 
         // Left leg - folds back, knee toward ground
-        this.leftLeg.xRot   -= 1.20F;  // shin sweeps back
-        this.leftLeg.y      += 2.5F;
+        this.leftLeg.xRot   -= 1.20F * c;  // shin sweeps back
+        this.leftLeg.y      += 2.5F * c;
 
         // Arms follow the body drop; right arm (trigger arm) up for scope
-        this.rightArm.y  += 4.0F;
-        this.rightArm.z  += 1.8F;
-        this.rightArm.xRot -= 0.15F;   // elbow dips toward rifle stock
+        this.rightArm.y  += 4.0F * c;
+        this.rightArm.z  += 1.8F * c;
+        this.rightArm.xRot -= 0.15F * c;   // elbow dips toward rifle stock
 
         // Left arm (support arm) drops deeper - elbow on knee
-        this.leftArm.y  += 5.2F;
-        this.leftArm.z  += 1.8F;
-        this.leftArm.xRot += 0.20F;    // wrist angled into the forestock
+        this.leftArm.y  += 5.2F * c;
+        this.leftArm.z  += 1.8F * c;
+        this.leftArm.xRot += 0.20F * c;    // wrist angled into the forestock
     }
 
     // -------------------------------------------------------------------
@@ -263,32 +267,32 @@ public abstract class MixinUnitModelCrouch {
     //   a heavy machine gun on its bipod. Left arm extends forward along
     //   the body centerline as if gripping the bipod legs.
     // -------------------------------------------------------------------
-    private void applyBipodCrouch() {
+    private void applyBipodCrouch(float c) {
         // Heavy forward lean with a slight sink
-        this.body.xRot  += 0.55F;
-        this.body.y     += 3.2F;
-        this.body.z     += 0.5F;
+        this.body.xRot  += 0.55F * c;
+        this.body.y     += 3.2F * c;
+        this.body.z     += 0.5F * c;
 
-        this.head.y += 4.8F;
-        this.head.z += 1.4F;
+        this.head.y += 4.8F * c;
+        this.head.z += 1.4F * c;
 
         // Both legs spread outward (crouch width)
-        this.rightLeg.xRot  += 0.40F;
-        this.rightLeg.zRot  -= 0.20F;   // right knee flares out
-        this.rightLeg.y     -= 0.5F;
+        this.rightLeg.xRot  += 0.40F * c;
+        this.rightLeg.zRot  -= 0.20F * c;   // right knee flares out
+        this.rightLeg.y     -= 0.5F * c;
 
-        this.leftLeg.xRot   += 0.40F;
-        this.leftLeg.zRot   += 0.20F;   // left knee flares out
-        this.leftLeg.y      -= 0.5F;
+        this.leftLeg.xRot   += 0.40F * c;
+        this.leftLeg.zRot   += 0.20F * c;   // left knee flares out
+        this.leftLeg.y      -= 0.5F * c;
 
         // Arms
-        this.rightArm.y     += 4.5F;
-        this.rightArm.z     += 1.4F;
+        this.rightArm.y     += 4.5F * c;
+        this.rightArm.z     += 1.4F * c;
 
         // Left arm reaches well forward to "grip the bipod"
-        this.leftArm.y     += 4.5F;
-        this.leftArm.z     += 2.4F;
-        this.leftArm.xRot  -= 0.35F;   // extended forward reach
+        this.leftArm.y     += 4.5F * c;
+        this.leftArm.z     += 2.4F * c;
+        this.leftArm.xRot  -= 0.35F * c;   // extended forward reach
     }
 
     // -------------------------------------------------------------------
@@ -296,26 +300,26 @@ public abstract class MixinUnitModelCrouch {
     //   No deep kneel. Legs spread, slight rear lean (recoil preparation),
     //   right arm angled up to support the launcher tube.
     // -------------------------------------------------------------------
-    private void applyDemolisherBlastStance() {
+    private void applyDemolisherBlastStance(float c) {
         // Very slight rear-lean - bracing for back-blast
-        this.body.xRot  += 0.18F;
-        this.body.y     += 0.8F;
+        this.body.xRot  += 0.18F * c;
+        this.body.y     += 0.8F * c;
 
-        this.head.y += 1.0F;
+        this.head.y += 1.0F * c;
 
         // Legs planted wide - stable base for the tube
-        this.rightLeg.zRot  -= 0.25F;
-        this.rightLeg.xRot  += 0.12F;
+        this.rightLeg.zRot  -= 0.25F * c;
+        this.rightLeg.xRot  += 0.12F * c;
 
-        this.leftLeg.zRot   += 0.25F;
-        this.leftLeg.xRot   += 0.12F;
+        this.leftLeg.zRot   += 0.25F * c;
+        this.leftLeg.xRot   += 0.12F * c;
 
         // Arms ride the small body shift
-        this.rightArm.y     += 1.2F;
-        this.leftArm.y      += 1.2F;
+        this.rightArm.y     += 1.2F * c;
+        this.leftArm.y      += 1.2F * c;
 
         // Right arm rises slightly to cradle the tube on the shoulder
-        this.rightArm.xRot  -= 0.20F;
+        this.rightArm.xRot  -= 0.20F * c;
     }
 
     // -------------------------------------------------------------------
@@ -324,27 +328,27 @@ public abstract class MixinUnitModelCrouch {
     //   This replaces the old single generic kneel with a tighter,
     //   more deliberate forward hunch.
     // -------------------------------------------------------------------
-    private void applyTacticalHalfKneel() {
+    private void applyTacticalHalfKneel(float c) {
         // Moderate forward lean
-        this.body.xRot  += 0.42F;
-        this.body.y     += 2.0F;
+        this.body.xRot  += 0.42F * c;
+        this.body.y     += 2.0F * c;
 
-        this.head.y     += 3.4F;
-        this.head.z     += 1.1F;
+        this.head.y     += 3.4F * c;
+        this.head.z     += 1.1F * c;
 
         // Right leg - slight forward step
-        this.rightLeg.xRot  += 0.25F;
-        this.rightLeg.y     -= 0.3F;
+        this.rightLeg.xRot  += 0.25F * c;
+        this.rightLeg.y     -= 0.3F * c;
 
         // Left leg - shifted back, partial crouch
-        this.leftLeg.xRot   -= 0.35F;
-        this.leftLeg.y      += 1.0F;
+        this.leftLeg.xRot   -= 0.35F * c;
+        this.leftLeg.y      += 1.0F * c;
 
         // Arms follow naturally
-        this.rightArm.y  += 3.0F;
-        this.rightArm.z  += 1.1F;
-        this.leftArm.y   += 3.0F;
-        this.leftArm.z   += 1.1F;
+        this.rightArm.y  += 3.0F * c;
+        this.rightArm.z  += 1.1F * c;
+        this.leftArm.y   += 3.0F * c;
+        this.leftArm.z   += 1.1F * c;
     }
 
     // -------------------------------------------------------------------
@@ -380,36 +384,84 @@ public abstract class MixinUnitModelCrouch {
     }
 
     // -------------------------------------------------------------------
-    // Dynamic locomotion: scales SEM's fixed walk stride by actual movement
-    // speed, adds forward rush lean and subtle upper-body weapon bob.
+    // Dynamic distance-locked locomotion: replaces SEM's fixed 0.9s wall-clock
+    // UNIT_WALK hip-sliding & 32.5-deg torso whip with smooth distance-driven
+    // stride, natural knee lift, idle breathing, and rush lean.
     // -------------------------------------------------------------------
-    private void applyLocomotionPolish(float limbSwing, float limbSwingAmount, float combatBlend) {
-        float speedFactor = Mth.clamp(limbSwingAmount * 1.4F, 0.0F, 1.0F);
-        // Dampen over-exaggerated leg swing when creeping slowly
-        if (speedFactor < 0.85F) {
-            float legScale = 0.35F + 0.65F * speedFactor;
-            this.rightLeg.xRot = Mth.lerp(legScale, 0.1309F, this.rightLeg.xRot);
-            this.leftLeg.xRot = Mth.lerp(legScale, -0.1745F, this.leftLeg.xRot);
+    private void applyLocomotionPolish(float limbSwing, float limbSwingAmount, float ageInTicks,
+                                       float walkBlend, float combatBlend) {
+        // 1. Strip SEM's cartoon squash-and-stretch scale keyframes (1.10x/0.97y)
+        for (ModelPart part : new ModelPart[]{
+                this.unit, this.head, this.body,
+                this.rightArm, this.leftArm, this.rightLeg, this.leftLeg}) {
+            part.xScale = 1.0F;
+            part.yScale = 1.0F;
+            part.zScale = 1.0F;
         }
 
-        if (limbSwingAmount > 0.08F) {
-            float stride = Mth.sin(limbSwing * 0.6662F);
-            float doubleStep = Mth.cos(limbSwing * 1.3324F);
-            float moveAmt = Math.min(1.0F, limbSwingAmount);
+        float moveAmt = Mth.clamp(Math.max(limbSwingAmount * 1.15F, walkBlend * 0.45F) * walkBlend, 0.0F, 1.0F);
+        float stride = Mth.cos(limbSwing * 0.6662F);
+        float stepSin = Mth.sin(limbSwing * 0.6662F);
+        float doubleStep = Mth.cos(limbSwing * 1.3324F);
+        float breath = Mth.sin(ageInTicks * 0.09F);
 
-            // Forward lean when moving quickly
-            float rushLean = Math.max(0.0F, moveAmt - 0.35F) * 0.28F;
-            this.body.xRot += rushLean;
-            this.head.z -= rushLean * 2.5F;
+        // 2. Stabilize root & torso against UNIT_WALK's fixed-timer -32.5 deg twist
+        this.unit.x = 0.0F;
+        this.unit.y = -Math.abs(stepSin) * 0.42F * moveAmt;
+        this.unit.z = 0.0F;
+        this.unit.xRot = 0.0873F;
+        this.unit.yRot = 0.0F;
+        this.unit.zRot = stepSin * 0.018F * moveAmt;
 
-            // Subtle weapon bob in sync with footsteps
-            float bobY = doubleStep * 0.35F * moveAmt;
-            float swayX = stride * 0.04F * moveAmt * (1.0F - 0.5F * combatBlend);
-            this.rightArm.y += bobY;
-            this.leftArm.y += bobY;
-            this.rightArm.xRot += swayX;
-            this.leftArm.xRot += swayX;
-        }
+        // When patrolling out of combat or moving, slightly relax the 37.5-deg
+        // bladed firing torso toward the direction of travel so walking looks natural.
+        float baseBodyYRot = Mth.lerp(walkBlend * (1.0F - 0.55F * combatBlend), 0.6536F, 0.34F);
+        float rushLean = Math.max(0.0F, moveAmt - 0.30F) * 0.24F;
+        this.body.x = 0.0F;
+        this.body.y = -6.26F + breath * 0.08F * (1.0F - moveAmt);
+        this.body.z = 1.0616F;
+        this.body.xRot = 0.0997F + rushLean + breath * 0.015F * (1.0F - moveAmt);
+        this.body.yRot = baseBodyYRot - stride * 0.10F * moveAmt;
+        this.body.zRot = 0.0238F + stepSin * 0.02F * moveAmt;
+
+        this.head.x = 0.0F;
+        this.head.y = -6.16F;
+        this.head.z = 1.0616F - rushLean * 2.2F;
+
+        // 3. Distance-synchronized legs: smoothly converge from SEM's wide
+        //    stationary firing stagger (z = +4.0 / -1.0) into a clean walking
+        //    hip line (z = +1.4 / +0.6) so slow VDF patrol strolls never piston-slide.
+        float rSwing = stride * 1.15F * moveAmt;
+        float lSwing = -stride * 1.15F * moveAmt;
+        float rLift = Math.max(0.0F, -rSwing) * 0.75F;
+        float lLift = Math.max(0.0F, -lSwing) * 0.75F;
+
+        this.rightLeg.x = -1.9F;
+        this.rightLeg.y = 6.0F - rLift;
+        this.rightLeg.z = Mth.lerp(walkBlend, 4.0F, 1.4F) + rSwing * 0.45F;
+        this.rightLeg.xRot = Mth.lerp(walkBlend, 0.1309F, 0.02F) + rSwing;
+        this.rightLeg.yRot = 0.0F;
+        this.rightLeg.zRot = 0.0F;
+
+        this.leftLeg.x = Mth.lerp(walkBlend, 2.15F, 1.95F);
+        this.leftLeg.y = Mth.lerp(walkBlend, 5.85F, 6.0F) - lLift;
+        this.leftLeg.z = Mth.lerp(walkBlend, -1.0F, 0.6F) + lSwing * 0.45F;
+        this.leftLeg.xRot = Mth.lerp(walkBlend, -0.1745F, -0.02F) + lSwing;
+        this.leftLeg.yRot = 0.0F;
+        this.leftLeg.zRot = 0.0F;
+
+        // 4. Keep shoulders anchored to their tactical pivots (eliminates UNIT_WALK arm jitter)
+        float armBobY = doubleStep * 0.28F * moveAmt + breath * 0.10F * (1.0F - moveAmt);
+        float swayX = stepSin * 0.05F * moveAmt * (1.0F - 0.55F * combatBlend);
+        this.rightArm.x = -3.0F;
+        this.rightArm.y = -2.9089F + armBobY;
+        this.rightArm.z = 3.4377F;
+        this.rightArm.xRot += swayX;
+
+        this.leftArm.x = 2.5F;
+        this.leftArm.y = -3.2588F + armBobY;
+        this.leftArm.z = -3.4123F;
+        this.leftArm.xRot += swayX;
     }
 
     // -------------------------------------------------------------------

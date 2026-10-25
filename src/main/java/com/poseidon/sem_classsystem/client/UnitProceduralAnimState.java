@@ -7,7 +7,10 @@ import com.tacz.guns.api.entity.ReloadState;
 import com.tacz.guns.api.item.IGun;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;
 
@@ -27,6 +30,9 @@ public final class UnitProceduralAnimState {
 
     private float lastAgeInTicks = Float.NaN;
     private float combatBlend = 0.0F;
+    private float crouchBlend = 0.0F;
+    private float walkBlend = 0.0F;
+    private float useItemBlend = 0.0F;
     private float proneBlend = 0.0F;
     private float recoilImpulse = 0.0F;
     private float recoilSign = 1.0F;
@@ -39,7 +45,7 @@ public final class UnitProceduralAnimState {
     private boolean wasSwinging = false;
     private float meleeSwingTicks = 0.0F;
     private float meleeSwingDuration = 11.0F;
-    private int meleeComboIndex = 0;
+    private int meleeComboIndex = -1;                                     // -1 so the first swing lands on combo 0
 
     private ResourceLocation lastGunId = null;
     private int lastAmmo = -1;
@@ -52,6 +58,9 @@ public final class UnitProceduralAnimState {
             if (entity instanceof AbstractUnit unit) {
                 this.combatBlend = unit.isInCombat() ? 1.0F : 0.0F;
             }
+            this.crouchBlend = entity.isShiftKeyDown() ? 1.0F : 0.0F;
+            this.walkBlend = Mth.clamp(entity.walkAnimation.speed() * 2.2F, 0.0F, 1.0F);
+            this.useItemBlend = (entity.isUsingItem() && !entity.getOffhandItem().isEmpty()) ? 1.0F : 0.0F;
             this.proneBlend = entity.getPose() == net.minecraft.world.entity.Pose.SWIMMING ? 1.0F : 0.0F;
         } else {
             dt = Mth.clamp(ageInTicks - this.lastAgeInTicks, 0.0F, 1.5F);
@@ -60,33 +69,45 @@ public final class UnitProceduralAnimState {
 
         // Smooth prone transition (~5 ticks = 0.25s)
         float targetProne = (entity.isAlive() && entity.getPose() == net.minecraft.world.entity.Pose.SWIMMING) ? 1.0F : 0.0F;
-        float proneStep = dt * 0.20F;
-        if (this.proneBlend < targetProne) {
-            this.proneBlend = Math.min(targetProne, this.proneBlend + proneStep);
-        } else if (this.proneBlend > targetProne) {
-            this.proneBlend = Math.max(targetProne, this.proneBlend - proneStep);
-        }
+        this.proneBlend = approach(this.proneBlend, targetProne, dt * 0.20F);
+
+        // Smooth crouch / kneel transition (~4 ticks = 0.20s) - eliminates 1-frame
+        // snapping when VdfNightWatchGoal or RangedGunAttackGoal toggles sneak.
+        float targetCrouch = (entity.isAlive() && entity.isShiftKeyDown() && targetProne < 0.5F) ? 1.0F : 0.0F;
+        this.crouchBlend = approach(this.crouchBlend, targetCrouch, dt * 0.25F);
+
+        // Smooth locomotion blend from client walkAnimation speed + position delta
+        float pt = Mth.frac(ageInTicks);
+        float limbSpeed = entity.walkAnimation.speed(pt);
+        double dx = entity.getX() - entity.xo;
+        double dz = entity.getZ() - entity.zo;
+        float posSpeed = (float) Math.sqrt(dx * dx + dz * dz) * 4.5F;
+        float targetWalk = Mth.clamp(Math.max(limbSpeed * 2.4F, posSpeed), 0.0F, 1.0F);
+        float walkRate = targetWalk > this.walkBlend ? dt * 0.32F : dt * 0.22F;
+        this.walkBlend = approach(this.walkBlend, targetWalk, walkRate);
+
+        // Smooth offhand food / medkit use blend (~3.5 ticks)
+        float targetUse = (entity.isAlive() && entity.isUsingItem() && !entity.getOffhandItem().isEmpty()) ? 1.0F : 0.0F;
+        this.useItemBlend = approach(this.useItemBlend, targetUse, dt * 0.28F);
 
         boolean inCombat = (entity instanceof AbstractUnit unit && unit.isInCombat())
                 || (entity instanceof net.minecraft.world.entity.Mob mob && mob.getTarget() != null);
 
         // 1. Smooth combat stance blend (~4.5 ticks = 0.225s transition)
         float targetCombat = inCombat ? 1.0F : 0.0F;
-        float step = dt * 0.22F;
-        if (this.combatBlend < targetCombat) {
-            this.combatBlend = Math.min(targetCombat, this.combatBlend + step);
-        } else if (this.combatBlend > targetCombat) {
-            this.combatBlend = Math.max(targetCombat, this.combatBlend - step);
-        }
+        this.combatBlend = approach(this.combatBlend, targetCombat, dt * 0.22F);
 
-        // Smooth Better Combat melee swing progression (11 ticks = 0.55s per slash)
+        // Smooth Better Combat melee swing progression. The swing window is
+        // retuned to the held weapon's attack speed every update so a fast
+        // knife's anim fits inside its 8-tick cadence while a heavy axe gets
+        // a full committed swing - same interval math the server goal uses.
         boolean swingingNow = entity.swinging && entity.swingTime <= 2;
+        if (swingingNow || this.meleeSwingTicks > 0.0F) {
+            this.meleeSwingDuration = Mth.clamp(
+                    meleeAttackIntervalTicks(entity) * 0.70F, 6.0F, 15.0F);
+        }
         if (swingingNow && !this.wasSwinging) {
-            if (this.meleeSwingTicks > 0.0F && this.meleeSwingTicks < this.meleeSwingDuration) {
-                this.meleeComboIndex = (this.meleeComboIndex + 1) % 3;
-            } else {
-                this.meleeComboIndex = (this.meleeComboIndex + 1) % 3;
-            }
+            this.meleeComboIndex = (this.meleeComboIndex + 1) % 3;
             this.meleeSwingTicks = 0.001F;
         }
         this.wasSwinging = swingingNow;
@@ -166,14 +187,39 @@ public final class UnitProceduralAnimState {
         }
     }
 
-    public float smoothCombatBlend() {
-        float t = Mth.clamp(this.combatBlend, 0.0F, 1.0F);
+    private static float approach(float current, float target, float step) {
+        if (current < target) {
+            return Math.min(target, current + step);
+        }
+        if (current > target) {
+            return Math.max(target, current - step);
+        }
+        return current;
+    }
+
+    private static float smoothstep(float value) {
+        float t = Mth.clamp(value, 0.0F, 1.0F);
         return t * t * (3.0F - 2.0F * t);
     }
 
+    public float smoothCombatBlend() {
+        return smoothstep(this.combatBlend);
+    }
+
+    public float smoothCrouchBlend() {
+        return smoothstep(this.crouchBlend);
+    }
+
+    public float smoothWalkBlend() {
+        return smoothstep(this.walkBlend);
+    }
+
+    public float smoothUseItemBlend() {
+        return smoothstep(this.useItemBlend);
+    }
+
     public float smoothProneBlend() {
-        float t = Mth.clamp(this.proneBlend, 0.0F, 1.0F);
-        return t * t * (3.0F - 2.0F * t);
+        return smoothstep(this.proneBlend);
     }
 
     public float recoilImpulse() {
@@ -211,6 +257,25 @@ public final class UnitProceduralAnimState {
 
     public int meleeComboIndex() {
         return this.meleeComboIndex;
+    }
+
+    // Client mirror of UnitMeleeAttackGoal.computeSwingIntervalTicks(): derive
+    // the real attack cadence (8-20 ticks) from the unit's ATTACK_SPEED value,
+    // falling back to the item's own attribute modifier when no attribute exists.
+    private static float meleeAttackIntervalTicks(LivingEntity entity) {
+        double atkSpeed = 1.6D;
+        AttributeInstance inst = entity.getAttribute(Attributes.ATTACK_SPEED);
+        if (inst != null && inst.getValue() > 0.2D) {
+            atkSpeed = inst.getValue();
+        } else {
+            var mods = entity.getMainHandItem().getAttributeModifiers(EquipmentSlot.MAINHAND)
+                    .get(Attributes.ATTACK_SPEED);
+            if (!mods.isEmpty()) {
+                atkSpeed = Math.max(0.6D, 4.0D + mods.iterator().next().getAmount());
+            }
+        }
+        return Math.max(8.0F, Math.min(20.0F,
+                (float) Math.round(20.0D / Math.max(0.8D, atkSpeed))));
     }
 
     public static float classRecoilScale(LivingEntity entity) {

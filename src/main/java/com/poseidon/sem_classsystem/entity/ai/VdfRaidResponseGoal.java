@@ -66,8 +66,11 @@ public class VdfRaidResponseGoal extends Goal {
         }
 
         BlockPos center = raid.getCenter();                             // where the raid is actually anchored
-        this.unit.getNavigation().moveTo(                               // converge on the raid center
-                center.getX() + 0.5, center.getY(), center.getZ() + 0.5, MOVE_SPEED);
+        if (this.unit.getNavigation().isDone()) {                       // re-issue only when the last leg ended -
+            this.unit.getNavigation().moveTo(                           // every-tick moveTo rebuilds the path and
+                    center.getX() + 0.5, center.getY(),                 // makes the rally stutter-step
+                            center.getZ() + 0.5, MOVE_SPEED);
+        }
 
         if (this.unit.getTarget() instanceof Raider) {                  // already locked onto a raider
             return;                                                     // combat goals handle the rest

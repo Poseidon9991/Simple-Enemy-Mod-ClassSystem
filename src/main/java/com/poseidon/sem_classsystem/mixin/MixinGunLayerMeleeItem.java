@@ -164,11 +164,18 @@ public abstract class MixinGunLayerMeleeItem<T extends LivingEntity, M extends E
         rightArm.translateAndRotate(poseStack);
         rightHandAnchor.translateAndRotate(poseStack);
 
-        // rightHandAnchor is already at (-1, 9, 0) in rightArm space; apply
-        // the remaining (0, 1, -2) pixel offset to match vanilla third-person grip
+        // rightHandAnchor is already at (-1, 9, 0) in rightArm space; center
+        // the sword hilt cleanly inside the fist and add wrist follow-through
+        // during combo slashes so the blade tracks the arm swing arc.
+        UnitProceduralAnimState state = UnitProceduralAnimState.get(entity);
+        float swing = state.meleeSwingProgress();
         poseStack.mulPose(Axis.XP.rotationDegrees(-90.0F));
         poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
-        poseStack.translate(0.0F, 0.125F, -1.0F / 16.0F);
+        if (swing > 0.001F) {
+            float wristSnap = Mth.sin(swing * (float) Math.PI) * 18.0F;
+            poseStack.mulPose(Axis.XP.rotationDegrees(wristSnap));
+        }
+        poseStack.translate(0.0F, 0.0625F, -0.0625F);
 
         this.itemRenderer.renderItem(
                 entity,

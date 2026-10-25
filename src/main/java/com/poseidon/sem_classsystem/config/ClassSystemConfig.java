@@ -72,6 +72,7 @@ public class ClassSystemConfig {
     private static ForgeConfigSpec.DoubleValue VDF_GUNNER_CHANCE;
     private static ForgeConfigSpec.DoubleValue VDF_PATROL_RADIUS;
     private static ForgeConfigSpec.DoubleValue VDF_ARMOR_DROP_CHANCE;
+    private static ForgeConfigSpec.BooleanValue VDF_NIGHT_WATCH;
 
     // static {} runs once at class load - defines ALL keys before register()
     static {
@@ -302,6 +303,10 @@ public class ClassSystemConfig {
         VDF_ARMOR_DROP_CHANCE = BUILDER
                 .comment("Chance each VDF armor piece drops on militia death")
                 .defineInRange("armorDropChance", 0.03, 0.0, 1.0);
+        VDF_NIGHT_WATCH = BUILDER
+                .comment("Militia take watch posts near beds at night and",
+                        "shelter from rain instead of day-patrolling")
+                .define("nightWatch", true);
         BUILDER.pop();   // close [vdf]
 
         // ================= NIGHT RAIDS =================
@@ -1019,6 +1024,14 @@ public class ClassSystemConfig {
             return VDF_ARMOR_DROP_CHANCE.get();
         } catch (IllegalStateException notLoadedYet) {
             return 0.03;
+        }
+    }
+
+    public static boolean vdfNightWatch() {
+        try {
+            return VDF_NIGHT_WATCH.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return true;
         }
     }
 
