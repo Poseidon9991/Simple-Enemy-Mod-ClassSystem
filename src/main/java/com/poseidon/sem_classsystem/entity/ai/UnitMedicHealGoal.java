@@ -23,9 +23,9 @@ import java.util.EnumSet;
 import java.util.List;
 
 // Medic class behaviour: the unit keeps fighting normally, but when a
-// nearby ally is hurt it moves in and patches them up. Bandages/medkits in
-// the medic's own inventory are consumed for a big heal (8 HP); with no
-// supplies left it performs a slower free field dressing (3 HP).
+// nearby ally is hurt it moves in and patches them up. Each heal pulse
+// CONSUMES one bandage/medkit/potion from the medic's own inventory
+// (8 HP) - no supplies in stock, no healing.
 //
 // Eligible patients: same-faction units, SEM allies (PMC<->BHQ), and any
 // unit sharing the medic's owner (a player's whole squad heals each other).
@@ -48,7 +48,8 @@ public class UnitMedicHealGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        if (WeaponClassSupport.get(this.mob) != WeaponClass.MEDIC) {
+        if (WeaponClassSupport.get(this.mob) != WeaponClass.MEDIC
+                || !hasMedicalSupplies()) {
             return false;
         }
         if (this.scanCooldown > 0) {
@@ -63,7 +64,8 @@ public class UnitMedicHealGoal extends Goal {
     @Override
     public boolean canContinueToUse() {
         if (this.patient == null || !this.patient.isAlive()
-                || this.mob.distanceToSqr(this.patient) >= SCAN_RANGE * SCAN_RANGE) {
+                || this.mob.distanceToSqr(this.patient) >= SCAN_RANGE * SCAN_RANGE
+                || !hasMedicalSupplies()) {
             return false;
         }
         return this.patient.getHealth() < this.patient.getMaxHealth() - 0.5F;
@@ -102,18 +104,20 @@ public class UnitMedicHealGoal extends Goal {
     }
 
     private void performHeal(LivingEntity patient) {
-        boolean usedKit = consumeMedicalKit();
-        patient.heal(usedKit ? 8.0F : 3.0F);
+        if (!consumeMedicalKit()) {
+            return;   // out of supplies - canContinueToUse drops the goal too
+        }
+        patient.heal(8.0F);
         if (patient.level() instanceof ServerLevel serverLevel) {
             serverLevel.sendParticles(ParticleTypes.HEART,
                     patient.getX(), patient.getY() + patient.getBbHeight() + 0.3D, patient.getZ(),
-                    usedKit ? 5 : 2, 0.3D, 0.3D, 0.3D, 0.02D);
+                    5, 0.3D, 0.3D, 0.3D, 0.02D);
         }
         patient.level().playSound(null, patient.blockPosition(),
                 SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.NEUTRAL, 0.6F, 1.6F);
     }
 
-    // Uses one bandage/medkit/potion from the medic's storage for a big heal;
+    // Uses one bandage/medkit/potion from the medic's storage for a heal;
     // food and buff items are left alone (the unit eats those itself).
     private boolean consumeMedicalKit() {
         var cap = this.mob.getCapability(ForgeCapabilities.ITEM_HANDLER);
@@ -125,6 +129,23 @@ public class UnitMedicHealGoal extends Goal {
             if (!stack.isEmpty() && UnitMarkerTracker.isMedicalItem(stack)) {
                 stack.shrink(1);
                 handler.setStackInSlot(slot, stack);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // True while at least one healable item sits in the medic's storage -
+    // the goal refuses to start or continue without supplies, so a dry
+    // medic keeps fighting instead of hovering uselessly over a patient.
+    private boolean hasMedicalSupplies() {
+        var cap = this.mob.getCapability(ForgeCapabilities.ITEM_HANDLER);
+        if (!cap.isPresent() || !(cap.orElse(null) instanceof IItemHandlerModifiable handler)) {
+            return false;
+        }
+        for (int slot = 6; slot < handler.getSlots(); slot++) {
+            ItemStack stack = handler.getStackInSlot(slot);
+            if (!stack.isEmpty() && UnitMarkerTracker.isMedicalItem(stack)) {
                 return true;
             }
         }
@@ -149,9 +170,15 @@ public class UnitMedicHealGoal extends Goal {
                     if (owner != null && e instanceof PmcUnitEntity pmc && owner.equals(pmc.getOwnerUUID())) {
                         return true;
                     }
-                    if (!(e instanceof AbstractUnit)) {
+                    if (!(e instanceof AbstractUnit)
+                            && !(e instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity)) {
                         // Medics also patch up their owner player
                         return owner != null && e instanceof Player p && p.getUUID().equals(owner);
+                    }
+                    // VDF militia is a friendly patient - same protection pact
+                    // that stops them ever targeting our units applies here.
+                    if (e instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
+                        return true;
                     }
                     if (this.mob.isAlliedTo(e)) {
                         return true;

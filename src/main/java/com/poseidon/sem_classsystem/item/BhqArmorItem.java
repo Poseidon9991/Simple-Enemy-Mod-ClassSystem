@@ -62,7 +62,19 @@ public class BhqArmorItem extends ArmorItem implements GeoItem {
                                                                  EquipmentSlot slot,
                                                                  HumanoidModel<?> base) {
                 if (this.renderer == null) {
-                    this.renderer = new GeoArmorRenderer<>(new BhqArmorModel());
+                    this.renderer = new GeoArmorRenderer<>(new BhqArmorModel()) {
+                        @Override
+                        protected void applyBoneVisibilityBySlot(EquipmentSlot currentSlot) {
+                            super.applyBoneVisibilityBySlot(currentSlot);
+                            // Vanilla HumanoidArmorLayer shows body + both legs for LEGS
+                            // (waist belt, buckle, hip pouches, groin/tasset plates live
+                            // on armorBody in our .geo.json files), whereas GeckoLib's
+                            // default LEGS switch only unhides rightLeg + leftLeg.
+                            if (currentSlot == EquipmentSlot.LEGS) {
+                                setBoneVisible(this.body, this.baseModel.body.visible);
+                            }
+                        }
+                    };
                 }
                 // Required on the vanilla render path (ZeroContact does the
                 // same): populates entity/stack/slot or renderToBuffer NPEs.

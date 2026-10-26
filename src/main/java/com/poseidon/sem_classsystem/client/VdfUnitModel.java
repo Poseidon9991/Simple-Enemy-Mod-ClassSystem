@@ -2,6 +2,8 @@
 package com.poseidon.sem_classsystem.client;
 
 import com.poseidon.sem_classsystem.SemClassSystem;
+import com.poseidon.sem_classsystem.entity.VdfUnitEntity;
+import net.minecraft.client.model.HierarchicalModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
@@ -10,26 +12,81 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
-import net.nekoyuni.SimpleEnemyMod.entity.client.ru_unit.RUunitModel;
-import net.nekoyuni.SimpleEnemyMod.entity.unit.RUunitEntity;
+import net.minecraft.util.Mth;
+import net.nekoyuni.SimpleEnemyMod.entity.client.animation.ModAnimationsDefinitions;
 
 // The militia's own body - NOT a borrowed RU rig. Bone tree, part names,
 // pivots and animations all come from SEM's UnitModelDefinitions base
-// (ported 1:1 so walk/aim/death clips, the gun-layer rightHandAnchor and
+// (ported 1:1 so the shared UNIT_* clips, the gun-layer rightHandAnchor and
 // the armor-bone sync keep working), then the head gets what makes a
 // villager a villager: a real nose cube parented under "head" so it
 // follows every look/aim animation.
 //
-// Texture layout stays the standard 64x64 humanoid map; the nose uses
-// (24,0) - the same UV the vanilla villager texture reserves for it.
-public class VdfUnitModel extends RUunitModel<RUunitEntity> {
+// Plain HierarchicalModel now - not RUunitModel. setupAnim drives SEM's
+// shared clips off OUR animation states (started by VdfUnitEntity.tick()
+// from the synced movement tracker), which is the root fix for the
+// sliding-legs bug: SEM's own locomotion layer gated UNIT_WALK behind a
+// deltaMovement condition the militia's navigation didn't reliably trip.
+public class VdfUnitModel extends HierarchicalModel<VdfUnitEntity> {
 
     public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(
             net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
                     SemClassSystem.MODID, "vdfunit"), "main");
 
+    private final ModelPart root;
+    private final ModelPart fakeRoot;
+    private final ModelPart unit;
+    private final ModelPart head;
+    private final ModelPart rightArm;
+    private final ModelPart leftArm;
+
     public VdfUnitModel(ModelPart root) {
-        super(root);
+        this.root = root;
+        this.fakeRoot = root.getChild("fakeRoot");
+        this.unit = fakeRoot.getChild("unit");
+        this.head = unit.getChild("head");
+        this.rightArm = unit.getChild("rightArm");
+        this.leftArm = unit.getChild("leftArm");
+    }
+
+    @Override
+    public ModelPart root() {
+        return this.root;
+    }
+
+    @Override
+    public void setupAnim(VdfUnitEntity entity, float limbSwing, float limbSwingAmount,
+                          float ageInTicks, float netHeadYaw, float headPitch) {
+        this.root().getAllParts().forEach(ModelPart::resetPose);
+
+        // Head tracks the look direction like every other humanoid rig
+        this.head.yRot = netHeadYaw * Mth.DEG_TO_RAD;
+        this.head.xRot = headPitch * Mth.DEG_TO_RAD;
+
+        // Night-watch crouch: isShiftKeyDown doubles as the watch-squat flag -
+        // dip the whole rig slightly rather than re-posing every limb
+        if (entity.isShiftKeyDown()) {
+            this.fakeRoot.y += 2.0F;
+        }
+
+        // Locomotion: our own states, started/stopped by the entity's tick()
+        // off the synced movement tracker. Walk wins while moving, idle fills
+        // the gaps - no layered manager, no deltaMovement condition.
+        if (entity.walkAnimationState.isStarted()) {
+            this.animate(entity.walkAnimationState, ModAnimationsDefinitions.UNIT_WALK, ageInTicks);
+        } else {
+            this.animate(entity.idleAnimationState, ModAnimationsDefinitions.UNIT_IDLE, ageInTicks);
+        }
+        // Action clips layer on top of locomotion (they own the bones they touch)
+        this.animate(entity.hurtAnimationState, ModAnimationsDefinitions.UNIT_HURT, ageInTicks);
+        this.animate(entity.deathAnimationState, ModAnimationsDefinitions.UNIT_DEATH, ageInTicks);
+
+        // Melee swing on the vanilla attack timer
+        float attackAnim = entity.getAttackAnim(ageInTicks);
+        if (attackAnim > 0.0F) {
+            net.minecraft.client.model.AnimationUtils.swingWeaponDown(
+                    this.rightArm, this.leftArm, entity, attackAnim, ageInTicks);
+        }
     }
 
     // Clone of SEM's createBaseUnitBodyLayer + the nose. Keep every pivot

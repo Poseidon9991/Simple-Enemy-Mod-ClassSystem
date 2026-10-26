@@ -23,6 +23,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.PotionItem;
 import net.minecraft.world.item.alchemy.PotionUtils;
@@ -76,7 +77,7 @@ public final class UnitMarkerTracker {
         // The full-level entity enumeration inside collect() is identical
         // for every viewer in a dimension - run it once per level per sync
         // tick and share it, so N players no longer mean N sweeps/second.
-        Map<ServerLevel, List<AbstractUnit>> unitsByLevel = new java.util.IdentityHashMap<>();
+        Map<ServerLevel, List<LivingEntity>> unitsByLevel = new java.util.IdentityHashMap<>();
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             if (!(player.level() instanceof ServerLevel level)) {
                 continue;
@@ -129,25 +130,25 @@ public final class UnitMarkerTracker {
     }
 
     // Every classifiable unit (plus VDF militia) in the level - the shared,
-    // viewer-independent half of collect().
-    private static List<AbstractUnit> unitsIn(ServerLevel level) {
-        List<AbstractUnit> units = new ArrayList<>();
+    // viewer-independent half of collect(). LivingEntity, not AbstractUnit:
+    // VDF left the SEM hierarchy but still belongs on the map.
+    private static List<LivingEntity> unitsIn(ServerLevel level) {
+        List<LivingEntity> units = new ArrayList<>();
         for (Entity entity : level.getAllEntities()) {
-            if (entity instanceof AbstractUnit unit
-                    && (entity instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity
-                        || WeaponClassSupport.isClassifiable(unit))) {
-                units.add(unit);
+            if (entity instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity
+                    || (entity instanceof AbstractUnit unit && WeaponClassSupport.isClassifiable(unit))) {
+                units.add((LivingEntity) entity);
             }
         }
         return units;
     }
 
     private static List<UnitMarker> collect(ServerLevel level, ServerPlayer viewer,
-            List<AbstractUnit> units) {
+            List<LivingEntity> units) {
         List<UnitMarker> out = new ArrayList<>();
         // Current dimension only - your own units map at any distance, and
         // strangers (plus VDF village militia) must be "spotted" within SPOT_RANGE.
-        for (AbstractUnit unit : units) {
+        for (LivingEntity unit : units) {
             boolean isVdf = unit instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity;
             UnitMarker.Allegiance allegiance;
             if (isVdf) {
@@ -187,9 +188,11 @@ public final class UnitMarkerTracker {
             int ammoRounds = 0;
             boolean ammoInfinite = false, hasFood = false, hasMedical = false;
             int hunger = -1, energy = -1, morale = -1;
-            boolean sleeping = unit.isSleeping();
+            // AbstractUnit-only fields stay gated - VDF has no sleep state.
+            boolean sleeping = unit instanceof AbstractUnit au && au.isSleeping();
             if (allegiance == UnitMarker.Allegiance.OWN) {
-                int[] supplies = scanSupplies(unit);
+                // OWN allegiance implies PmcUnitEntity (VDF is never OWN)
+                int[] supplies = scanSupplies((AbstractUnit) unit);
                 ammoRounds = supplies[0];
                 ammoInfinite = supplies[1] != 0;
                 hasFood = supplies[2] != 0;

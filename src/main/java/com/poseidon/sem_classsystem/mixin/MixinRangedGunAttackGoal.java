@@ -405,9 +405,13 @@ public abstract class MixinRangedGunAttackGoal {
         if (this.semcs$proneCooldownTicks > 0) {
             this.semcs$proneCooldownTicks--;
         }
+        // "Planted" = actually not translating, not "nav object happens to be
+        // done" - a stale path flickering isDone=false used to zero the counter
+        // every time a tactical helper re-pathed, even while the unit never
+        // moved an inch. deltaMovement is the truth; once prone, the pin below
+        // kills any live path anyway.
         boolean stationary = this.mob.onGround()
-                && this.mob.getNavigation().isDone()
-                && this.mob.getDeltaMovement().horizontalDistanceSqr() < 0.0020D;
+                && this.mob.getDeltaMovement().horizontalDistanceSqr() < 0.01D;
         if (stationary) {
             this.semcs$stationaryTicks++;
         } else {
@@ -438,10 +442,13 @@ public abstract class MixinRangedGunAttackGoal {
     // ---- stance selection with hysteresis & low-eye LoS verification --------
     // Prevents rapid crouch <-> prone oscillation:
     //   1. Entering PRONE requires:
-    //      - SNIPER or HEAVY_MG class with proneDistance > 0
-    //      - Stationary on ground for >= 30 ticks (1.5s) and cooldown == 0
+    //      - SNIPER class with proneDistance > 0 (Suppressor never goes
+    //        flat - it kneels and braces instead)
+    //      - Planted on ground for >= 20 ticks (1s) and cooldown == 0
     //      - Target distance >= proneDist and elevation diff <= 8 blocks
-    //      - Clear raycast from prone eye height (y + 0.42) to target eye!
+    //      - Workable firing lane from prone eye height (y + 0.45):
+    //        eye or chest of the target reachable, muzzle-side clutter
+    //        within ~2.5 blocks tolerated (see semcs$hasProneLineOfSight)
     //   2. Staying PRONE uses an 8-block distance hysteresis (proneDist - 8)
     //      and a minimum 50-tick hold unless the unit moves or loses prone LoS
     //      for >= 20 ticks (which triggers an 80-tick prone cooldown).
@@ -516,9 +523,9 @@ public abstract class MixinRangedGunAttackGoal {
 
         // Check if eligible to enter prone
         boolean canEnterProne = proneDist > 0.0
-                && (cls == WeaponClass.SNIPER || cls == WeaponClass.HEAVY_MG)
+                && cls == WeaponClass.SNIPER
                 && this.semcs$proneCooldownTicks <= 0
-                && this.semcs$stationaryTicks >= 30
+                && this.semcs$stationaryTicks >= 20
                 && this.target != null
                 && dist >= proneDist
                 && dy <= 8.0D
@@ -552,16 +559,42 @@ public abstract class MixinRangedGunAttackGoal {
         }
     }
 
+    // Prone LoS probe from just above the prone hitbox (0.45 - a raised-head
+    // aim pose, not the 0.38 hitbox eye). Two aim points: the target's eye and
+    // its chest - a ray that reaches either means the lane is workable.
+    // Ground clutter within ~2.5 blocks of the muzzle (path lip, farmland,
+    // snow layer, a gentle rise right at the unit's feet) does NOT veto:
+    // we re-probe the lane starting just past the bump - a real gunner pokes
+    // the barrel over it. If the rest of the lane is clear, prone is legal.
     @Unique
     private boolean semcs$hasProneLineOfSight(LivingEntity target) {
-        Vec3 proneEye = new Vec3(this.mob.getX(), this.mob.getY() + 0.42D, this.mob.getZ());
-        Vec3 targetEye = target.getEyePosition();
-        var hit = this.mob.level().clip(new net.minecraft.world.level.ClipContext(
-                proneEye, targetEye,
-                net.minecraft.world.level.ClipContext.Block.COLLIDER,
-                net.minecraft.world.level.ClipContext.Fluid.NONE,
-                this.mob));
-        return hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
+        Vec3 proneEye = new Vec3(this.mob.getX(), this.mob.getY() + 0.45D, this.mob.getZ());
+        Vec3[] aims = {
+                target.getEyePosition(),
+                target.position().add(0.0, target.getBbHeight() * 0.55D, 0.0)
+        };
+        for (Vec3 aim : aims) {
+            var hit = this.mob.level().clip(new net.minecraft.world.level.ClipContext(
+                    proneEye, aim,
+                    net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                    net.minecraft.world.level.ClipContext.Fluid.NONE,
+                    this.mob));
+            if (hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) {
+                return true;
+            }
+            if (hit.getLocation().distanceToSqr(proneEye) <= 2.5D * 2.5D) {
+                Vec3 past = proneEye.add(aim.subtract(proneEye).normalize().scale(2.8D));
+                var lane = this.mob.level().clip(new net.minecraft.world.level.ClipContext(
+                        past, aim,
+                        net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                        net.minecraft.world.level.ClipContext.Fluid.NONE,
+                        this.mob));
+                if (lane.getType() == net.minecraft.world.phys.HitResult.Type.MISS) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Unique

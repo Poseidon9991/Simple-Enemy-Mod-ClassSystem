@@ -29,9 +29,13 @@ public final class VeterancyEvents {
         }
 
         Entity source = event.getSource().getEntity();
-        if (!(source instanceof AbstractUnit killer)) {
+        // SEM units and VDF militia both earn veterancy - VDF is outside the
+        // AbstractUnit hierarchy now so it needs the explicit instanceof.
+        if (!(source instanceof AbstractUnit)
+                && !(source instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity)) {
             return;
         }
+        LivingEntity killer = (LivingEntity) source;
         int oldRank = UnitVeterancy.rank(killer);
         int newRank = UnitVeterancy.addKill(killer, event.getEntity());
         if (newRank > oldRank) {

@@ -41,8 +41,12 @@ public final class ClientEventHandlers {
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(() ->
-                MenuScreens.register(SemcsRegistries.RECRUIT_TABLE_MENU.get(), RecruitTableScreen::new));
+        event.enqueueWork(() -> {
+            MenuScreens.register(SemcsRegistries.RECRUIT_TABLE_MENU.get(), RecruitTableScreen::new);
+            if (ModList.get().isLoaded("curios")) {
+                SpottingScopeCurioRenderer.register();
+            }
+        });
         // Xaero's World Map is a soft dep: the isLoaded gate keeps
         // SemcsXaeroCompat (and its xaero.* imports) from ever class-loading
         // on installs without the map mod.
@@ -108,8 +112,9 @@ public final class ClientEventHandlers {
                 HumanoidModel geckoDummy = new HumanoidModel(event.getEntityModels().bakeLayer(ModelLayers.PLAYER_INNER_ARMOR));
                 usRenderer.addLayer(GeckoCompatClient.createArmorLayer((LivingEntityRenderer) usRenderer, geckoDummy));
             }
-            // VDF wears its own armor set - needs the Gecko armor layer too
-            attachGeckoArmorLayer(event, SemcsRegistries.VDF_UNIT.get());
+            // VDF armor is handled by its own VdfArmorLayer inside
+            // VdfUnitRenderer - SEM's gecko layer is bound to AbstractUnit
+            // which VDF no longer extends.
         }
 
         if (ModList.get().isLoaded("curios")) {

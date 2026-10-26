@@ -73,7 +73,8 @@ public final class UnitVeterancy {
     }
 
     // Adds a kill's XP. Returns the new rank tier (for promotion feedback).
-    public static int addKill(AbstractUnit killer, LivingEntity victim) {
+    // LivingEntity, not AbstractUnit: VDF militia earns veterancy too.
+    public static int addKill(LivingEntity killer, LivingEntity victim) {
         int gained = pointsFor(victim);
         if (gained > 0) {
             killer.getPersistentData().putInt(XP_KEY, xp(killer) + gained);
@@ -83,7 +84,7 @@ public final class UnitVeterancy {
 
     // Permanent rank bonuses: +2 max HP and +0.5 attack damage per tier.
     // Idempotent - removes the old modifier before re-adding.
-    public static void applyRankBonuses(AbstractUnit unit) {
+    public static void applyRankBonuses(LivingEntity unit) {
         int rank = rank(unit);
         AttributeInstance health = unit.getAttribute(Attributes.MAX_HEALTH);
         AttributeInstance damage = unit.getAttribute(Attributes.ATTACK_DAMAGE);

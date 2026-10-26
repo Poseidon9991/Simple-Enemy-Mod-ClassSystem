@@ -249,10 +249,13 @@ public class UnitCuriosRenderLayer<T extends LivingEntity, M extends EntityModel
             }
         }
 
+        ItemDisplayContext ctx = slotId.equals("head")
+                ? ItemDisplayContext.HEAD
+                : ItemDisplayContext.FIXED;
         Minecraft.getInstance().getItemRenderer().renderStatic(
                 entity,
                 stack,
-                ItemDisplayContext.FIXED,
+                ctx,
                 false,
                 poseStack,
                 buffer,

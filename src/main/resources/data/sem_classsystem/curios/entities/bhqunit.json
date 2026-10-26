@@ -4,7 +4,8 @@
     "simpleenemymod:pmcunit",
     "simpleenemymod:usunit",
     "simpleenemymod:ruunit",
-    "sem_classsystem:bhqunit"
+    "sem_classsystem:bhqunit",
+    "sem_classsystem:vdfunit"
   ],
   "slots": [
     "head",

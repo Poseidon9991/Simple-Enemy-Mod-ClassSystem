@@ -161,9 +161,13 @@ public final class VdfGarrisonEvents {
         if (militia.isEmpty()) {
             return;
         }
+        // VDF militia ARE Monsters now (independent of AbstractUnit) - the
+        // instanceof exclusion below is what stops the bell ringing turning
+        // the garrison on itself.
         java.util.List<net.minecraft.world.entity.LivingEntity> threats = level.getEntitiesOfClass(
                 net.minecraft.world.entity.LivingEntity.class, rallyBox,
-                e -> e.isAlive() && (e instanceof net.minecraft.world.entity.raid.Raider
+                e -> e.isAlive() && !(e instanceof VdfUnitEntity)
+                        && (e instanceof net.minecraft.world.entity.raid.Raider
                         || (e instanceof net.minecraft.world.entity.monster.Monster
                             && !(e instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit))
                         || net.nekoyuni.SimpleEnemyMod.entity.unit.util.UnitFactionTags.isRuUnit(e)

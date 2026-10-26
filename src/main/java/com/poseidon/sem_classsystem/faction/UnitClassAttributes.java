@@ -10,8 +10,6 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 // Vanilla registry of attribute types: MAX_HEALTH, MOVEMENT_SPEED, FOLLOW_RANGE...
 import net.minecraft.world.entity.ai.attributes.Attributes;
-// SEM's base soldier class - PmcUnitEntity / RUunitEntity / USunitEntity extend it
-import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;
 // Veterancy: rank bonuses + accuracy bonus earned from kills
 import com.poseidon.sem_classsystem.veterancy.UnitVeterancy;
 
@@ -28,7 +26,9 @@ public final class UnitClassAttributes {
     // fullHeal = true  -> spawned just now: refill HP to the new max (SEM behaviour)
     // fullHeal = false -> loaded from disk: keep saved HP, only clamp if it now
     //                     exceeds the (possibly reduced) max health
-    public static void apply(AbstractUnit unit, boolean fullHeal) {
+    // LivingEntity, not AbstractUnit: VDF militia is an independent Monster
+    // outside the SEM hierarchy and still consumes its [vdf_unit] stats here.
+    public static void apply(LivingEntity unit, boolean fullHeal) {
         // Which faction is this soldier? null = not a known SEM faction -> do nothing
         UnitClass unitClass = UnitClass.of(unit);
         if (unitClass == null) {

@@ -648,7 +648,9 @@ public class ClassSystemConfig {
     private static double classProneDistanceDefault(WeaponClass cls) {
         return switch (cls) {
             case SNIPER -> 26.0;
-            case HEAVY_MG -> 30.0;
+            // Suppressor is excluded from prone entirely - it kneels (the
+            // crouchWhileFiring brace) and keeps suppression up instead of
+            // going flat.
             default -> 0.0;
         };
     }

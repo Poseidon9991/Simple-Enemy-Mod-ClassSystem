@@ -42,16 +42,24 @@ public class SemcsWailaPlugin implements IWailaPlugin {
 
     @Override
     public void register(IRegistrar registrar) {
-        registrar.entityData(new UnitDataProvider(), AbstractUnit.class);
-        registrar.body(new UnitComponentProvider(), AbstractUnit.class);
+        // LivingEntity, not AbstractUnit - VDF militia left the SEM
+        // hierarchy but still deserves the faction/class overlay.
+        registrar.entityData(new UnitDataProvider(), net.minecraft.world.entity.LivingEntity.class);
+        registrar.body(new UnitComponentProvider(), net.minecraft.world.entity.LivingEntity.class);
     }
 
     // Server side: stamps the unit's class + faction into the synced NBT blob.
-    private static final class UnitDataProvider implements IDataProvider<AbstractUnit> {
+    private static final class UnitDataProvider implements IDataProvider<net.minecraft.world.entity.LivingEntity> {
         @Override
-        public void appendData(IDataWriter data, IServerAccessor<AbstractUnit> accessor,
+        public void appendData(IDataWriter data, IServerAccessor<net.minecraft.world.entity.LivingEntity> accessor,
                                IPluginConfig config) {
-            AbstractUnit unit = accessor.getTarget();
+            net.minecraft.world.entity.LivingEntity unit = accessor.getTarget();
+            // Only our units ever get tags - villagers/zombies/etc return early
+            boolean isUnit = unit instanceof AbstractUnit
+                    || unit instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity;
+            if (!isUnit) {
+                return;
+            }
             var faction = com.poseidon.sem_classsystem.faction.UnitClass.of(unit);
             CompoundTag raw = data.raw();
             if (faction != null) {
