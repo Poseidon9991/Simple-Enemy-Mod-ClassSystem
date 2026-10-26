@@ -40,7 +40,7 @@ debug/
 # local asset-generation scripts
 .playwright-mcp/
 toolsout/
-tools/s/
+tools/
 
 # Gradle wrapper jar must stay tracked - required for gradlew on fresh clones
 !gradle/wrapper/gradle-wrapper.jar
