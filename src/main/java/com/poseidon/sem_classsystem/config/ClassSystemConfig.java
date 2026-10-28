@@ -200,7 +200,17 @@ public class ClassSystemConfig {
                                     "unit lies flat to fire (smaller silhouette, braced shot).",
                                     "0 disables prone; between crouch range and prone distance",
                                     "the unit kneels instead.")
-                            .defineInRange("proneDistance", classProneDistanceDefault(cls), 0.0, 200.0)
+                            .defineInRange("proneDistance", classProneDistanceDefault(cls), 0.0, 200.0),
+                    BUILDER.comment(
+                                    "Sidearm draw distance in blocks - if an enemy closes inside",
+                                    "this range the long-range class pulls its pistol. 0 disables",
+                                    "the sidearm swap for this class (it keeps the primary out).")
+                            .defineInRange("sidearmDrawDistance", classSidearmDrawDefault(cls), 0.0, 64.0),
+                    BUILDER.comment(
+                                    "Sidearm return distance in blocks - the unit swaps back to",
+                                    "its primary once no live enemy is inside this range.",
+                                    "Should be comfortably above sidearmDrawDistance.")
+                            .defineInRange("sidearmReturnDistance", classSidearmReturnDefault(cls), 0.0, 96.0)
             );
 
             CLASS_ENTRIES.put(cls, entry);
@@ -655,6 +665,22 @@ public class ClassSystemConfig {
         };
     }
 
+    private static double classSidearmDrawDefault(WeaponClass cls) {
+        return switch (cls) {
+            case SNIPER -> 7.5;
+            case HEAVY -> 10.0;   // blast radius - draws earlier than the others
+            case HEAVY_MG -> 7.5;
+            default -> 0.0;       // assault classes keep the rifle out
+        };
+    }
+
+    private static double classSidearmReturnDefault(WeaponClass cls) {
+        return switch (cls) {
+            case HEAVY -> 18.0;   // stays on the tube's sidearm a bit longer
+            default -> 14.0;
+        };
+    }
+
     // Called once from the mod constructor while Forge loads us
     public static void register() {
         // Type.COMMON -> config/sem_classsystem-common.toml (global, all worlds).
@@ -786,6 +812,14 @@ public class ClassSystemConfig {
 
     public static double classProneDistance(WeaponClass cls) {
         return safeGet(CLASS_ENTRIES.get(cls).proneDistance, 0.0);
+    }
+
+    public static double classSidearmDrawDistance(WeaponClass cls) {
+        return safeGet(CLASS_ENTRIES.get(cls).sidearmDrawDistance, 0.0);
+    }
+
+    public static double classSidearmReturnDistance(WeaponClass cls) {
+        return safeGet(CLASS_ENTRIES.get(cls).sidearmReturnDistance, 0.0);
     }
 
     // ================= Compat accessors =================
@@ -1073,6 +1107,8 @@ public class ClassSystemConfig {
                               ForgeConfigSpec.DoubleValue retreatHealthMultiplier,
                               ForgeConfigSpec.DoubleValue closeRangeMultiplier,
                               ForgeConfigSpec.DoubleValue kiteDistance,
-                              ForgeConfigSpec.DoubleValue proneDistance) {
+                              ForgeConfigSpec.DoubleValue proneDistance,
+                              ForgeConfigSpec.DoubleValue sidearmDrawDistance,
+                              ForgeConfigSpec.DoubleValue sidearmReturnDistance) {
     }
 }

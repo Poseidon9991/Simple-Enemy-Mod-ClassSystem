@@ -644,10 +644,29 @@ public abstract class MixinRangedGunAttackGoal {
     // helpers (rough = foliage-transparent, clear = strict). HEAD-injecting
     // them covers every caller - canUse, tick, burst - at once.
     // remap=false: SEM-internal method names, same in dev and production.
+    @Unique
+    private long semcs$lastSeenTick = Long.MIN_VALUE;
+
     @Inject(method = {"getCachedRoughLineOfSight", "getCachedClearLineOfSight"},
             at = @At("HEAD"), cancellable = true, remap = false)
     private void semcs$indirectFire(LivingEntity entity, CallbackInfoReturnable<Boolean> cir) {
-        if (entity == this.target && semcs$heldIsLobber()) {
+        if (entity != this.target) {
+            return;
+        }
+        // Suppressor stagger: the machine-gunner keeps hosing the target's
+        // last-known position for ~5s after losing sight - rounds bite into
+        // whatever the target ducked behind, pinning it while the squad
+        // pushes up. Past the window the goal's real LoS check returns.
+        if (WeaponClassSupport.getEffective(this.mob) == WeaponClass.HEAVY_MG) {
+            long now = this.mob.level().getGameTime();
+            if (this.mob.getSensing().hasLineOfSight(entity)) {
+                this.semcs$lastSeenTick = now;
+            } else if (now - this.semcs$lastSeenTick <= 100L) {
+                cir.setReturnValue(true);
+                return;
+            }
+        }
+        if (semcs$heldIsLobber()) {
             cir.setReturnValue(true);
         }
     }

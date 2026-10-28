@@ -23,6 +23,7 @@ import net.nekoyuni.SimpleEnemyMod.entity.ai.orders.OrderType;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.util.SoldierState;
+import net.minecraft.world.phys.Vec3;
 // SEM's per-unit tactical manager - THE CLASS WE PATCH. It decides when the
 // unit seeks cover, flanks around the target, or commits to a forced rush.
 import net.nekoyuni.SimpleEnemyMod.entity.ai.goals.TacticalManagerGoal;
@@ -87,6 +88,8 @@ public abstract class MixinTacticalManagerGoal {
             semcs$smartRetarget();
             semcs$syncTeamworkLink();
             semcs$updateWeaponSwap();
+            semcs$relocateAfterKill();
+            semcs$watchStuckTarget();
         }
         if (UnitMeleeAttackGoal.isMeleeWeapon(this.unit.getMainHandItem())) {
             if (this.unit.isMovementLockedByManager()) {
@@ -202,11 +205,57 @@ public abstract class MixinTacticalManagerGoal {
             return;
         }
         double reach = kiteDistance * 0.75;
-        this.unit.getMoveControl().setWantedPosition(
-                this.unit.getX() + dx / len * reach,
-                this.unit.getY(),
-                this.unit.getZ() + dz / len * reach,
-                this.RUSH_SPEED);
+        // Obstacle-aware: sample retreat bearings (straight back, then
+        // fanning sideways) and keep the first walkable one that gains
+        // the most ground - a blind back-pedal just walks into walls,
+        // water, or off ledges and the kiter gets cornered.
+        double baseAngle = Math.atan2(dz, dx);
+        double bestScore = -1.0D;
+        double bestX = 0.0D, bestZ = 0.0D;
+        for (double spreadDeg : new double[]{0.0D, -40.0D, 40.0D, -80.0D, 80.0D, -125.0D, 125.0D}) {
+            double a = baseAngle + Math.toRadians(spreadDeg);
+            double cx = this.unit.getX() + Math.cos(a) * reach;
+            double cz = this.unit.getZ() + Math.sin(a) * reach;
+            if (!semcs$walkablePos(cx, this.unit.getY(), cz)) {
+                continue;
+            }
+            double tdx = cx - target.getX();
+            double tdz = cz - target.getZ();
+            double score = tdx * tdx + tdz * tdz;
+            if (score > bestScore) {
+                bestScore = score;
+                bestX = cx;
+                bestZ = cz;
+            }
+        }
+        if (bestScore > 0.0D) {
+            this.unit.getMoveControl().setWantedPosition(
+                    bestX, this.unit.getY(), bestZ, this.RUSH_SPEED);
+        }
+    }
+
+    // A spot the unit can physically stand in: bounding box fits, solid
+    // floor below, no fluid at feet or face. Cheap static probe - the path
+    // finder still does the real navigation, this just vetoes dead ends.
+    @Unique
+    private boolean semcs$walkablePos(double x, double y, double z) {
+        net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.containing(x, y, z);
+        if (!this.unit.level().hasChunkAt(pos)) {
+            return false;
+        }
+        Vec3 from = this.unit.position();
+        Vec3 to = new Vec3(x, y, z);
+        if (!this.unit.level().noCollision(this.unit, this.unit.getBoundingBox().move(to.subtract(from)))) {
+            return false;
+        }
+        if (!this.unit.level().getBlockState(pos.below())
+                .entityCanStandOnFace(this.unit.level(), pos.below(), this.unit,
+                        net.minecraft.core.Direction.UP)) {
+            return false;
+        }
+        return this.unit.level().getFluidState(pos).isEmpty()
+                && this.unit.level().getFluidState(pos.above()).isEmpty()
+                && this.unit.level().getFluidState(pos.below()).isEmpty();
     }
 
     // Re-scales the shadowed knobs from the captured ORIGINALS (a class swap
@@ -335,12 +384,11 @@ public abstract class MixinTacticalManagerGoal {
     //    All units carry a pistol in their inventory. They draw their
     //    sidearm/melee when:
     //      - Primary magazine runs empty or is mid-reload within 16 blocks, OR
-    //      - Long-range / heavy classes (SNIPER, HEAVY, HEAVY_MG) get rushed
-    //        within 7.5 blocks.
+    //      - Long-range / heavy classes get rushed inside their
+    //        sidearmDrawDistance (per-class config: Camper 7.5, Demolisher 10
+    //        for blast radius, Suppressor 7.5).
     //    They swap back to their primary only when:
-    //      - the target is gone OR outside the class's standoff distance
-    //        (kite range for specialists - the gap they are trying to hold
-    //        anyway - otherwise flat 14 blocks), AND
+    //      - the target is gone OR outside their sidearmReturnDistance, AND
     //      - a USABLE primary actually exists in storage. If the main gun
     //        is bone dry this check fails and the pistol stays out - the
     //        ammo-fallback goal and this one agreed: pistol is the weapon
@@ -384,15 +432,11 @@ public abstract class MixinTacticalManagerGoal {
             }
         }
 
-        boolean isLongRangeSpecialist = assigned == WeaponClass.SNIPER
-                || assigned == WeaponClass.HEAVY
-                || assigned == WeaponClass.HEAVY_MG;
+        double drawRange = ClassSystemConfig.classSidearmDrawDistance(assigned);
         boolean wantCqb = target != null && target.isAlive()
-                && ((isLongRangeSpecialist && distSqr <= 7.5D * 7.5D)
+                && ((drawRange > 0.0D && distSqr <= drawRange * drawRange)
                 || (primaryDryOrReloading && distSqr <= 16.0D * 16.0D));
-        double backOff = isLongRangeSpecialist
-                ? Math.max(14.0D, ClassSystemConfig.classKiteDistance(assigned))
-                : 14.0D;
+        double backOff = Math.max(14.0D, ClassSystemConfig.classSidearmReturnDistance(assigned));
         boolean wantPrimary = holdingCqbBackup
                 && (target == null || !target.isAlive() || distSqr >= backOff * backOff)
                 && semcs$hasUsablePrimary(assigned);
@@ -527,6 +571,110 @@ public abstract class MixinTacticalManagerGoal {
                 IGunOperator.fromLivingEntity(this.unit).draw(() -> this.unit.getMainHandItem());
             }
         }
+    }
+
+    // -------------------------------------------------------------------
+    // 4a. Post-Kill Relocation (marksmen only)
+    //     When a Sniper's target dies he slips to a fresh overwatch spot a
+    //     few steps off his old lane - counters enemies triangulating the
+    //     muzzle position. Only runs while he isn't pinned prone.
+    // -------------------------------------------------------------------
+    @Unique
+    private LivingEntity semcs$lastKillWatch = null;
+
+    @Unique
+    private void semcs$relocateAfterKill() {
+        LivingEntity target = this.unit.getTarget();
+        LivingEntity last = this.semcs$lastKillWatch;
+        this.semcs$lastKillWatch = target;
+        if (last == null || last.isAlive() || target != null
+                || WeaponClassSupport.getEffective(this.unit) != WeaponClass.SNIPER
+                || semcs$isProneStance()
+                || (this.unit.tickCount + this.unit.getId()) % 10 != 0) {
+            return;
+        }
+        // Step perpendicular to the old firing lane, 6-12 blocks either side.
+        double bx = last.getX() - this.unit.getX();
+        double bz = last.getZ() - this.unit.getZ();
+        double bl = Math.sqrt(bx * bx + bz * bz);
+        if (bl < 0.001D) {
+            return;
+        }
+        bx /= bl; bz /= bl;
+        double px = -bz, pz = bx;
+        double side = this.unit.getRandom().nextBoolean() ? 1.0D : -1.0D;
+        double reach = 6.0D + this.unit.getRandom().nextDouble() * 6.0D;
+        for (double sway : new double[]{0.0D, -30.0D, 30.0D}) {
+            double a = Math.toRadians(sway);
+            double ca = Math.cos(a), sa = Math.sin(a);
+            double ox = (px * ca - pz * sa) * side * reach;
+            double oz = (px * sa + pz * ca) * side * reach;
+            double cx = this.unit.getX() + ox;
+            double cz = this.unit.getZ() + oz;
+            if (semcs$walkablePos(cx, this.unit.getY(), cz)) {
+                this.unit.getNavigation().moveTo(cx, this.unit.getY(), cz, 1.0D);
+                return;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // 4b. Unreachable-Target Fallback
+    //     If the unit has spent ~6s trying to reach a target it cannot see
+    //     and made no real progress (nav done or pathing in place), it stops
+    //     fixating: picks the closest hostile it CAN see within 24 blocks,
+    //     or drops the target so SEM's own acquisition can re-pick.
+    // -------------------------------------------------------------------
+    @Unique
+    private long semcs$stuckAnchorTick = -1L;
+    @Unique
+    private double semcs$stuckAnchorX = 0.0D, semcs$stuckAnchorZ = 0.0D;
+    @Unique
+    private int semcs$stuckChecks = 0;
+
+    @Unique
+    private void semcs$watchStuckTarget() {
+        if (this.unit.tickCount % 40 != 0) {
+            return;
+        }
+        LivingEntity target = this.unit.getTarget();
+        if (target == null || !target.isAlive()
+                || this.unit.getSensing().hasLineOfSight(target)) {
+            this.semcs$stuckChecks = 0;
+            this.semcs$stuckAnchorTick = this.unit.tickCount;
+            this.semcs$stuckAnchorX = this.unit.getX();
+            this.semcs$stuckAnchorZ = this.unit.getZ();
+            return;
+        }
+        // Blind pursuit - measure progress since the last sample.
+        double moved2 = (this.unit.getX() - this.semcs$stuckAnchorX)
+                * (this.unit.getX() - this.semcs$stuckAnchorX)
+                + (this.unit.getZ() - this.semcs$stuckAnchorZ)
+                * (this.unit.getZ() - this.semcs$stuckAnchorZ);
+        this.semcs$stuckAnchorX = this.unit.getX();
+        this.semcs$stuckAnchorZ = this.unit.getZ();
+        this.semcs$stuckChecks = moved2 < 0.81D ? this.semcs$stuckChecks + 1 : 0;
+        if (this.semcs$stuckChecks < 3) {
+            return;
+        }
+        this.semcs$stuckChecks = 0;
+        // Repick: nearest living hostile we can actually see & may attack.
+        var candidates = this.unit.level().getEntitiesOfClass(
+                LivingEntity.class,
+                this.unit.getBoundingBox().inflate(24.0D, 8.0D, 24.0D),
+                e -> e != this.unit && e.isAlive() && !semcs$isSameTeam(this.unit, e)
+                        && this.unit.canAttack(e)
+                        && this.unit.getSensing().hasLineOfSight(e));
+        LivingEntity best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (LivingEntity c : candidates) {
+            double d = this.unit.distanceToSqr(c);
+            if (d < bestDist) {
+                bestDist = d;
+                best = c;
+            }
+        }
+        this.unit.setTarget(best);   // null = drop fixation entirely
     }
 
     // -------------------------------------------------------------------
