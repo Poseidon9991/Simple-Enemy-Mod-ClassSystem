@@ -100,8 +100,13 @@ com.poseidon.sem_classsystem/
 │   ├── RecruitTableScreen.java         # Class selector buttons for recruit table
 │   ├── SemcsArmorItemRenderer.java     # GeckoLib armor item renderer
 │   ├── TabletScreen.java               # SEM-OS desktop (Squad, Teleport, Intel apps)
+│   ├── UnitCuriosRenderLayer.java      # Curio rendering on unit models
 │   ├── UnitMarkerStore.java            # Client-side cache of synced units
 │   ├── UnitProceduralAnimState.java    # Dynamic animation smoothing
+│   ├── VdfUnitModel.java               # Militia body (SEM bone tree + melee arm pose)
+│   ├── VdfUnitRenderer.java            # Militia renderer & skin variants
+│   ├── VdfArmorLayer.java              # Militia armor suit layer
+│   ├── VdfHeldItemLayer.java           # Militia held-gun/sword anchor render
 │   └── xaero/                          # XAERO MAP INTEGRATION (Strictly isolated!)
 │       ├── SemcsXaeroCompat.java       # Map overlay element registration
 │       ├── SemcsMinimapCompat.java     # Minimap element registration
@@ -111,7 +116,7 @@ com.poseidon.sem_classsystem/
 │   └── SemClassCommands.java           # Spawn, class assignment, territory commands
 ├── compat/                             # External mod compatibility hooks
 │   ├── CuriosUnitEffectsHandler.java   # Passes Curios trinket effects to units
-│   ├── UnitDefenseCompat.java          # Protects PMCs from Iron/Snow Golems
+│   ├── UnitDefenseCompat.java          # Defenders-tag veto: allied factions + VDF
 │   └── wthit/SemcsWailaPlugin.java     # WAILA/WTHIT tooltip display
 ├── config/                             # Forge TOML configuration
 │   └── ClassSystemConfig.java          # Common & Server config definitions
@@ -119,6 +124,8 @@ com.poseidon.sem_classsystem/
 │   └── ClassLoadoutManager.java        # Parses class_loadouts/*.json & builds cache
 ├── entity/                             # Concrete mob entities
 │   ├── BhqUnitEntity.java              # Cambodian Bodyguard Unit (Elite PMC)
+│   ├── VdfUnitEntity.java              # Village militia - standalone PathfinderMob
+│   ├── Squads.java                     # Named fireteam tags on unit persistentData
 │   └── ai/                             # Tactical AI goals
 │       ├── StockpileSearch.java        # Shared claimed-container scan/withdraw
 │       ├── UnitChunkDutyGoal.java      # Guard post & chunk patrol logic
@@ -130,17 +137,25 @@ com.poseidon.sem_classsystem/
 │       ├── UnitLootGoal.java           # Post-battle scavenge of useful drops
 │       ├── UnitSelfHealGoal.java       # Autonomous bandaging/food consumption
 │       ├── UnitSleepGoal.java          # Energy: claims beds inside owner claims
-│       └── UnitWeaponFallbackGoal.java # Empty-mag sidearm swapping
-│   ├── DownedState.java                # Downed-not-dead NBT state helpers
+│       ├── UnitWoundedGoal.java        # <30% HP rearward fallback anchors
+│       ├── UnitWeaponFallbackGoal.java # Empty-mag sidearm swapping
+│       ├── VdfGunAttackGoal.java       # Militia ranged combat package
+│       ├── VdfMeleeAttackGoal.java     # Militia melee package (no-gun gate)
+│       ├── VdfRaidResponseGoal.java    # Pillager-raid rally to the bell
+│       ├── VdfNightWatchGoal.java      # Dusk watch-stand / rain shelter
+│       ├── VdfPatrolGoal.java          # Village POI waypoint patrol
+│       └── VdfInteractGoal.java        # Villager/golem greeting hum
 ├── event/                              # Forge bus event subscribers
 │   ├── GuardPostEvents.java            # Billet promotion & fallback checks
 │   ├── NightRaidEvents.java            # Ambush raid scheduling director
 │   ├── UnitBackupCall.java             # Squad wounded distress alerts (<25% HP)
-│   ├── UnitDownedEvents.java           # Downed/bleedout/revive hooks (game bus)
 │   ├── UnitEffectsEvents.java          # Unit gunfire VFX (muzzle flash, impact sparks)
 │   ├── UnitMarkerTracker.java          # Server-to-client marker sync director
 │   ├── UnitNeedsEvents.java            # [needs] drain tick, morale & wake hooks
 │   ├── UnitOwnershipCap.java           # Player recruit capacity enforcement
+│   ├── VdfDropEvents.java              # Player-kill militia armor rolls
+│   ├── VdfFriendlyFireEvents.java      # Bullet veto + warden rally bonus
+│   ├── VdfGarrisonEvents.java          # Village militia muster spawner
 │   └── VeterancyEvents.java            # Kill-count XP & rank progression
 ├── faction/                            # Core domain models
 │   ├── ClassLoadouts.java              # Datapack gun pool accessor & O(1) inference
@@ -162,6 +177,7 @@ com.poseidon.sem_classsystem/
 │   ├── AbstractSoftDepMixinPlugin.java # Base plugin for soft-dep mixin gating
 │   ├── MixinAbstractUnit.java          # Injects IClassifiedUnit onto AbstractUnit
 │   ├── MixinAbstractUnitGoals.java     # Injects custom AI goals into goalSelector
+│   ├── MixinPmcUnitPeaceful.java       # Recruited units survive Peaceful (merged override)
 │   ├── MixinRangedGunAttackGoal.java   # Ballistics, aiming, suppression, artillery
 │   ├── MixinWeaponEquippers.java       # Replaces generic guns with class guns
 │   └── ...                             # Crouch, prone, tracer, and inventory mixins
@@ -247,7 +263,7 @@ sequenceDiagram
 
 ### VDF Village Garrison Flow
 
-The VDF (`VdfUnitEntity`, RU-enemy line: no owner, no inventory GUI, unlimited gun ammo) does not use SEM's class pipeline — it overrides `equipRandomGun()` to roll `[vdf] gunnerChance` (RU weapon kit vs. iron melee) and `setupRoleGoals()` to replace RU's anti-PMC target list with raiders → monsters → `ru_units`/`us_units` tag members.
+The VDF (`VdfUnitEntity`) is a **standalone `PathfinderMob`** — deliberately *not* SEM-lineage (no `AbstractUnit` wiring to tear out) and deliberately *not* `Monster`: `Monster implements Enemy` flagged militia on village golems' hostile scan and made them despawn on Peaceful. It keeps its own two-goal combat package (`VdfGunAttackGoal` / `VdfMeleeAttackGoal`), rolls `[vdf] gunnerChance` between a `class_loadouts/vdf_units.json` gun with dummy ammo and an iron sword, and drives animations from its own `walkAnimation`-fed states — no SEM locomotion layer.
 
 Garrisons spawn through `VdfGarrisonEvents.onVillagerJoin` (`EntityJoinLevelEvent` on `Villager`):
 
@@ -256,7 +272,44 @@ Garrisons spawn through `VdfGarrisonEvents.onVillagerJoin` (`EntityJoinLevelEven
 3. Living-VDF scan within 96 blocks is the real re-garrison gate — wipe the militia and the next *new* villager arrival re-arms the village.
 4. `garrisonSize` units spawn collision-checked around the bell via `finalizeSpawn(NATURAL)`, each anchored with `setVillageCenter(bell)` (persisted as `vdfCenter` in entity NBT for patrol/raid goals).
 
-Village safety is layered: target selection never includes villagers/golems/militia, `HurtByTargetGoal` ignore-classes block retaliation against them, and `VdfFriendlyFireEvents` cancels `EntityHurtByGunEvent.Pre` so stray militia bullets pass through villagers harmlessly. `defendersIgnoreVDF` (default true) keeps iron golems from attacking the garrison; `VdfDropEvents` adds the uncraftable armor rolls (player-kill only) on `LivingDropsEvent`.
+Village safety is layered in both directions:
+
+- **Militia → village**: `isProtectedAlly` (villagers, golems, fellow VDF, PMC/BHQ, full "Village Warden" armor wearers) gates `setTarget`/`canAttack`, `HurtByTargetGoal` ignore-classes block retaliation, and `VdfFriendlyFireEvents` cancels `EntityHurtByGunEvent.Pre` so stray militia bullets pass through allies (and unprovoked players) harmlessly.
+- **Village → militia**: `UnitDefenseCompat`'s `unit_defenders` entity-tag veto (iron + snow golem, datapack-extendable) clears defender targets onto VDF behind `defendersIgnoreVDF` (default true); PMC/BHQ target-lock on militia is vetoed unconditionally, and their bullets are cancelled in `VdfFriendlyFireEvents`.
+- **Warden set bonus**: a player wearing all 4 VDF armor pieces counts as a protected ally, and nearby idle militia rally to their attacker on `LivingHurtEvent` (28-block bubble).
+
+`VdfDropEvents` adds the uncraftable armor rolls (player-kill only) on `LivingDropsEvent`.
+
+**Rendering**: `VdfUnitModel` is a plain `HierarchicalModel` cloning SEM's bone tree + pivots plus a villager nose, playing SEM's shared `UNIT_*` clips off the entity's own animation states. Non-gun militia get a **melee arm override** — after the clips write bones, arms re-pose to a relaxed hang with vanilla-style walk swing, then `swingWeaponDown` animates attacks (the shared clips bake a rifle-hold into the arm pivots, which is why unarmed militia used to grip a phantom gun). `VdfHeldItemLayer` anchors the weapon at `rightHandAnchor` with SEM's shouldered/lowered carry transforms.
+
+### Night Raid Director
+
+`NightRaidEvents.onServerTick` is the ambush scheduler — one server tick loop, per-player state in `getPersistentData()` (`semcs_raid_check_day` / `semcs_raid_at` / `semcs_last_raid_day` / `semcs_raid_warn_day`):
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Tick as ServerTick
+    participant Player as Player NBT
+    participant Post as Guard Post
+    participant Raid as RU/US Squad
+
+    Tick->>Player: night window 13000-23000, once per day
+    Player->>Player: roll [night_raids].chancePerNight AND hasHostileFaction()
+    Note over Player: success -> raidAt = 13000 + 400..~9600
+    Tick->>Post: watchPostOnline (manned post in PlayerChunkClaims?)
+    alt post online -> lead = earlyWarningTicks (~60s)
+    else no post -> lead = min(warnTicks, 300) (~15s)
+    end
+    Tick->>Player: warnPlayer: horn + text + PacketRaidPing (centered on player)
+    Tick->>Raid: dayTime >= raidAt -> raidFaction(random)
+    Note over Raid: friendly factions skipped; null -> stand down
+    Raid->>Player: squad spawns 50 blocks out, setTarget(player) + map ping
+```
+
+- **Faction diplomacy**: `raidFaction` reads SEM's `FactionsConfig.RU_UNITS_FRIENDLY` / `US_UNITS_FRIENDLY` — a faction the player configured friendly never fields a raid squad; both friendly means no raid is even scheduled (`hasHostileFaction` gates the dusk roll).
+- **Warning tiers**: a *manned* `GuardPostBlockEntity` inside the player's claimed chunks (loaded chunks only — same `ChunkStatus.FULL` rule as stockpile scans) earns the full configured lead; everyone else still hears "movement in the dark" shortly before contact. `earlyWarningTicks = 0` disables the feature.
+- **Strike**: faction pick, `squadSizeMin..Max` scatter ±4 blocks around a `spawnDistance` ring at a random angle, surface-snapped via `MOTION_BLOCKING_NO_LEAVES`, `finalizeSpawn(EVENT)` for full gear, `setTarget(player)` immediately, `semcs_night_raider` NBT tag. Daybreak cancels a pending raid. `VdfUnitModel` is a plain `HierarchicalModel` cloning SEM's bone tree + pivots plus a villager nose, playing SEM's shared `UNIT_*` clips off the entity's own animation states. Non-gun militia get a **melee arm override** — after the clips write bones, arms re-pose to a relaxed hang with vanilla-style walk swing, then `swingWeaponDown` animates attacks (the shared clips bake a rifle-hold into the arm pivots, which is why unarmed militia used to grip a phantom gun). `VdfHeldItemLayer` anchors the weapon at `rightHandAnchor` with SEM's shouldered/lowered carry transforms.
 
 ---
 
@@ -307,18 +360,25 @@ $$\text{Soldier Profile} = \text{UnitClass (Faction)} \times \text{WeaponClass (
 | **3** | `UnitEatGoal` | Owned PMC & BHQ | [needs] Hungry units eat carried food or pathfind to a stockpile container inside owner claims. |
 | **3** | `UnitResupplyGoal` | Owned PMC & BHQ | [needs] Units with a dry gun pull matching ammo from claimed stockpiles (up to 96 rounds/trip). |
 | **3** | `UnitAmmoBoxGoal` | Owned PMC & BHQ | Units with a dry gun draw matching rounds straight from a worn `tacz:ammo_box` curio (belt/back tag) - no needs gating, works in combat. |
-| **2** | `UnitWoundedGoal` | Owned PMC & BHQ | Under 30% HP and in combat: breaks contact toward medic → claimed bed → ration crate → squad lead; downed/downed-immune states skip it. |
-| **4** | `UnitMedicHealGoal` | Medic Only | Breaks combat to heal wounded squadmates within 24 blocks; triages downed allies first and revives them. |
+| **2** | `UnitWoundedGoal` | Owned PMC & BHQ | Under 30% HP and in combat: breaks contact toward medic → claimed bed → ration crate → squad lead. |
+| **4** | `UnitMedicHealGoal` | Medic Only | Breaks combat to heal wounded squadmates within 24 blocks; prioritises the most injured. |
 | **6** | `UnitLootGoal` | Owned PMC & BHQ | Scavenges nearby worthwhile drops (matching ammo, food, medical, guns, armour, ammo boxes) into storage slots while idle; pings the owner per pickup (throttled). |
 | **9** | `UnitWeaponFallbackGoal`| All Units | Swaps to backup pistol when primary magazine & reserve ammo run dry. |
 
-The VDF adds its own goal layer (registered in `VdfUnitEntity.setupRoleGoals`, on top of SEM's DEFAULT-role combat package):
+VDF militia registers its own stack in `VdfUnitEntity.registerGoals()` (independent of SEM's role wiring):
 
 | Priority | Goal Class | Functional Description |
 |---|---|---|
-| **3** | `VdfRaidResponseGoal` | `ServerLevel.getRaidAt()` detects an active raid at the anchored village → horn hum on raid start, converge on the bell while raiders live. |
+| **0** | `FloatGoal` | Don't drown. |
+| **1** | `VdfGunAttackGoal` | TaCZ fire control for gunner militia; melee militia fall through. |
+| **2** | `VdfMeleeAttackGoal` | Vanilla `MeleeAttackGoal` gated on *no* `IGun` in hand — melee militia swing, gunners never try to close. |
+| **3** | `VdfRaidResponseGoal` | `ServerLevel.getRaidAt()` detects an active pillager raid at the anchored village → horn, converge on raid center, targets nearest `Raider` within 48 blocks. |
+| **3** | `VdfInteractGoal` | Idle within ~3 blocks of a villager or iron golem → face it, pause, `VILLAGER_YES` hum. |
+| **3** | `VdfNightWatchGoal` | Dusk watch-standing + rain shelter behavior. |
 | **4** | `VdfPatrolGoal` | Waypoint loop between village POIs (bells/beds/workstations via `PoiManager`), leashed to `[vdf] patrolRadius` of the anchor — never chases out of the village. |
-| **7** | `VdfInteractGoal` | Idle within ~3 blocks of a villager or iron golem → face it, pause, `VILLAGER_YES` hum. |
+| **8-9** | `LookAtPlayerGoal` / `RandomLookAroundGoal` | Idle presence. |
+
+Target selection (`targetSelector`): `HurtByTargetGoal` (retaliate; villager/golem/VDF/PMC-class ignore + `setAlertOthers` rallies nearby militia, `setUnseenMemoryTicks(300)`) → `VerticalAwareTargetGoal<Raider>` → `Monster` (excluding raiders, VDF, `AbstractUnit`, protected allies) → `ru_units`/`us_units` faction-tag members.
 
 ### Class Tactical Implementations
 
@@ -364,17 +424,7 @@ An opt-in survival layer (`[needs] enabled`, default `false`) that gives **owned
 - **Ammo resupply**: `UnitResupplyGoal` computes each carried gun's ammo id (`StockpileSearch.dryAmmoIds` — `TimelessAPI` gun index → `GunData.getAmmoId`) and stockpile-runs when a gun has zero matching rounds — the primary comes back after `UnitWeaponFallbackGoal` swapped to the sidearm. `UnitAmmoBoxGoal` is the decoupled wearable version: a `tacz:ammo_box` in a Curio `belt`/`back` slot (tag files at `data/curios/tags/items/`) feeds the dry gun in place via `IAmmoBox` — no needs config, no stockpile trip.
 - **Morale**: `UnitClassAttributes.spreadMultiplier` multiplies by `UnitNeeds.spreadPenaltyScale` (up to +60% spread at 0 morale); `UnitNeedsEvents` adds +4 on kills, -8 on nearby owned-ally deaths, and rolls a 35% `SEEK_COVER` break when a shaken unit is hurt.
 - **Barks & reports**: threshold crossings (hungry/starving/exhausted/shaken) radio the owner once per crossing via a bark bitmask in `UnitNeeds`; `bark()` also plays a SEM unit voice line at the unit's position (`simpleenemymod:sound_us_unit_*` — PMC/BHQ borrow the English set; routine barks cycle `alert`/`alert1`/`alert2`, critical barks play `warning`, quiet NEUTRAL source). Owned-unit deaths chat-notify the owner or file into `UnitEventLog` (overworld SavedData) for the login "squad report" and the INTEL casualty board.
-- **Sync**: `UnitMarker` carries `hunger`/`energy`/`morale`/`sleeping`/`downed`/`squad` (OWN allegiance only, `-1` when disabled) → tablet roster NEEDS column with a critical `!` marker + `Sleeping`/`DOWNED` status + squad tag beside the callsign + WTHIT status line.
-
-### Downed-Not-Dead System
-
-An always-on survival layer for **owned** units (`[downed]` config, default enabled), modelled on PlayerRevive's player flow but fully standalone — PlayerRevive only ever touches players, so the two never collide:
-
-- **Down**: `LivingDeathEvent` (LOWEST priority) cancels lethal damage on owned `PmcUnitEntity` → `DownedState.down` sets `semcs:downed` + `semcs:downedUntil` NBT, HP pinned to 1, `setNoAi(true)` + `Pose.SWIMMING`. Owner gets a red chat warning with the bleedout countdown.
-- **While downed**: `LivingAttackEvent` cancels all damage (no executions — the clock is the threat), distress particles every 40 ticks, `DOWNED` on the tablet/WTHIT.
-- **Bleedout**: `LivingTickEvent` — `downedUntil` expiry calls `unit.kill()` (real death, normal drops, owner notified).
-- **Revive**: owner right-click with a medical item (consumed, `reviveHealthFrac`) or sneak + empty hand (half fraction field stabilize); medic-class units triage downed allies through `UnitMedicHealGoal` automatically.
-- **Config**: `[downed] enabled` (default `true`), `bleedoutTicks` (1200), `reviveHealthFrac` (0.35).
+- **Sync**: `UnitMarker` carries `hunger`/`energy`/`morale`/`sleeping`/`squad` (OWN allegiance only, `-1` when disabled) → tablet roster NEEDS column with a critical `!` marker + `Sleeping` status + squad tag beside the callsign + WTHIT status line.
 
 ### Field Scavenging
 
@@ -382,7 +432,14 @@ An always-on survival layer for **owned** units (`[downed]` config, default enab
 
 ### Wounded Fallback
 
-`UnitWoundedGoal` (priority 2, owned only) fires when an engaged unit drops under 30% max HP: it clears the combat target and paths to the best rearward anchor — medic-class squadmate within 24 blocks → claimed bed → ration/supply crate → squad lead — then re-engages once healed or when the anchor is unreachable. Downed units are excluded (`DownedState` owns them), sleep/medic goals still outrank the retreat when they can act.
+`UnitWoundedGoal` (priority 2, owned only) fires when an engaged unit drops under 30% max HP: it clears the combat target and paths to the best rearward anchor — medic-class squadmate within 24 blocks → claimed bed → ration/supply crate → squad lead — then re-engages once healed or when the anchor is unreachable. Sleep/medic goals still outrank the retreat when they can act.
+
+### Friendly-Unit Survival Rules
+
+Recruited soldiers are assets, not hostile spawns, and two SEM defaults used to treat them like monsters:
+
+- **Peaceful despawn**: `Mob.checkDespawn` runs `shouldDespawnInPeaceful` (`instanceof Enemy`) *before* `persistenceRequired`, so recruited PMC/BHQ silently vanished on Peaceful. `MixinPmcUnitPeaceful` merges an override into `PmcUnitEntity` (declared in the mixin unannotated — merged into the class, overriding Mob's inherited method; `BhqUnitEntity` inherits it). RU/US keep despawning — they're enemies.
+- **Defender aggro**: `UnitDefenseCompat` vetoes `LivingChangeTargetEvent` when a `unit_defenders`-tagged mob (iron + snow golem, datapack-extendable) targets a config-protected faction (`defendersIgnoreRU/US/PMC/BHQ/VDF`), plus the unconditional PMC↔VDF neutrality pact in both directions.
 
 ### Squad Groups
 
@@ -394,7 +451,7 @@ An always-on survival layer for **owned** units (`[downed]` config, default enab
 
 ### Tablet Field Terminal
 
-`TabletScreen` renders an olive-drab FIELD-LINK terminal (bezel screws, scanlines, amber stencil text). The Squad roster supports column-header sorting (name/class/HP/ammo/needs/status, click toggles direction), a `CRIT` toggle filtering to downed/wounded/critical-needs units, and a bottom order bar — `ALL`/`NONE` selection plus `FOLLOW`/`HOLD`/`WEDGE`/`COLUMN`/`FREE`/`CEASE` batch orders sent per unit through SEM's own `PacketIssueOrder` (server-side ownership check, no new wire).
+`TabletScreen` renders an olive-drab FIELD-LINK terminal (bezel screws, scanlines, amber stencil text). The Squad roster supports column-header sorting (name/class/HP/ammo/needs/status, click toggles direction), a `CRIT` toggle filtering to wounded/critical-needs units, and a bottom order bar — `ALL`/`NONE` selection plus `FOLLOW`/`HOLD`/`WEDGE`/`COLUMN`/`FREE`/`CEASE` batch orders sent per unit through SEM's own `PacketIssueOrder` (server-side ownership check, no new wire).
 
 ---
 

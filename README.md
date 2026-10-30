@@ -58,6 +58,7 @@ This addon doesn't just pile features on top of Simple Enemy Mod — it **repair
 *   **Squads spawning inside tree canopies** — SEM picks spawn Y from the `MOTION_BLOCKING_NO_LEAVES` heightmap (ignores leaves) and never checks the body space, so patrols materialized wedged in foliage. `isValidSpawn` now rejects any spot where feet or head collide — canopies are skipped, the event retries elsewhere.
 *   **Armor clipping/vanishing on unit models** — vanilla and modded armor used player proportions on SEM's custom soldier models. Armor now renders fitted to the unit body.
 *   **Order/duty conflict** — a unit on chunk duty could ignore a fresh commander's order. New orders now always cancel standing duty cleanly.
+*   **Recruited units vanishing on Peaceful** — SEM's Monster-lineage units despawn on Peaceful difficulty, silently deleting a player's whole squad on a difficulty flip. Recruited PMC/BHQ now persist (wild RU/US still despawn — they're hostiles).
 
 ### 🎞️ Animation & Presentation Upgrades
 
@@ -195,11 +196,11 @@ When Xaero's World Map is installed, the map becomes a real RTS surface:
 *   **Radio Target Sharing:** When one unit spots an enemy squad, it broadcasts the contact to allied units within 48 blocks and distributes targets across the enemy team — squads spread fire instead of leaving one soldier alone.
 *   **Anti-Bunching Strafe:** Stacked squadmates automatically spread into a firing line, and mobile classes take short lateral combat strafes while engaging.
 *   **Veterancy:** Units earn XP in combat and gain persistent rank titles (shown on markers and the tablet), stored in entity NBT.
-*   **Night Raids:** Once per night each player rolls `chancePerNight` (default ~1 in 3); on success a hostile RU or US patrol spawns `spawnDistance` blocks away and hunts your position — with a map ping warning.
+*   **Night Raids:** Once per night each player rolls `chancePerNight` (default ~1 in 3); on success a hostile patrol spawns `spawnDistance` blocks away and hunts your position — with a horn + map ping warning. **Respects SEM's faction diplomacy** — a faction set friendly in SEM's config (`usUnitsFriendly`/`ruUnitsFriendly`) never raids you; both friendly means quiet nights. A manned **Guard Post** in your claims intercepts the raid ~60s early; without one you still hear "movement in the dark" shortly before contact — no more zero-warning ambushes.
 *   **Squad Size Cap:** Recruitment is limited to `maxOwnedUnits` per player (default 32, `0` = unlimited) to keep servers balanced.
-*   **Downed-not-dead (`[downed]`):** A lethal hit collapses your owned unit instead of killing it — it drops prone, can't fight, and bleeds out after `bleedoutTicks` (default 60 s) unless stabilized. Revive by right-clicking with a medical item (bandage/medkit/heal potion) or sneak-clicking bare-handed for a weaker field stabilize; **medic-class units triage downed allies automatically**. Downed units show as `DOWNED` on the tablet roster and `!! DOWNED !!` in WTHIT. Behaviour mirrors PlayerRevive's player flow and never conflicts with it — that mod only touches players.
+*   **Recruited units survive Peaceful:** SEM units inherit `Monster`'s despawn rule, so flipping the world to Peaceful used to silently delete your squad. Recruited PMC/BHQ now persist through it (RU/US enemies still despawn — they're hostiles).
 *   **Field scavenging (`lootPickup`):** Out-of-combat owned units pick up nearby useful drops — ammo matching calibres their guns actually need, food, medical items, spare weapons and armour — into their storage. Junk stays on the ground; a full inventory leaves the drop. Each salvage pings the owner with what was grabbed and where (throttled, so a loot trail doesn't spam chat).
-*   **Wounded fallback:** Injured-but-standing owned units break contact and fall back — preferring the medic, then a claimed bed, then the ration crate, then the squad lead — before re-engaging. Downed units skip this entirely (the downed system owns them).
+*   **Wounded fallback:** Injured-but-standing owned units break contact and fall back — preferring the medic, then a claimed bed, then the ration crate, then the squad lead — before re-engaging.
 *   **Dismissal:** `/semcs dismiss <targets>` releases ownership (the units park on `HOLD_POSITION` and revert to wild PMCs — they can turn hostile, so dismiss from a distance). Frees your recruit cap without a firing squad. Mass dismissal (`@e` or multiple units) requires a literal `confirm` argument so one sloppy selector can't wipe your roster.
 *   **Squad groups:** `/semcs group <targets> <name>` tags units into fireteams; `/semcs order_group <name> <order>` issues a squad-wide order over SEM's own wire, `/semcs dismiss_group <name>` releases just that squad. The tag shows beside the callsign on the tablet roster (synced in the v5 marker protocol).
 *   **Casualty board:** the tablet **INTEL** app keeps a persistent KIA list — every owned unit death is recorded in overworld SavedData with name, killer, position and game-time, and synced to the client alongside the marker refresh. Offline players still get the same lines via the login report.
@@ -209,14 +210,14 @@ When Xaero's World Map is installed, the map becomes a real RTS surface:
 
 ### 🏘️ Village Defense Force (VDF)
 
-Villages now raise their own militia. The first time villagers settle near a bell, a one-time **garrison** (default 3, `[vdf] garrisonSize`) musters around the meeting point — a villager-faced soldier with a genuine nose, built on SEM's enemy-unit line. They can't be recruited, commanded, or inventory-looted: the militia answers only to the village.
+Villages now raise their own militia. The first time villagers settle near a bell, a one-time **garrison** (default 3, `[vdf] garrisonSize`) musters around the meeting point — a villager-faced soldier with a genuine nose on a standalone villager-militia rig. They can't be recruited, commanded, or inventory-looted: the militia answers only to the village.
 
-*   **Militia loadout:** ~60% roll as gunners (`[vdf] gunnerChance`) on the RU weapon kit with **unlimited ammo**; the rest patrol as melee militia with iron swords and axes.
+*   **Militia loadout:** ~60% roll as gunners (`[vdf] gunnerChance`) with **unlimited ammo**; the rest patrol as melee militia with iron swords — held low in a proper carry, not a phantom rifle grip.
 *   **Village AI:** patrols a waypoint loop between village POIs (bells, beds, workstations), rallies to the center when a **raid** starts with a horn-blast hum, and idles up to villagers and iron golems for a friendly `VILLAGER_YES` hum.
 *   **Faction matrix:** neutral to players, PMC, and BHQ — hostile to zombies and other monsters, **raiders**, and invading **RU / US** units. Never targets villagers, golems, or its own militia — and stray militia bullets are vetoed outright (`EntityHurtByGunEvent.Pre` cancels the hit), so crossfire can't hurt the people they protect.
 *   **Re-garrison rule:** if the militia is wiped out, the next *new* villager arrival re-arms the village. Dead stays dead until life returns.
 *   **Militia armor:** an uncraftable 4-piece set (pot helm, scrap vest, field pants, boots) drops at `[vdf] armorDropChance` (default 3% per piece) on player kills only — militia gear is a trophy, not a farm.
-*   Iron golems leave them alone by default (`defendersIgnoreVDF = true`).
+*   Village defenders (iron & snow golems, plus anything a datapack adds to `#sem_classsystem:unit_defenders`) leave them alone (`defendersIgnoreVDF = true`), and PMC/BHQ operators never turn on militia — the neutrality works both directions.
 
 ***
 
@@ -346,9 +347,9 @@ Inspired by Cambodia's Bodyguard Unit, the **BHQ** is an elite faction built on 
 
 In base SEM, units extend Minecraft's `Monster` class, causing Iron Golems, Snow Golems, and guards from mods like **Guard Villagers** to attack all units — even friendly recruited PMCs.
 
-This addon fixes that relationship: defenders never target protected allied factions. By default, **PMC and BHQ are protected** (allies), while RU and US remain hostile.
+This addon fixes that relationship: defenders never target protected allied factions. By default, **PMC, BHQ, and the VDF village militia are protected** (allies on the same side as the village's defenders), while RU and US remain hostile.
 Configure this in `[compat]`:
-*   `defendersIgnoreRU`, `defendersIgnoreUS`, `defendersIgnorePMC`, `defendersIgnoreBHQ`
+*   `defendersIgnoreRU`, `defendersIgnoreUS`, `defendersIgnorePMC`, `defendersIgnoreBHQ`, `defendersIgnoreVDF`
 
 You can add any guard mod entity to the `#sem_classsystem:unit_defenders` entity-type tag via datapack.
 

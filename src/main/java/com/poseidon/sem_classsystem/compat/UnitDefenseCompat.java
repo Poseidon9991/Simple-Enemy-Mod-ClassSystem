@@ -48,13 +48,14 @@ public final class UnitDefenseCompat {
         Entity attacker = event.getEntity();
 
         // VDF militia is not an AbstractUnit - the gate below can't see it,
-        // so it gets its own branch. Village defenders must never lock onto
-        // the garrison they share a village with, and PMC/BHQ soldiers never
-        // lock onto militia (the neutrality pact - mirrored in
-        // VdfFriendlyFireEvents for the bullet path).
+        // so it gets its own branch. Village defenders leave the garrison
+        // alone (gated by defendersIgnoreVDF like the other factions), and
+        // PMC/BHQ soldiers never lock onto militia (the neutrality pact -
+        // mirrored in VdfFriendlyFireEvents for the bullet path).
         if (newTarget instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
-            if (attacker.getType().is(UNIT_DEFENDERS)
-                    || attacker instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity) {
+            if (attacker instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity
+                    || (attacker.getType().is(UNIT_DEFENDERS)
+                        && ClassSystemConfig.defendersIgnore(UnitClass.VDF_UNIT))) {
                 event.setNewTarget(null);
             }
             return;
