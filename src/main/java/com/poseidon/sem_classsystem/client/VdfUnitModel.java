@@ -3,6 +3,7 @@ package com.poseidon.sem_classsystem.client;
 
 import com.poseidon.sem_classsystem.SemClassSystem;
 import com.poseidon.sem_classsystem.entity.VdfUnitEntity;
+import com.tacz.guns.api.item.IGun;
 import net.minecraft.client.model.HierarchicalModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
@@ -80,6 +81,24 @@ public class VdfUnitModel extends HierarchicalModel<VdfUnitEntity> {
         // Action clips layer on top of locomotion (they own the bones they touch)
         this.animate(entity.hurtAnimationState, ModAnimationsDefinitions.UNIT_HURT, ageInTicks);
         this.animate(entity.deathAnimationState, ModAnimationsDefinitions.UNIT_DEATH, ageInTicks);
+
+        // Melee militia carry no rifle - the shared UNIT_* clips (and the
+        // rig's own baked arm pivots) are authored as a two-handed gun hold,
+        // so without this the blade sits in a phantom rifle grip even during
+        // hurt/death clips. After the animations write the bones, re-pose
+        // just the arms: relaxed hang at the sides plus a vanilla-style arm
+        // swing while walking. Runs before swingWeaponDown so the attack
+        // swing still animates on top.
+        if (IGun.getIGunOrNull(entity.getMainHandItem()) == null) {
+            this.rightArm.xRot = Mth.cos(limbSwing * 0.6662F + (float) Math.PI)
+                    * 2.0F * limbSwingAmount * 0.5F;
+            this.rightArm.yRot = 0.0F;
+            this.rightArm.zRot = 0.0F;
+            this.leftArm.xRot = Mth.cos(limbSwing * 0.6662F)
+                    * 2.0F * limbSwingAmount * 0.5F;
+            this.leftArm.yRot = 0.0F;
+            this.leftArm.zRot = 0.0F;
+        }
 
         // Melee swing on the vanilla attack timer
         float attackAnim = entity.getAttackAnim(ageInTicks);
