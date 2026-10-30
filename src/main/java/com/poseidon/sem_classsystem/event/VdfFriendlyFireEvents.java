@@ -5,8 +5,6 @@ import com.poseidon.sem_classsystem.SemClassSystem;                    // MODID 
 import com.poseidon.sem_classsystem.entity.VdfUnitEntity;              // militia identity check
 import com.tacz.guns.api.event.common.EntityHurtByGunEvent;            // TaCZ's cancellable pre-hit event
 import net.minecraft.world.entity.Entity;                              // hurt entity type
-import net.minecraft.world.entity.animal.AbstractGolem;                // village defenders (iron + snow golems)
-import net.minecraftforge.event.entity.living.LivingChangeTargetEvent; // veto hostile targeting of militia
 import net.minecraftforge.eventbus.api.SubscribeEvent;                 // handler annotation
 import net.minecraftforge.fml.common.Mod;                              // subscriber annotation
 
@@ -39,19 +37,6 @@ public final class VdfFriendlyFireEvents {
         if (attacker instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity
                 && hurt instanceof VdfUnitEntity) {
             event.setCanceled(true);                       // PMC/BHQ bullets never harm VDF militia in crossfire
-        }
-    }
-
-    // The other half of the ally contract: VDF is a Monster subclass, so
-    // village golems flag militia as enemies on their hostile-mob scan (and
-    // would retaliate on any contact). VDF-side targeting already refuses
-    // golems (isProtectedAlly) - this veto clears the golem's side too, so
-    // the garrison and the village's own defenders never fight each other.
-    @SubscribeEvent
-    public static void onGolemTarget(LivingChangeTargetEvent event) {
-        if (event.getEntity() instanceof AbstractGolem
-                && event.getNewTarget() instanceof VdfUnitEntity) {
-            event.setNewTarget(null);
         }
     }
 

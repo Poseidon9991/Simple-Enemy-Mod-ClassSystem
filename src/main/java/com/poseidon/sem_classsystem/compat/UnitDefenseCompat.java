@@ -18,12 +18,15 @@ import net.minecraftforge.fml.common.Mod;
 
 // SEM units extend Monster, so iron golems, snow golems and guard-type mods
 // (Guard Villagers etc.) attack ALL of them - including the player's own
-// recruited PMC soldiers. This handler fixes that relationship.
+// recruited PMC soldiers. VDF militia is a PathfinderMob (not Enemy), so
+// vanilla golems no longer flag it on their scan - but the defender veto
+// below still covers retaliation and any wider-scoping defenders a pack
+// adds. This handler fixes those relationships.
 //
 // When a mob in the sem_classsystem:unit_defenders entity-type tag tries to
-// target a protected faction's unit, we swap the target out for null - the
-// defender simply never locks on. Zombies, pillagers and SEM-vs-SEM fights
-// are untouched.
+// target a protected faction's unit or a VDF militia member, we swap the
+// target out for null - the defender simply never locks on. Zombies,
+// pillagers and SEM-vs-SEM fights are untouched.
 //
 // The tag ships with minecraft:iron_golem + minecraft:snow_golem; a datapack
 // can add any modded guard entity to it (e.g. "guardvillagers:guard").
@@ -42,26 +45,33 @@ public final class UnitDefenseCompat {
     @SubscribeEvent
     public static void onChangeTarget(LivingChangeTargetEvent event) {
         LivingEntity newTarget = event.getNewTarget();
+        Entity attacker = event.getEntity();
+
+        // VDF militia is not an AbstractUnit - the gate below can't see it,
+        // so it gets its own branch. Village defenders must never lock onto
+        // the garrison they share a village with, and PMC/BHQ soldiers never
+        // lock onto militia (the neutrality pact - mirrored in
+        // VdfFriendlyFireEvents for the bullet path).
+        if (newTarget instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
+            if (attacker.getType().is(UNIT_DEFENDERS)
+                    || attacker instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity) {
+                event.setNewTarget(null);
+            }
+            return;
+        }
 
         // We only care when the prospective target is one of SEM's soldiers
         if (!(newTarget instanceof AbstractUnit)) {
             return;
         }
 
-        Entity attacker = event.getEntity();
-        // Enforce VDF two-way neutrality pact: VDF never locks onto protected
-        // allies (villagers, golems, fellow VDF, PMC/BHQ) or unprovoked players,
-        // and PMC/BHQ never lock onto VDF militia.
+        // VDF never locks onto protected allies (villagers, golems, fellow
+        // VDF, PMC/BHQ) or unprovoked players.
         if (attacker instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity vdf) {
             if (com.poseidon.sem_classsystem.entity.VdfUnitEntity.isProtectedAlly(newTarget)
                     || (newTarget instanceof Player && newTarget != vdf.getLastHurtByMob())) {
                 event.setNewTarget(null);
             }
-            return;
-        }
-        if (attacker instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity
-                && newTarget instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
-            event.setNewTarget(null);
             return;
         }
         // Players choose their own targets - never filtered

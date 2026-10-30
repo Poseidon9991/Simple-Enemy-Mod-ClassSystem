@@ -94,7 +94,8 @@ public final class ClientEventHandlers {
         // BhqUnitRenderer renders PmcUnitEntity (the generic bound), and
         // EntityType<BhqUnitEntity> satisfies EntityType<? extends PmcUnitEntity>
         event.registerEntityRenderer(SemcsRegistries.BHQ_UNIT.get(), BhqUnitRenderer::new);
-        // Same trick on the RU line: VdfUnitEntity extends RUunitEntity
+        // VDF gets its own renderer - it extends PathfinderMob, not the
+        // SEM unit hierarchy, so SEM's bound renderers don't apply.
         event.registerEntityRenderer(SemcsRegistries.VDF_UNIT.get(), VdfUnitRenderer::new);
     }
 

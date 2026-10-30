@@ -16,6 +16,7 @@ import net.minecraft.world.entity.Entity;                              // allian
 import net.minecraft.world.entity.EntityType;                          // entity type parameter
 import net.minecraft.world.entity.EquipmentSlot;                       // armor + hand slots
 import net.minecraft.world.entity.LivingEntity;                        // target predicate entity type
+import net.minecraft.world.entity.Mob;                                 // base attributes builder
 import net.minecraft.world.entity.MobSpawnType;                        // finalizeSpawn signature arg
 import net.minecraft.world.entity.SpawnGroupData;                      // finalizeSpawn signature + return
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;     // createAttributes builder
@@ -26,8 +27,9 @@ import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;        // idle h
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;     // retaliate when hit
 import net.minecraft.world.entity.ai.village.poi.PoiManager;           // village bell/bed lookup
 import net.minecraft.world.entity.ai.village.poi.PoiTypes;             // MEETING / HOME POIs
+import net.minecraft.world.entity.PathfinderMob;                       // our base - navigable mob, no Enemy flag
 import net.minecraft.world.entity.animal.IronGolem;                    // protected village defender
-import net.minecraft.world.entity.monster.Monster;                     // hostile-mob target class + our base
+import net.minecraft.world.entity.monster.Monster;                     // hostile-mob target class
 import net.minecraft.world.entity.npc.AbstractVillager;                // protected villagers
 import net.minecraft.world.entity.player.Player;                       // player neutrality gate
 import net.minecraft.world.entity.raid.Raider;                         // raid mobs (pillagers, vindicators, ravagers)
@@ -50,21 +52,19 @@ import org.jetbrains.annotations.Nullable;                             // Nullab
 
 // VDF (Village Defense Force) - village militia, NOT a faction soldier.
 //
-// Extends Monster directly - deliberately independent of SEM's
-// AbstractUnit/RUunitEntity hierarchy. VDF is not an enemy soldier: it has
-// no SEM squad, no role system, no SEM combat package. Its animation states
-// are driven locally from the vanilla movement tracker (Entity.walkAnimation
-// is synced by the entity tracker), its combat package is two small goals
-// (gun / melee), and its stats come from our own [vdf_unit] config section
-// via UnitClassAttributes.
+// Extends PathfinderMob - deliberately independent of SEM's
+// AbstractUnit/RUunitEntity hierarchy, and deliberately NOT Monster:
+// Monster implements Enemy, which flagged militia on village golems'
+// hostile scan (the event veto in VdfFriendlyFireEvents stays as a
+// fallback) and made them despawn on Peaceful difficulty. PathfinderMob
+// keeps everything the unit actually uses (navigation, MeleeAttackGoal,
+// finalizeSpawn) without the hostile marker.
 //
-// Keeping SEM's RUunitEntity as a superclass only ever bought us problems:
-// it dragged in SEM's layered animation manager (the leg-slide bug: SEM
-// only started UNIT_WALK when its own locomotion condition saw horizontal
-// delta - which the patrol/night-watch movement path did not reliably
-// produce) and SEM's target/role wiring that had to be torn out every
-// spawn anyway.
-public class VdfUnitEntity extends Monster {
+// Its animation states are driven locally from the vanilla movement
+// tracker (Entity.walkAnimation is synced by the entity tracker), its
+// combat package is two small goals (gun / melee), and its stats come
+// from our own [vdf_unit] config section via UnitClassAttributes.
+public class VdfUnitEntity extends PathfinderMob {
 
     // How many militia skins ship under textures/entity/vdf_unit/.
     public static final int VARIANT_COUNT = 4;
@@ -106,20 +106,23 @@ public class VdfUnitEntity extends Monster {
             FireMode.SEMI, FireMode.SEMI, FireMode.SEMI,
             FireMode.SEMI, FireMode.SEMI, FireMode.AUTO, FireMode.AUTO};
 
-    public VdfUnitEntity(EntityType<? extends Monster> entityType, Level level) {
+    public VdfUnitEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
         setVariant(this.random.nextInt(VARIANT_COUNT));
         // Militia is a garrison, not wildlife - never let spawn rules
         // despawn a posted guard.
         this.setPersistenceRequired();
         this.setCanPickUpLoot(false);
+        // Monster bases get xpReward 5 for free - keep the same bounty
+        // now that the class sits on PathfinderMob.
+        this.xpReward = 5;
     }
 
     // Vanilla attribute set - UnitClassAttributes.apply() overwrites the
     // bases with the [vdf_unit] config numbers on spawn/load, same as the
     // SEM factions.
     public static AttributeSupplier.Builder createAttributes() {
-        return Monster.createMonsterAttributes()
+        return Mob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)
                 .add(Attributes.MOVEMENT_SPEED, 0.35D)
                 .add(Attributes.FOLLOW_RANGE, 32.0D)
@@ -279,9 +282,9 @@ public class VdfUnitEntity extends Monster {
         // Every other hostile mob in the village's sight bubble (zombies,
         // skeletons, spiders, vexes...) - raiders handled above. Both
         // exclusions are LOAD-BEARING: SEM units are Monsters (the tag goal
-        // below handles them deliberately, not by accident) and this militia
-        // is now a Monster too - without the VdfUnitEntity exclusion the
-        // garrison would flag ITSELF as a threat.
+        // below handles them deliberately, not by accident) and the
+        // VdfUnitEntity exclusion keeps the garrison from flagging any
+        // Monster-typed straggler ally as a threat.
         this.targetSelector.addGoal(3, new VerticalAwareTargetGoal<>(
                 this, Monster.class, true, 32.0D,
                 e -> !(e instanceof Raider)
