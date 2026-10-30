@@ -21,6 +21,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.ChunkStatus;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.nekoyuni.SimpleEnemyMod.config.common.FactionsConfig;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;
 import net.nekoyuni.SimpleEnemyMod.registry.ModEntities;
 import net.minecraftforge.event.TickEvent;
@@ -65,23 +66,28 @@ public final class NightRaidEvents {
                 if (data.getLong(LAST_CHECK_DAY) != today) {
                     data.putLong(LAST_CHECK_DAY, today);
                     if (!player.isSpectator() && !player.isCreative()
+                            && hasHostileFaction()
                             && level.getRandom().nextFloat() < ClassSystemConfig.nightRaidChance()) {
                         long offset = 400 + level.getRandom().nextInt((int) (NIGHT_END - NIGHT_START - 400));
                         data.putLong(RAID_AT, NIGHT_START + offset);
                     }
                 }
-                // Early warning ~a minute out: a manned Guard Post inside
-                // the player's claims overhears the inbound patrol. Once
-                // per night per player; a post with no bound unit is
-                // furniture, not a listener.
+                // Early warning: everyone hears something coming - a manned
+                // Guard Post inside the player's claims overhears the patrol
+                // early (full configured lead), while anyone else only picks
+                // up the noise shortly before contact. Once per night per
+                // player; a post with no bound unit is furniture, not a
+                // listener.
                 int warnTicks = ClassSystemConfig.nightRaidEarlyWarningTicks();
                 if (warnTicks > 0 && raidAt > NO_RAID
-                        && dayTime >= raidAt - warnTicks && dayTime < raidAt
                         && data.getLong(WARNED_DAY) != today
-                        && !player.isSpectator() && !player.isCreative()
-                        && watchPostOnline(level, player)) {
-                    data.putLong(WARNED_DAY, today);
-                    warnPlayer(level, player, raidAt - dayTime);
+                        && !player.isSpectator() && !player.isCreative()) {
+                    boolean postOnline = watchPostOnline(level, player);
+                    long lead = postOnline ? warnTicks : Math.min(warnTicks, 300L);
+                    if (dayTime >= raidAt - lead && dayTime < raidAt) {
+                        data.putLong(WARNED_DAY, today);
+                        warnPlayer(level, player, raidAt - dayTime, postOnline);
+                    }
                 }
                 // Strike when the scheduled minute arrives
                 if (raidAt > NO_RAID && dayTime >= raidAt
@@ -122,24 +128,57 @@ public final class NightRaidEvents {
         return false;
     }
 
+    // SEM faction diplomacy: a faction the player configured as friendly
+    // (simpleenemymod [factions] *_UNITS_FRIENDLY) never fields a raid
+    // squad - allies don't ambush their own side.
+    private static boolean hasHostileFaction() {
+        return !Boolean.TRUE.equals(FactionsConfig.RU_UNITS_FRIENDLY.get())
+                || !Boolean.TRUE.equals(FactionsConfig.US_UNITS_FRIENDLY.get());
+    }
+
+    // Picks the raiding faction among factions hostile to the player.
+    // Both friendly -> null (no raid); one friendly -> the hostile one;
+    // both hostile -> coin flip as before.
+    @org.jetbrains.annotations.Nullable
+    private static EntityType<? extends AbstractUnit> raidFaction(
+            net.minecraft.util.RandomSource random) {
+        boolean ruHostile = !Boolean.TRUE.equals(FactionsConfig.RU_UNITS_FRIENDLY.get());
+        boolean usHostile = !Boolean.TRUE.equals(FactionsConfig.US_UNITS_FRIENDLY.get());
+        if (!ruHostile && !usHostile) {
+            return null;
+        }
+        if (!ruHostile) {
+            return ModEntities.USUNIT.get();
+        }
+        if (!usHostile) {
+            return ModEntities.RUUNIT.get();
+        }
+        return random.nextBoolean() ? ModEntities.RUUNIT.get() : ModEntities.USUNIT.get();
+    }
+
     // Softer horn + ETA text; the map ping centers on the player because
     // the threat is on them - the exact spawn bearing isn't rolled until
-    // the strike fires.
-    private static void warnPlayer(ServerLevel level, ServerPlayer player, long ticksLeft) {
-        player.displayClientMessage(Component.literal(
-                "§eGuard post reports hostile chatter - raid inbound in ~"
-                        + (ticksLeft / 20) + "s!"), true);
+    // the strike fires. A manned Guard Post reports it as intercepted
+    // chatter; everyone else just hears the approach.
+    private static void warnPlayer(ServerLevel level, ServerPlayer player,
+                                   long ticksLeft, boolean postOnline) {
+        player.displayClientMessage(Component.literal(postOnline
+                ? "§eGuard post reports hostile chatter - raid inbound in ~"
+                        + (ticksLeft / 20) + "s!"
+                : "§eYou hear movement in the dark - something is closing in!"), true);
         level.playSound(null, player.blockPosition(), SoundEvents.RAID_HORN.get(),
-                SoundSource.HOSTILE, 0.4F, 1.1F);
+                SoundSource.HOSTILE, postOnline ? 0.4F : 0.25F, 1.1F);
         SemcsNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
                 new PacketRaidPing(level.dimension().location().toString(),
                         player.getX(), player.getZ()));
     }
 
     private static void spawnRaid(ServerLevel level, ServerPlayer player) {
-        boolean russian = level.getRandom().nextBoolean();
-        EntityType<? extends AbstractUnit> type = russian
-                ? ModEntities.RUUNIT.get() : ModEntities.USUNIT.get();
+        EntityType<? extends AbstractUnit> type = raidFaction(level.getRandom());
+        if (type == null) {
+            return;                                     // every faction is friendly now - stand down
+        }
+        boolean russian = type == ModEntities.RUUNIT.get();
         int min = ClassSystemConfig.nightRaidSquadSizeMin();
         int max = Math.max(min, ClassSystemConfig.nightRaidSquadSizeMax());
         int size = min + level.getRandom().nextInt(max - min + 1);
