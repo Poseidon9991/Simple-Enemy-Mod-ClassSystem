@@ -203,7 +203,6 @@ public final class NightRaidEvents {
             unit.finalizeSpawn(level, level.getCurrentDifficultyAt(new BlockPos(sx, sy, sz)),
                     MobSpawnType.EVENT, null, null);
             unit.setTarget(player);
-            unit.getPersistentData().putBoolean("semcs_night_raider", true);
             level.addFreshEntity(unit);
             spawned++;
         }

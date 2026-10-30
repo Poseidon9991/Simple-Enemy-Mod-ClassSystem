@@ -25,8 +25,6 @@ public final class UnitVeterancy {
 
     // Rank ladder: index = rank tier, value = XP needed to reach it
     private static final int[] THRESHOLDS = {0, 15, 40, 80, 150, 250};
-    private static final String[] RANK_NAMES =
-            {"Recruit", "Private", "Corporal", "Sergeant", "Veteran", "Elite"};
     private static final String[] RANK_TITLES =
             {"Rct.", "Pvt.", "Cpl.", "Sgt.", "Vet.", "Elt."};
 
@@ -50,10 +48,6 @@ public final class UnitVeterancy {
             }
         }
         return rank;
-    }
-
-    public static String rankName(LivingEntity unit) {
-        return RANK_NAMES[rank(unit)];
     }
 
     // Short prefix for nameplates / GUI titles ("Sgt. Jony")

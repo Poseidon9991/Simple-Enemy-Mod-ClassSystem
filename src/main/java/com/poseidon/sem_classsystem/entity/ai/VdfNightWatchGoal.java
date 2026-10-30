@@ -4,12 +4,10 @@ package com.poseidon.sem_classsystem.entity.ai;
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;          // [vdf] nightWatch toggle + patrolRadius
 import com.poseidon.sem_classsystem.entity.VdfUnitEntity;              // the militia unit this drives
 import net.minecraft.core.BlockPos;                                    // watch post + village center positions
-import net.minecraft.core.Holder;                                      // POI type holders from the PoiManager scan
 import net.minecraft.server.level.ServerLevel;                         // PoiManager lives server-side
 import net.minecraft.world.entity.ai.goal.Goal;                        // vanilla goal base class
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;            // random reachable positions
 import net.minecraft.world.entity.ai.village.poi.PoiManager;           // village POI index
-import net.minecraft.world.entity.ai.village.poi.PoiType;              // POI type class for the holder predicate
 import net.minecraft.world.entity.ai.village.poi.PoiTypes;             // HOME poi key (villager beds)
 import net.minecraft.world.level.pathfinder.Path;                      // nav result (null check for reachability)
 import net.minecraft.world.phys.Vec3;                                  // position vectors for toward-picks

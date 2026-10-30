@@ -75,11 +75,6 @@ public class UnitNameRegistry extends SavedData {
         }
     }
 
-    // True while a living unit still carries this callsign.
-    public boolean isClaimed(String name) {
-        return this.used.contains(name);
-    }
-
     // Convenience: assign a fresh unique name to a unit (nameplate + flag).
     public static void assignUniqueName(LivingEntity unit, ServerLevel level) {
         if (unit.getCustomName() != null || unit.getPersistentData().getBoolean("semcs_named")) {

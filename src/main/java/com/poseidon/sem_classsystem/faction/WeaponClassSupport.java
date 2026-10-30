@@ -251,32 +251,6 @@ public final class WeaponClassSupport {
                 cls == null ? "" : cls.configKey());
     }
 
-    // Sneak-click on the recruit table: step to the next choice.
-    // Order: random -> smg -> rifle -> shotgun -> sniper -> heavy_mg -> random.
-    // Subclasses are skipped - you pick a class here, sidearms come from
-    // the gun you hand the unit afterwards.
-    // Returns the new preference (null = random) for the feedback message.
-    @Nullable
-    public static WeaponClass cycleRecruitPreference(net.minecraft.world.entity.player.Player player) {
-        WeaponClass current = getRecruitPreference(player);
-        WeaponClass[] all = WeaponClass.mainClasses();
-        WeaponClass next;
-        if (current == null) {
-            next = all[0];
-        } else {
-            int idx = -1;
-            for (int i = 0; i < all.length; i++) {
-                if (all[i] == current) {
-                    idx = i;
-                    break;
-                }
-            }
-            next = idx >= 0 && idx + 1 < all.length ? all[idx + 1] : null;
-        }
-        setRecruitPreference(player, next);
-        return next;
-    }
-
     // Pretty label for the actionbar / command feedback.
     public static String recruitPreferenceLabel(net.minecraft.world.entity.player.Player player) {
         WeaponClass cls = getRecruitPreference(player);

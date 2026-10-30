@@ -13,12 +13,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
-import org.slf4j.Logger;
-import com.mojang.logging.LogUtils;
 
 public final class UnitAmmoService {
-
-    private static final Logger LOG = LogUtils.getLogger();
 
     // SEM unit inventory layout: 0 = gun, 1 = offhand, 2-5 = armor, 6-17 = storage.
     private static final int STORAGE_START = 6;

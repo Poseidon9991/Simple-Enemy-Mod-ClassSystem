@@ -32,7 +32,6 @@ public final class UnitNeedsEvents {
     // Throttle the drain bookkeeping - the math is elapsed-time based so
     // resolution doesn't change, we just do it less often.
     private static final int DRAIN_INTERVAL = 40;
-    private static final double ALLY_MORALE_RADIUS_SQR = 16.0 * 16.0;
 
     private UnitNeedsEvents() {
     }

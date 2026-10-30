@@ -6,7 +6,6 @@ import com.poseidon.sem_classsystem.SemClassSystem;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.HumanoidModel;
-import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeDeformation;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;

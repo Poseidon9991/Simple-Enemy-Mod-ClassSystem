@@ -23,7 +23,6 @@ import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.registries.RegistryObject;
-import com.poseidon.sem_classsystem.entity.VdfUnitEntity;
 import net.nekoyuni.SimpleEnemyMod.compat.geckolib.GeckoCompat;
 import net.nekoyuni.SimpleEnemyMod.compat.geckolib.GeckoCompatClient;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.RUunitEntity;
@@ -126,16 +125,6 @@ public final class ClientEventHandlers {
             attachCuriosLayer(event, SemcsRegistries.VDF_UNIT.get());
         }
 
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private static <T extends net.minecraft.world.entity.LivingEntity> void attachGeckoArmorLayer(
-            EntityRenderersEvent.AddLayers event, net.minecraft.world.entity.EntityType<T> type) {
-        LivingEntityRenderer<T, ?> renderer = event.getRenderer(type);
-        if (renderer != null) {
-            HumanoidModel geckoDummy = new HumanoidModel(event.getEntityModels().bakeLayer(ModelLayers.PLAYER_INNER_ARMOR));
-            renderer.addLayer(GeckoCompatClient.createArmorLayer((LivingEntityRenderer) renderer, geckoDummy));
-        }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

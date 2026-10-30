@@ -8,7 +8,6 @@ import com.tacz.guns.api.event.common.GunShootEvent;
 import com.tacz.guns.api.event.server.AmmoHitBlockEvent;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
