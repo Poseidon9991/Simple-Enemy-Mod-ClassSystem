@@ -296,6 +296,7 @@ public abstract class MixinRangedGunAttackGoal {
             if (centroid != null) {
                 pos = new Vec3(centroid.x, pos.y, centroid.z);
             }
+            pos = semcs$groundAimPoint(entity, pos);
         }
         BulletData bullet = index.getBulletData();
         if (bullet == null || bullet.getSpeed() <= 0) {
@@ -338,6 +339,31 @@ public abstract class MixinRangedGunAttackGoal {
                 ? Math.min(4.0 + dist * 0.3, 12.0) : 0.0;
         return pos.add(delta.x * t * leadScale,
                 leadY + drop + adjust + lob, delta.z * t * leadScale);
+    }
+
+    // Splash crews aim at the ground the target stands on, not at the body
+    // itself - a shell only has to strike terrain near them for the blast
+    // to do the work, while a body-line fly-by sails past the hitbox's
+    // lower edge and lands nowhere useful. The aim point sinks ~0.25 under
+    // the standing surface (works for full blocks, slabs and carpet alike)
+    // and steps a little toward the shooter, so even a "short" impact
+    // detonates inside the blast radius at their feet instead of skimming
+    // underneath and flying on. observeFire() then walks any residual
+    // short/long error onto the target in the next shots. Airborne targets
+    // keep the direct aim - there is no floor to strike under them.
+    @Unique
+    private Vec3 semcs$groundAimPoint(LivingEntity entity, Vec3 aim) {
+        if (!entity.onGround()) {
+            return aim;
+        }
+        double deck = entity.getY() - 0.25D;
+        double px = this.mob.getX() - aim.x;
+        double pz = this.mob.getZ() - aim.z;
+        double pl = Math.sqrt(px * px + pz * pz);
+        if (pl <= 2.0D) {
+            return new Vec3(aim.x, deck, aim.z);
+        }
+        return new Vec3(aim.x + px / pl * 0.7D, deck, aim.z + pz / pl * 0.7D);
     }
 
     // How perfectly each class predicts intercepts: monsters move dumb and
