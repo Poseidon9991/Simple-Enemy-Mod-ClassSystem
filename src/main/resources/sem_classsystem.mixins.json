@@ -13,6 +13,7 @@
         "MixinCuriosHelper",
         "MixinGunTracer",
         "MixinMoveToAttackRange",
+        "MixinNearestAttackableTargetGoal",
         "MixinPmcAmmoPlacement",
         "MixinPmcUnitDutyClear",
         "MixinPmcUnitMenuTitle",
