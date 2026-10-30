@@ -3,12 +3,12 @@ package com.poseidon.sem_classsystem.mixin;
 
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
 import com.poseidon.sem_classsystem.entity.BhqUnitEntity;
+import com.poseidon.sem_classsystem.entity.UnitAmmoService;
 import com.poseidon.sem_classsystem.faction.ClassLoadouts;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;
 import com.tacz.guns.api.TimelessAPI;
-import com.tacz.guns.api.item.IAmmo;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.api.item.builder.AmmoItemBuilder;
 import com.tacz.guns.api.item.builder.AttachmentItemBuilder;
@@ -41,107 +41,44 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin({RuWeaponEquipper.class, UsWeaponEquipper.class, PmcUnitWeaponEquipper.class})
 public abstract class MixinUnitAmmoReserve {
 
+    @Unique
+    private static final org.slf4j.Logger SEMCS_AMMO_LOG = com.mojang.logging.LogUtils.getLogger();
+
     private static final int STORAGE_START = 6;
-    private static final int MIN_RESERVE_ROUNDS = 240;
-    private static final int MAX_SAFE_STACK = 60;
 
     @Inject(method = "equipRandomGun", at = @At("TAIL"), remap = false)
     private static void semcs$ensureReserveAmmo(LivingEntity entity, RandomSource random,
                                                 CallbackInfo ci) {
         // 1. Always equip built-in 3D faction/class armor first
-        semcs$equipBuiltInArmor(entity, random);
+        try {
+            semcs$equipBuiltInArmor(entity, random);
+        } catch (Throwable t) {
+            SEMCS_AMMO_LOG.warn("[SEMCAmmo] armor pass failed for {}: {}",
+                    entity.getType().getDescriptionId(), t.toString());
+        }
 
         // 2. Ensure primary weapon ammo is moved out of offhand/armor slots and split
         //    into legal <= 60 stacks in storage (6..17) so FriendlyByteBuf.writeItem
         //    never overflows signed byte (>127 -> negative -> ItemStack.EMPTY)!
-        ItemStack gun = entity.getMainHandItem();
-        IGun iGun = IGun.getIGunOrNull(gun);
-        if (iGun != null) {
-            ResourceLocation gunId = iGun.getGunId(gun);
-            ResourceLocation ammoId = gunId == null ? null : TimelessAPI.getCommonGunIndex(gunId)
-                    .map(index -> index.getGunData().getAmmoId())
-                    .orElse(null);
-            if (ammoId != null) {
-                entity.getCapability(ForgeCapabilities.ITEM_HANDLER).ifPresent(handler -> {
-                    if (!(handler instanceof IItemHandlerModifiable modifiable)) {
-                        return;
-                    }
-                    // First relocate any stray ammo from slots 1..5 into storage
-                    for (int slot = 1; slot < STORAGE_START && slot < modifiable.getSlots(); slot++) {
-                        ItemStack s = modifiable.getStackInSlot(slot);
-                        if (!s.isEmpty() && IAmmo.getIAmmoOrNull(s) != null) {
-                            int cnt = s.getCount();
-                            ItemStack tmpl = s.copy();
-                            modifiable.setStackInSlot(slot, ItemStack.EMPTY);
-                            if (slot == 1) {
-                                entity.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
-                            }
-                            semcs$placeSplitAmmo(modifiable, tmpl, cnt);
-                        }
-                    }
-
-                    // Normalize any existing oversized stacks (> 60) and count total carried
-                    int carried = 0;
-                    for (int slot = STORAGE_START; slot < modifiable.getSlots(); slot++) {
-                        ItemStack stack = modifiable.getStackInSlot(slot);
-                        if (stack.isEmpty()) {
-                            continue;
-                        }
-                        IAmmo ammo = IAmmo.getIAmmoOrNull(stack);
-                        if (ammo != null && ammoId.equals(ammo.getAmmoId(stack))) {
-                            if (stack.getCount() > MAX_SAFE_STACK) {
-                                int extra = stack.getCount() - MAX_SAFE_STACK;
-                                ItemStack tmpl = stack.copy();
-                                stack.setCount(MAX_SAFE_STACK);
-                                modifiable.setStackInSlot(slot, stack);
-                                semcs$placeSplitAmmo(modifiable, tmpl, extra);
-                            }
-                            carried += modifiable.getStackInSlot(slot).getCount();
-                        }
-                    }
-
-                    int deficit = MIN_RESERVE_ROUNDS - carried;
-                    if (deficit > 0) {
-                        ItemStack tmpl = AmmoItemBuilder.create().setId(ammoId).setCount(1).build();
-                        semcs$placeSplitAmmo(modifiable, tmpl, deficit);
-                    }
-                });
-            }
+        try {
+            UnitAmmoService.ensurePrimaryAmmo(entity);
+        } catch (Throwable t) {
+            SEMCS_AMMO_LOG.warn("[SEMCAmmo] primary-ammo pass failed for {}: {}",
+                    entity.getType().getDescriptionId(), t.toString());
         }
 
         // 3. Equip backup sidearm pistol + <= 60 legal stack of pistol ammo + field rations
-        semcs$equipBackupSidearm(entity, random);
+        try {
+            semcs$equipBackupSidearm(entity, random);
+        } catch (Throwable t) {
+            SEMCS_AMMO_LOG.warn("[SEMCAmmo] sidearm pass failed for {}: {}",
+                    entity.getType().getDescriptionId(), t.toString());
+        }
     }
 
     @Unique
     private static void semcs$placeSplitAmmo(IItemHandlerModifiable modifiable, ItemStack template, int totalRounds) {
-        int remaining = totalRounds;
-        // First top up partially-filled matching stacks up to MAX_SAFE_STACK (60)
-        IAmmo tmplAmmo = IAmmo.getIAmmoOrNull(template);
-        ResourceLocation tmplId = tmplAmmo != null ? tmplAmmo.getAmmoId(template) : null;
-        if (tmplId != null) {
-            for (int slot = STORAGE_START; slot < modifiable.getSlots() && remaining > 0; slot++) {
-                ItemStack cur = modifiable.getStackInSlot(slot);
-                IAmmo curAmmo = IAmmo.getIAmmoOrNull(cur);
-                if (!cur.isEmpty() && curAmmo != null && tmplId.equals(curAmmo.getAmmoId(cur))
-                        && cur.getCount() < MAX_SAFE_STACK) {
-                    int add = Math.min(MAX_SAFE_STACK - cur.getCount(), remaining);
-                    cur.grow(add);
-                    modifiable.setStackInSlot(slot, cur);
-                    remaining -= add;
-                }
-            }
-        }
-        // Then fill empty storage slots in chunks of MAX_SAFE_STACK (60)
-        for (int slot = STORAGE_START; slot < modifiable.getSlots() && remaining > 0; slot++) {
-            if (modifiable.getStackInSlot(slot).isEmpty()) {
-                int chunk = Math.min(MAX_SAFE_STACK, remaining);
-                ItemStack stack = template.copy();
-                stack.setCount(chunk);
-                modifiable.setStackInSlot(slot, stack);
-                remaining -= chunk;
-            }
-        }
+        UnitAmmoService.placeSplitAmmo(modifiable, template, totalRounds);
     }
 
     @Unique
@@ -310,7 +247,7 @@ public abstract class MixinUnitAmmoReserve {
                     }
                 }
                 ResourceLocation pistolAmmoId = TimelessAPI.getCommonGunIndex(pistolLoadout.gunId)
-                        .map(idx -> idx.getGunData().getAmmoId())
+                        .map(idx -> idx.getGunData() == null ? null : idx.getGunData().getAmmoId())
                         .orElse(null);
                 if (pistolAmmoId != null) {
                     ItemStack pAmmoTmpl = AmmoItemBuilder.create().setId(pistolAmmoId).setCount(1).build();

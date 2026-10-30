@@ -109,6 +109,16 @@ public abstract class MixinAbstractUnit implements IClassifiedUnit {
         UnitClassAttributes.apply(self, false);
         // Re-stamp the name tag in case the class was just inferred
         WeaponClassSupport.applyDisplayName(self);
+
+        // Repair ammo-less units: inventory NBT is already deserialized here,
+        // so sweep stray/oversized stacks and top the unit back up to its
+        // reserve (idempotent - only fills what is actually missing).
+        if (!self.level().isClientSide) {
+            try {
+                com.poseidon.sem_classsystem.entity.UnitAmmoService.ensurePrimaryAmmo(self);
+            } catch (Throwable ignored) {
+            }
+        }
     }
 
     // Persist the class into the unit's NBT on save.
