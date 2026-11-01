@@ -15,6 +15,8 @@ import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.util.Mth;
 import net.nekoyuni.SimpleEnemyMod.entity.client.animation.ModAnimationsDefinitions;
+import net.nekoyuni.SimpleEnemyMod.entity.client.animation.procedural.AdvancedWeaponPoseLayer;
+import net.nekoyuni.SimpleEnemyMod.entity.client.animation.procedural.HeadTrackingLayer;
 
 // The militia's own body - NOT a borrowed RU rig. Bone tree, part names,
 // pivots and animations all come from SEM's UnitModelDefinitions base
@@ -40,6 +42,11 @@ public class VdfUnitModel extends HierarchicalModel<VdfUnitEntity> {
     private final ModelPart head;
     private final ModelPart rightArm;
     private final ModelPart leftArm;
+    // SEM's own procedural layers - the same instances PMC/BHQ/RU/US run
+    // through UnitAnimationConfig, so the militia gets identical posing.
+    // (CombatStateLayer is skipped: it hard-requires AbstractUnit.)
+    private final AdvancedWeaponPoseLayer weaponPoseLayer;
+    private final HeadTrackingLayer headTrackingLayer;
 
     public VdfUnitModel(ModelPart root) {
         this.root = root;
@@ -48,6 +55,8 @@ public class VdfUnitModel extends HierarchicalModel<VdfUnitEntity> {
         this.head = unit.getChild("head");
         this.rightArm = unit.getChild("rightArm");
         this.leftArm = unit.getChild("leftArm");
+        this.weaponPoseLayer = new AdvancedWeaponPoseLayer(head, rightArm, leftArm);
+        this.headTrackingLayer = new HeadTrackingLayer(head, 30.0F, -25.0F, 45.0F);
     }
 
     @Override
@@ -89,7 +98,8 @@ public class VdfUnitModel extends HierarchicalModel<VdfUnitEntity> {
         // just the arms: relaxed hang at the sides plus a vanilla-style arm
         // swing while walking. Runs before swingWeaponDown so the attack
         // swing still animates on top.
-        if (IGun.getIGunOrNull(entity.getMainHandItem()) == null) {
+        boolean holdsGun = IGun.getIGunOrNull(entity.getMainHandItem()) != null;
+        if (!holdsGun) {
             this.rightArm.xRot = Mth.cos(limbSwing * 0.6662F + (float) Math.PI)
                     * 2.0F * limbSwingAmount * 0.5F;
             this.rightArm.yRot = 0.0F;
@@ -105,6 +115,15 @@ public class VdfUnitModel extends HierarchicalModel<VdfUnitEntity> {
         if (attackAnim > 0.0F) {
             net.minecraft.client.model.AnimationUtils.swingWeaponDown(
                     this.rightArm, this.leftArm, entity, attackAnim, ageInTicks);
+        }
+
+        // SEM's procedural layers, applied last like UnitAnimationConfig does -
+        // they own the final bone state. Weapon pose re-poses the arms per gun
+        // class (rifle two-hand / minigun hip-fire / pistol) so the militia
+        // stops holding every gun in the same UNIT_IDLE grip.
+        this.headTrackingLayer.apply(this.root, entity, ageInTicks);
+        if (holdsGun) {
+            this.weaponPoseLayer.apply(this.root, entity, ageInTicks);
         }
     }
 
