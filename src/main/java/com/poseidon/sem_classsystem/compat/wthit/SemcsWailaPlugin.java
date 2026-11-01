@@ -66,9 +66,8 @@ public class SemcsWailaPlugin implements IWailaPlugin {
                 raw.putString(TAG_FACTION, faction.name().split("_")[0]);   // "RU","PMC","BHQ","VDF"
             }
             if (unit instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
-                boolean melee = com.poseidon.sem_classsystem.entity.ai.UnitMeleeAttackGoal
-                        .isMeleeWeapon(unit.getMainHandItem());
-                raw.putString(TAG_CLASS, melee ? "VDF_MELEE" : "VDF_GUNNER");
+                // Every militia member is a gunner - no class roll to show.
+                raw.putString(TAG_CLASS, "VDF_GUNNER");
                 return;
             }
             WeaponClass cls = WeaponClassSupport.get(unit);
@@ -101,10 +100,9 @@ public class SemcsWailaPlugin implements IWailaPlugin {
             if (clsName.isEmpty()) {
                 return;
             }
-            if ("VDF_MELEE".equals(clsName) || "VDF_GUNNER".equals(clsName)) {
-                String roleLabel = "VDF_MELEE".equals(clsName) ? "Vanguard (Melee)" : "Rifleman (Gunner)";
+            if ("VDF_GUNNER".equals(clsName)) {
                 tooltip.addLine(Component.literal("VDF Militia · ").withStyle(ChatFormatting.GRAY)
-                        .append(Component.literal(roleLabel)
+                        .append(Component.literal("Rifleman (Gunner)")
                                 .withStyle(style -> style.withColor(0x6FAF4E))));
                 return;
             }

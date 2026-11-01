@@ -49,35 +49,26 @@ public final class SpottingScopeCurioRenderer implements ICurioRenderer {
         PartDefinition head = root.addOrReplaceChild("head", CubeListBuilder.create(), PartPose.ZERO);
         root.addOrReplaceChild("hat", CubeListBuilder.create(), PartPose.ZERO);
 
-        // Tactical elastic head-band / helmet strap wrapping around the brow
-        // (sits slightly outside the 8x8 head and helmet rim so it's visible with or without a helmet)
-        head.addOrReplaceChild("strap", CubeListBuilder.create()
-                        .texOffs(0, 0).addBox(-4.6F, -6.2F, -4.55F, 9.2F, 1.1F, 9.1F, new CubeDeformation(0.05F))
-                        // Forehead NVG / optic mount bracket
-                        .texOffs(24, 0).addBox(-1.1F, -6.9F, -5.25F, 2.2F, 1.6F, 0.85F, CubeDeformation.NONE)
-                        // Swing-arm bar leading to the right eye (-X)
-                        .texOffs(16, 0).addBox(-3.3F, -6.3F, -5.35F, 2.4F, 0.7F, 0.7F, CubeDeformation.NONE)
-                        .texOffs(16, 0).addBox(-3.1F, -5.7F, -5.35F, 0.8F, 1.2F, 0.7F, CubeDeformation.NONE),
+        // Whole-number cube sizes + a generated 64x64 atlas: every face maps
+        // to its own texel block (fractional sizes / a 32x32 layer vs a 64x64
+        // PNG is what corrupted the old render). Head-local space, -Z = front,
+        // -X = wearer's right eye.
+        head.addOrReplaceChild("scope", CubeListBuilder.create()
+                // Head-band wrapping the brow
+                .texOffs(0, 0).addBox(-4.0F, -6.0F, -4.0F, 8.0F, 1.0F, 8.0F, new CubeDeformation(0.5F))
+                // Forehead optic mount + swing arm to the right eye
+                .texOffs(32, 0).addBox(-1.0F, -7.0F, -6.0F, 2.0F, 2.0F, 2.0F, CubeDeformation.NONE)
+                .texOffs(40, 0).addBox(-3.0F, -7.0F, -6.0F, 2.0F, 1.0F, 2.0F, CubeDeformation.NONE)
+                // Eyecup, olive optic tube, brass focus ring, objective bell (cyan lens on its front face)
+                .texOffs(48, 0).addBox(-3.0F, -4.0F, -5.0F, 2.0F, 2.0F, 1.0F, CubeDeformation.NONE)
+                .texOffs(0, 9).addBox(-3.0F, -5.0F, -9.0F, 3.0F, 3.0F, 4.0F, CubeDeformation.NONE)
+                .texOffs(14, 9).addBox(-3.0F, -5.0F, -8.0F, 3.0F, 3.0F, 1.0F, new CubeDeformation(0.4F))
+                .texOffs(22, 9).addBox(-3.0F, -5.0F, -10.0F, 3.0F, 3.0F, 1.0F, new CubeDeformation(0.5F))
+                // Side laser rangefinder module (red emitter on its front face)
+                .texOffs(30, 9).addBox(-5.0F, -4.0F, -9.0F, 2.0F, 2.0F, 3.0F, CubeDeformation.NONE),
                 PartPose.ZERO);
 
-        // Right-eye (-X) Tactical Spotting Scope & Laser Rangefinder Pod
-        head.addOrReplaceChild("scope_assembly", CubeListBuilder.create()
-                        // Rear rubber eyecup right in front of the right eye
-                        .texOffs(0, 0).addBox(-3.55F, -4.95F, -5.15F, 2.1F, 2.1F, 1.1F, CubeDeformation.NONE)
-                        // Olive armored optic body tube
-                        .texOffs(0, 8).addBox(-3.75F, -5.15F, -7.55F, 2.5F, 2.5F, 2.5F, CubeDeformation.NONE)
-                        // Brass focus / magnification ring
-                        .texOffs(16, 0).addBox(-3.9F, -5.3F, -8.35F, 2.8F, 2.8F, 0.85F, CubeDeformation.NONE)
-                        // Front objective bell
-                        .texOffs(0, 8).addBox(-3.85F, -5.25F, -9.45F, 2.7F, 2.7F, 1.15F, CubeDeformation.NONE)
-                        // Glowing cyan/aqua objective lens face
-                        .texOffs(16, 8).addBox(-3.65F, -5.05F, -9.55F, 2.3F, 2.3F, 0.15F, CubeDeformation.NONE)
-                        // Side-mounted laser rangefinder module + red emitter
-                        .texOffs(24, 0).addBox(-4.65F, -4.55F, -8.15F, 0.9F, 1.4F, 2.6F, CubeDeformation.NONE)
-                        .texOffs(24, 8).addBox(-4.5F, -4.3F, -8.25F, 0.6F, 0.9F, 0.15F, CubeDeformation.NONE),
-                PartPose.ZERO);
-
-        return LayerDefinition.create(mesh, 32, 32);
+        return LayerDefinition.create(mesh, 64, 64);
     }
 
     @Override

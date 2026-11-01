@@ -103,10 +103,11 @@ com.poseidon.sem_classsystem/
 │   ├── UnitCuriosRenderLayer.java      # Curio rendering on unit models
 │   ├── UnitMarkerStore.java            # Client-side cache of synced units
 │   ├── UnitProceduralAnimState.java    # Dynamic animation smoothing
-│   ├── VdfUnitModel.java               # Militia body (SEM bone tree + melee arm pose)
+│   ├── UnitProceduralPoses.java        # Shared PMC pose library (locomotion/recoil/stances)
+│   ├── VdfUnitModel.java               # Militia body (SEM bone tree + PMC procedural posing)
 │   ├── VdfUnitRenderer.java            # Militia renderer & skin variants
 │   ├── VdfArmorLayer.java              # Militia armor suit layer
-│   ├── VdfHeldItemLayer.java           # Militia held-gun/sword anchor render
+│   ├── VdfHeldItemLayer.java           # Militia held-gun anchor render
 │   └── xaero/                          # XAERO MAP INTEGRATION (Strictly isolated!)
 │       ├── SemcsXaeroCompat.java       # Map overlay element registration
 │       ├── SemcsMinimapCompat.java     # Minimap element registration
@@ -140,7 +141,6 @@ com.poseidon.sem_classsystem/
 │       ├── UnitWoundedGoal.java        # <30% HP rearward fallback anchors
 │       ├── UnitWeaponFallbackGoal.java # Empty-mag sidearm swapping
 │       ├── VdfGunAttackGoal.java       # Militia ranged combat package
-│       ├── VdfMeleeAttackGoal.java     # Militia melee package (no-gun gate)
 │       ├── VdfRaidResponseGoal.java    # Pillager-raid rally to the bell
 │       ├── VdfNightWatchGoal.java      # Dusk watch-stand / rain shelter
 │       ├── VdfPatrolGoal.java          # Village POI waypoint patrol
@@ -263,7 +263,7 @@ sequenceDiagram
 
 ### VDF Village Garrison Flow
 
-The VDF (`VdfUnitEntity`) is a **standalone `PathfinderMob`** — deliberately *not* SEM-lineage (no `AbstractUnit` wiring to tear out) and deliberately *not* `Monster`: `Monster implements Enemy` flagged militia on village golems' hostile scan and made them despawn on Peaceful. It keeps its own two-goal combat package (`VdfGunAttackGoal` / `VdfMeleeAttackGoal`), rolls `[vdf] gunnerChance` between a `class_loadouts/vdf_units.json` gun with dummy ammo and an iron sword, and drives animations from its own `walkAnimation`-fed states — no SEM locomotion layer.
+The VDF (`VdfUnitEntity`) is a **standalone `PathfinderMob`** — deliberately *not* SEM-lineage (no `AbstractUnit` wiring to tear out) and deliberately *not* `Monster`: `Monster implements Enemy` flagged militia on village golems' hostile scan and made them despawn on Peaceful. It keeps a single-goal combat package (`VdfGunAttackGoal`, which consumes TaCZ's `ShootResult` so manual-action guns bolt and tube-fed shotguns cut a feed short once a shell is chambered) and always rolls a `class_loadouts/vdf_units.json` gun with dummy ammo — militia saved with melee weapons from before the all-gunner change are re-armed on load — and drives animations from its own `walkAnimation`-fed states — no SEM locomotion layer.
 
 Garrisons spawn through `VdfGarrisonEvents.onVillagerJoin` (`EntityJoinLevelEvent` on `Villager`):
 
@@ -280,7 +280,7 @@ Village safety is layered in both directions:
 
 `VdfDropEvents` adds the uncraftable armor rolls (player-kill only) on `LivingDropsEvent`.
 
-**Rendering**: `VdfUnitModel` is a plain `HierarchicalModel` cloning SEM's bone tree + pivots plus a villager nose, playing SEM's shared `UNIT_*` clips off the entity's own animation states. Non-gun militia get a **melee arm override** — after the clips write bones, arms re-pose to a relaxed hang with vanilla-style walk swing, then `swingWeaponDown` animates attacks (the shared clips bake a rifle-hold into the arm pivots, which is why unarmed militia used to grip a phantom gun). `VdfHeldItemLayer` anchors the weapon at `rightHandAnchor` with SEM's shouldered/lowered carry transforms.
+**Rendering**: `VdfUnitModel` is a plain `HierarchicalModel` cloning SEM's bone tree + pivots plus a villager nose, playing SEM's shared `UNIT_*` clips off the entity's own animation states. It then runs the **same procedural pass as a PMC**: SEM's `HeadTrackingLayer` + `AdvancedWeaponPoseLayer` (rifle / pistol / minigun-hip-fire aim), the combat-stance blend that drops out-of-combat arms to the low-ready patrol hold (ported because `CombatStateLayer` hard-casts `AbstractUnit`), and the shared `UnitProceduralPoses` tail — locomotion polish, per-shot recoil, 3-stage reload, bolt cycling, and class crouch stances keyed off the held gun's inferred class. `VdfHeldItemLayer` anchors the weapon at `rightHandAnchor` and blends between SEM's lowered/shouldered carry transforms on the same `UnitProceduralAnimState` inputs, so the gun in hand always matches the arm pose.
 
 ### Night Raid Director
 
@@ -309,7 +309,7 @@ sequenceDiagram
 
 - **Faction diplomacy**: `raidFaction` reads SEM's `FactionsConfig.RU_UNITS_FRIENDLY` / `US_UNITS_FRIENDLY` — a faction the player configured friendly never fields a raid squad; both friendly means no raid is even scheduled (`hasHostileFaction` gates the dusk roll).
 - **Warning tiers**: a *manned* `GuardPostBlockEntity` inside the player's claimed chunks (loaded chunks only — same `ChunkStatus.FULL` rule as stockpile scans) earns the full configured lead; everyone else still hears "movement in the dark" shortly before contact. `earlyWarningTicks = 0` disables the feature.
-- **Strike**: faction pick, `squadSizeMin..Max` scatter ±4 blocks around a `spawnDistance` ring at a random angle, surface-snapped via `MOTION_BLOCKING_NO_LEAVES`, `finalizeSpawn(EVENT)` for full gear, `setTarget(player)` immediately, `semcs_night_raider` NBT tag. Daybreak cancels a pending raid. `VdfUnitModel` is a plain `HierarchicalModel` cloning SEM's bone tree + pivots plus a villager nose, playing SEM's shared `UNIT_*` clips off the entity's own animation states. Non-gun militia get a **melee arm override** — after the clips write bones, arms re-pose to a relaxed hang with vanilla-style walk swing, then `swingWeaponDown` animates attacks (the shared clips bake a rifle-hold into the arm pivots, which is why unarmed militia used to grip a phantom gun). `VdfHeldItemLayer` anchors the weapon at `rightHandAnchor` with SEM's shouldered/lowered carry transforms.
+- **Strike**: faction pick, `squadSizeMin..Max` scatter ±4 blocks around a `spawnDistance` ring at a random angle, surface-snapped via `MOTION_BLOCKING_NO_LEAVES`, `finalizeSpawn(EVENT)` for full gear, `setTarget(player)` immediately, `semcs_night_raider` NBT tag. Daybreak cancels a pending raid. `VdfUnitModel` is a plain `HierarchicalModel` cloning SEM's bone tree + pivots plus a villager nose, playing SEM's shared `UNIT_*` clips off the entity's own animation states, then running the same procedural pose pass as a PMC — SEM's `HeadTrackingLayer` + `AdvancedWeaponPoseLayer`, the ported combat-stance low-ready blend, and the shared `UnitProceduralPoses` tail (locomotion polish, recoil, reload, bolt, crouch stances). `VdfHeldItemLayer` anchors the weapon at `rightHandAnchor` and blends between SEM's lowered/shouldered carry transforms on the same animation-state inputs.
 
 ---
 
@@ -370,8 +370,7 @@ VDF militia registers its own stack in `VdfUnitEntity.registerGoals()` (independ
 | Priority | Goal Class | Functional Description |
 |---|---|---|
 | **0** | `FloatGoal` | Don't drown. |
-| **1** | `VdfGunAttackGoal` | TaCZ fire control for gunner militia; melee militia fall through. |
-| **2** | `VdfMeleeAttackGoal` | Vanilla `MeleeAttackGoal` gated on *no* `IGun` in hand — melee militia swing, gunners never try to close. |
+| **1** | `VdfGunAttackGoal` | TaCZ fire control for all militia: consumes `ShootResult` (bolt on `NEED_BOLT`, reload on `NO_AMMO`, draw on `NOT_DRAW`), waits out reloads, and lets tube-fed shotguns cancel a feed once a shell is chambered. |
 | **3** | `VdfRaidResponseGoal` | `ServerLevel.getRaidAt()` detects an active pillager raid at the anchored village → horn, converge on raid center, targets nearest `Raider` within 48 blocks. |
 | **3** | `VdfInteractGoal` | Idle within ~3 blocks of a villager or iron golem → face it, pause, `VILLAGER_YES` hum. |
 | **3** | `VdfNightWatchGoal` | Dusk watch-standing + rain shelter behavior. |

@@ -212,7 +212,7 @@ When Xaero's World Map is installed, the map becomes a real RTS surface:
 
 Villages now raise their own militia. The first time villagers settle near a bell, a one-time **garrison** (default 3, `[vdf] garrisonSize`) musters around the meeting point — a villager-faced soldier with a genuine nose on a standalone villager-militia rig. They can't be recruited, commanded, or inventory-looted: the militia answers only to the village.
 
-*   **Militia loadout:** ~60% roll as gunners (`[vdf] gunnerChance`) with **unlimited ammo**; the rest patrol as melee militia with iron swords — held low in a proper carry, not a phantom rifle grip.
+*   **Militia loadout:** every militia member rolls a village-appropriate gun from `class_loadouts/vdf_units.json` — rifles, shotguns, SMGs, snipers, and sidearms — with **unlimited ammo**. Pump-action guns cycle between shots and tube-fed shotguns fight with a partial load; idle patrols carry low-ready and shoulder the weapon in combat, same as PMC operators.
 *   **Village AI:** patrols a waypoint loop between village POIs (bells, beds, workstations), rallies to the center when a **raid** starts with a horn-blast hum, and idles up to villagers and iron golems for a friendly `VILLAGER_YES` hum.
 *   **Faction matrix:** neutral to players, PMC, and BHQ — hostile to zombies and other monsters, **raiders**, and invading **RU / US** units. Never targets villagers, golems, or its own militia — and stray militia bullets are vetoed outright (`EntityHurtByGunEvent.Pre` cancels the hit), so crossfire can't hurt the people they protect.
 *   **Re-garrison rule:** if the militia is wiped out, the next *new* villager arrival re-arms the village. Dead stays dead until life returns.

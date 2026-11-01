@@ -1,13 +1,18 @@
 // AI package - VDF militia combat behaviours
 package com.poseidon.sem_classsystem.entity.ai;
 
+import com.mojang.logging.LogUtils;
 import com.poseidon.sem_classsystem.entity.VdfUnitEntity;
 import com.poseidon.sem_classsystem.faction.UnitClassAttributes;
 import com.tacz.guns.api.entity.IGunOperator;
+import com.tacz.guns.api.entity.ReloadState;
+import com.tacz.guns.api.entity.ShootResult;
 import com.tacz.guns.api.item.IGun;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.item.ItemStack;
+import org.slf4j.Logger;
 
 import java.util.EnumSet;
 
@@ -18,11 +23,18 @@ import java.util.EnumSet;
 //   - advance on the target until inside STOP range, then stand and fire
 //   - hold aim while engaged; TaCZ's own cooldown gates the real fire rate
 //     so we call shoot() every ready tick and let the gun decide
+//   - the ShootResult is the contract: NEED_BOLT pumps manual-action guns
+//     (m870), NO_AMMO starts a reload, NOT_DRAW shoulders the weapon again
+//   - never shoots or re-reloads while TaCZ reports a reload in progress;
+//     tube-fed shotguns cut a feed short once a shell is chambered and the
+//     target is still visible, so they fight with a partial tube
 //   - reloads from the dummy-ammo reserve the militia gun was built with
 //   - spread comes from the same UnitClassAttributes.spreadMultiplier()
 //     every other shooter uses, so [vdf_unit] spread config + veterancy
 //     accuracy still apply
 public class VdfGunAttackGoal extends Goal {
+
+    private static final Logger LOG = LogUtils.getLogger();
 
     // Stand-and-shoot once this close; keeps militia out of the melee scrum.
     private static final double STOP_RANGE_SQR = 15.0D * 15.0D;
@@ -97,9 +109,27 @@ public class VdfGunAttackGoal extends Goal {
         IGunOperator operator = IGunOperator.fromLivingEntity(this.unit);
         operator.aim(true);
 
-        net.minecraft.world.item.ItemStack gunStack = this.unit.getMainHandItem();
+        ItemStack gunStack = this.unit.getMainHandItem();
         IGun iGun = IGun.getIGunOrNull(gunStack);
-        if (iGun != null && iGun.getCurrentAmmoCount(gunStack) <= 0) {
+        if (iGun == null) {
+            return;
+        }
+
+        int ammo = iGun.getCurrentAmmoCount(gunStack);
+        ReloadState.StateType reloadState = operator.getSynReloadState().getStateType();
+
+        // Reload in progress: shoot() would only come back IS_RELOADING, and
+        // calling reload() again is a TaCZ no-op - wait it out. Tube-fed
+        // shotguns load one shell per feed step, so once at least one round
+        // is chambered and the target is still visible, cut the feed short
+        // and fight with a partial tube instead of standing in the open.
+        if (reloadState != null && reloadState.isReloading()) {
+            if (ammo > 0 && !reloadState.isReloadFinishing() && canSee) {
+                operator.cancelReload();
+            }
+            return;
+        }
+        if (ammo <= 0) {
             operator.reload();                                       // dummy-ammo reserve refills
             return;
         }
@@ -118,6 +148,34 @@ public class VdfGunAttackGoal extends Goal {
                 + (this.unit.getRandom().nextFloat() - 0.5F) * spread;
         final float yaw = (float) (-Mth.atan2(dx, dz) * Mth.RAD_TO_DEG)
                 + (this.unit.getRandom().nextFloat() - 0.5F) * spread;
-        operator.shoot(() -> pitch, () -> yaw);
+        ShootResult result = operator.shoot(() -> pitch, () -> yaw);
+        logShootResult(result);
+
+        // SEM's RangedGunAttackGoal contract: drive the gun through its
+        // action states instead of assuming shoot() always fires. Manual
+        // guns (m870 pump) answer NEED_BOLT after every shot, an empty mag
+        // answers NO_AMMO, a holstered weapon answers NOT_DRAW; everything
+        // else (COOL_DOWN / IS_BOLTING / IS_DRAWING / IS_SPRINTING) is a
+        // transient TaCZ state the next tick resolves on its own.
+        switch (result) {
+            case NEED_BOLT -> operator.bolt();
+            case NO_AMMO -> operator.reload();
+            case NOT_DRAW -> operator.draw(this.unit::getMainHandItem);
+            default -> {
+            }
+        }
+    }
+
+    // Rate-limited diagnostic: every non-successful shoot result is worth a
+    // line (they are the states that used to stall the gun), while normal
+    // fire only proves the loop is alive a few times a second.
+    private void logShootResult(ShootResult result) {
+        if (result != ShootResult.SUCCESS) {
+            LOG.debug("[SEMCVdf] shoot result={} gun={}", result,
+                    this.unit.getMainHandItem().getItem());
+        } else if ((this.unit.tickCount & 0x3F) == 0) {
+            LOG.debug("[SEMCVdf] shoot result=SUCCESS gun={}",
+                    this.unit.getMainHandItem().getItem());
+        }
     }
 }

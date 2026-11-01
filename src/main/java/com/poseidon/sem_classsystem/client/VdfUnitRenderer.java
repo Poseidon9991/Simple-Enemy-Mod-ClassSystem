@@ -8,7 +8,7 @@ import net.minecraft.client.renderer.entity.MobRenderer;
 import net.minecraft.resources.ResourceLocation;
 
 // Plain MobRenderer now - no RUunitRenderer parent. The model is our own
-// HierarchicalModel rig; layers are the VdfHeldItemLayer (gun/sword at the
+// HierarchicalModel rig; layers are the VdfHeldItemLayer (gun at the
 // rightHandAnchor bone) and VdfArmorLayer (BhqArmorItem gecko pieces + any
 // vanilla armor), with UnitCuriosRenderLayer attached by ClientEventHandlers
 // when Curios loads.

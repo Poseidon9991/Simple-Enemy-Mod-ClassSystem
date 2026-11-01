@@ -69,7 +69,6 @@ public class ClassSystemConfig {
     // ---- [vdf]: Village Defense Force garrison + militia tuning --------
     private static ForgeConfigSpec.BooleanValue VDF_ENABLED;
     private static ForgeConfigSpec.IntValue VDF_GARRISON_SIZE;
-    private static ForgeConfigSpec.DoubleValue VDF_GUNNER_CHANCE;
     private static ForgeConfigSpec.DoubleValue VDF_PATROL_RADIUS;
     private static ForgeConfigSpec.DoubleValue VDF_ARMOR_DROP_CHANCE;
     private static ForgeConfigSpec.BooleanValue VDF_NIGHT_WATCH;
@@ -303,10 +302,6 @@ public class ClassSystemConfig {
         VDF_GARRISON_SIZE = BUILDER
                 .comment("Militia units spawned per village garrison")
                 .defineInRange("garrisonSize", 3, 0, 12);
-        VDF_GUNNER_CHANCE = BUILDER
-                .comment("Chance a militia member spawns with a gun",
-                        "(rest carry iron melee weapons)")
-                .defineInRange("gunnerChance", 0.6, 0.0, 1.0);
         VDF_PATROL_RADIUS = BUILDER
                 .comment("How far from the village bell militia may patrol/chase")
                 .defineInRange("patrolRadius", 64.0, 16.0, 256.0);
@@ -1036,14 +1031,6 @@ public class ClassSystemConfig {
             return VDF_GARRISON_SIZE.get();
         } catch (IllegalStateException notLoadedYet) {
             return 3;
-        }
-    }
-
-    public static double vdfGunnerChance() {
-        try {
-            return VDF_GUNNER_CHANCE.get();
-        } catch (IllegalStateException notLoadedYet) {
-            return 0.6;
         }
     }
 

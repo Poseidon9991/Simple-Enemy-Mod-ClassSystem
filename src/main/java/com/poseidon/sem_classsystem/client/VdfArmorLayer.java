@@ -93,7 +93,7 @@ public class VdfArmorLayer extends RenderLayer<VdfUnitEntity, VdfUnitModel> {
             // Same sequence SEM's GeckoArmorLayerImpl + MixinGeckoArmorTexture
             // run for these pieces: hand the posed dummy to the geo renderer,
             // apply SEM's per-slot scale/offset tuning, then equalize the
-            // asymmetric leg/boot/melee-arm offsets.
+            // asymmetric leg/boot offsets.
             geo.prepForRender(entity, stack, slot, base);
             net.nekoyuni.SimpleEnemyMod.compat.geckolib.internal.GeckoArmorAdjuster
                     .applyAdjustments(geo, base, slot);
@@ -154,16 +154,7 @@ public class VdfArmorLayer extends RenderLayer<VdfUnitEntity, VdfUnitModel> {
     }
 
     private static void fixGeckoArmorAlignment(VdfUnitEntity entity, HumanoidModel<?> dummy, EquipmentSlot slot) {
-        boolean melee = com.poseidon.sem_classsystem.entity.ai.UnitMeleeAttackGoal.isMeleeWeapon(
-                entity.getMainHandItem());
-        if (slot == EquipmentSlot.CHEST && melee) {
-            dummy.rightArm.x -= 0.80F;
-            dummy.leftArm.x += 0.80F;
-            dummy.rightArm.y += 0.25F;
-            dummy.leftArm.y += 0.25F;
-            dummy.rightArm.z -= 0.20F;
-            dummy.leftArm.z -= 0.20F;
-        } else if (slot == EquipmentSlot.LEGS) {
+        if (slot == EquipmentSlot.LEGS) {
             dummy.rightLeg.x += 0.25F;
             dummy.rightLeg.y += 0.50F;
             dummy.rightLeg.z -= 0.40F;

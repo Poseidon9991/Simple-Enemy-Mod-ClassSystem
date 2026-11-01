@@ -34,14 +34,12 @@ import net.minecraft.world.entity.npc.AbstractVillager;                // protec
 import net.minecraft.world.entity.player.Player;                       // player neutrality gate
 import net.minecraft.world.entity.raid.Raider;                         // raid mobs (pillagers, vindicators, ravagers)
 import net.minecraft.world.item.ItemStack;                             // loadout stacks
-import net.minecraft.world.item.Items;                                 // IRON_SWORD
 import net.minecraft.world.level.Level;                                // entity world reference
 import net.minecraft.world.level.ServerLevelAccessor;                  // finalizeSpawn signature arg
 import net.nekoyuni.SimpleEnemyMod.entity.ai.goals.VerticalAwareTargetGoal;  // SEM's 3D-aware nearest-target goal
 import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;           // SEM soldier exclusion in target lists
 import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;          // PMC + BHQ neutrality pact
 import net.nekoyuni.SimpleEnemyMod.entity.unit.util.UnitFactionTags;   // ru_units/us_units tag checks
-import com.poseidon.sem_classsystem.config.ClassSystemConfig;          // [vdf] garrison + armament options
 import com.poseidon.sem_classsystem.faction.UnitClassAttributes;       // configured stat application
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;          // vdf_* militia armor set
 import com.poseidon.sem_classsystem.faction.WeaponClass;              // militia loadout roll categories
@@ -57,13 +55,14 @@ import org.jetbrains.annotations.Nullable;                             // Nullab
 // Monster implements Enemy, which flagged militia on village golems'
 // hostile scan (the event veto in VdfFriendlyFireEvents stays as a
 // fallback) and made them despawn on Peaceful difficulty. PathfinderMob
-// keeps everything the unit actually uses (navigation, MeleeAttackGoal,
+// keeps everything the unit actually uses (navigation, goal selectors,
 // finalizeSpawn) without the hostile marker.
 //
 // Its animation states are driven locally from the vanilla movement
 // tracker (Entity.walkAnimation is synced by the entity tracker), its
-// combat package is two small goals (gun / melee), and its stats come
-// from our own [vdf_unit] config section via UnitClassAttributes.
+// combat package is a single gun goal (every militia member carries a
+// firearm), and its stats come from our own [vdf_unit] config section
+// via UnitClassAttributes.
 public class VdfUnitEntity extends PathfinderMob {
 
     // How many militia skins ship under textures/entity/vdf_unit/.
@@ -245,10 +244,9 @@ public class VdfUnitEntity extends PathfinderMob {
 
     @Override
     protected void registerGoals() {
-        // --- combat core (our own two-goal package replaces SEM's role goals) ---
+        // --- combat core (our own gun goal replaces SEM's role goals) ---
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new com.poseidon.sem_classsystem.entity.ai.VdfGunAttackGoal(this, 1.0D));
-        this.goalSelector.addGoal(2, new com.poseidon.sem_classsystem.entity.ai.VdfMeleeAttackGoal(this, 1.15D, false));
 
         // --- militia duties ---
         this.goalSelector.addGoal(3, new com.poseidon.sem_classsystem.entity.ai.VdfRaidResponseGoal(this));
@@ -301,27 +299,26 @@ public class VdfUnitEntity extends PathfinderMob {
 
     // ---- armament -----------------------------------------------------------
 
-    // Rolls the militia mix: gunner gets a village-appropriate firearm with
-    // dummy-ammo reserve (unlimited reloads, SEM convention), melee militia
-    // gets a blade. Guns come from the datapack table
-    // data/*/class_loadouts/vdf_units.json - the same pool MixinWeaponEquippers
-    // used to route VDF through - so pack authors can retune the armament.
+    // Every militia member carries a firearm - a village-appropriate gun
+    // with a dummy-ammo reserve (unlimited reloads, SEM convention). Guns
+    // come from the datapack table data/*/class_loadouts/vdf_units.json -
+    // the same pool MixinWeaponEquippers used to route VDF through - so
+    // pack authors can retune the armament; the inline pool below is the
+    // fallback so a bad table never leaves a unit unarmed.
     private void equipMilitiaWeapon() {
-        if (this.random.nextFloat() < ClassSystemConfig.vdfGunnerChance()) {
-            ItemStack gun = rollMilitiaGun();
-            IGun iGun = IGun.getIGunOrNull(gun);
-            if (iGun != null) {
-                iGun.setMaxDummyAmmoAmount(gun, Integer.MAX_VALUE);     // unlimited reserve
-                iGun.setDummyAmmoAmount(gun, 9999);
-                this.setItemSlot(EquipmentSlot.MAINHAND, gun);
-                this.setDropChance(EquipmentSlot.MAINHAND, 0.0F);       // stays on the corpse
-                return;
+        ItemStack gun = rollMilitiaGun();
+        IGun iGun = IGun.getIGunOrNull(gun);
+        if (iGun == null) {
+            gun = rollInlineMilitiaGun();
+            iGun = IGun.getIGunOrNull(gun);
+            if (iGun == null) {
+                return;                                   // keep whatever it had
             }
         }
-        // Melee militia - swords only (axes read as 2H greatswords)
-        ItemStack melee = new ItemStack(Items.IRON_SWORD);
-        this.setItemSlot(EquipmentSlot.MAINHAND, melee);
-        this.setDropChance(EquipmentSlot.MAINHAND, 0.0F);
+        iGun.setMaxDummyAmmoAmount(gun, Integer.MAX_VALUE);     // unlimited reserve
+        iGun.setDummyAmmoAmount(gun, 9999);
+        this.setItemSlot(EquipmentSlot.MAINHAND, gun);
+        this.setDropChance(EquipmentSlot.MAINHAND, 0.0F);       // stays on the corpse
     }
 
     // One gun stack for a militia gunner: datapack table first, inline
@@ -346,6 +343,12 @@ public class VdfUnitEntity extends PathfinderMob {
             }
             return builder.build();
         }
+        return rollInlineMilitiaGun();
+    }
+
+    // Inline pool pick - the hardcoded village armory used when the
+    // datapack table is absent or hands back a non-gun stack.
+    private ItemStack rollInlineMilitiaGun() {
         int pick = this.random.nextInt(MILITIA_GUNS.length);
         return GunItemBuilder.create()
                 .setId(MILITIA_GUNS[pick])
@@ -421,6 +424,12 @@ public class VdfUnitEntity extends PathfinderMob {
         ensureVillageAnchor();
         if (this.getItemBySlot(EquipmentSlot.HEAD).isEmpty()) {
             equipMilitiaArmor();
+        }
+        // Legacy migration: militia saved before the all-gunner change may
+        // still hold a melee weapon - re-arm them so no old save keeps a
+        // sword-carrying VDF the combat goals can no longer drive.
+        if (IGun.getIGunOrNull(this.getMainHandItem()) == null) {
+            equipMilitiaWeapon();
         }
     }
 

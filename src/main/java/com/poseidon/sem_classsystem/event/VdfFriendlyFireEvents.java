@@ -13,9 +13,6 @@ import net.minecraftforge.fml.common.Mod;                              // subscr
 // real projectiles, and a villager can still walk into the line of fire.
 // EntityHurtByGunEvent.Pre is @Cancelable, so we veto the damage outright:
 // a stray militia bullet passes through a villager harmlessly.
-//
-// Melee militia need no equivalent guard - a melee swing can only hit the
-// current attack target, which targeting already filters.
 @Mod.EventBusSubscriber(modid = SemClassSystem.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class VdfFriendlyFireEvents {
 

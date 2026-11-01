@@ -7,6 +7,7 @@ import com.poseidon.sem_classsystem.entity.VdfUnitEntity;
 import com.tacz.guns.api.item.IGun;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.client.renderer.ItemInHandRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
@@ -20,11 +21,14 @@ import net.minecraft.world.item.ItemStack;
 // AbstractUnit). Bone chain is resolved by name so this stays correct even
 // if the rig's root tree changes.
 //
-// The gun transforms mirror SEM's three stances exactly:
-//   combat  - translate(0, 0.1, 0.28), YP -180, XP -95  (raised, shouldered)
-//   idle    - translate(0, 0.35, 0.13), YP -180, XP -90 (lowered carry)
+// The gun transform is the same smoothly-blended stance MixinGunLayerMeleeItem
+// layers onto SEM's GunLayerRenderer: low-ready patrol carry lerps into the
+// shouldered combat stance on the shared combatBlend, per-shot recoil kicks
+// the muzzle back, and the reload blend cants the weapon with the animated
+// arms - so what you see in hand always matches the arm pose.
+//   idle    - translate(0, 0.35, 0.13), YP -180, XP -90  (lowered carry)
+//   combat  - translate(0, 0.1, 0.28),  YP -180, XP -95  (raised, shouldered)
 //   minigun - translate(0.01, 0.3, -0.25), YP -180, XP -70, roll +6 (hip carry)
-// Non-gun items (the melee militia's sword) use the idle carry pose.
 public class VdfHeldItemLayer extends RenderLayer<VdfUnitEntity, VdfUnitModel> {
 
     private final ItemInHandRenderer itemInHandRenderer;
@@ -62,9 +66,7 @@ public class VdfHeldItemLayer extends RenderLayer<VdfUnitEntity, VdfUnitModel> {
         ModelPart anchor = rightArm.getChild("rightHandAnchor");
 
         IGun iGun = IGun.getIGunOrNull(stack);
-        boolean isGun = iGun != null;
-        boolean inCombat = entity.getTarget() != null;
-        ResourceLocation gunId = isGun ? iGun.getGunId(stack) : null;
+        ResourceLocation gunId = iGun != null ? iGun.getGunId(stack) : null;
         boolean minigun = gunId != null && gunId.getPath().contains("minigun");
 
         poseStack.pushPose();
@@ -79,13 +81,28 @@ public class VdfHeldItemLayer extends RenderLayer<VdfUnitEntity, VdfUnitModel> {
             poseStack.mulPose(Axis.YP.rotationDegrees(-180.0F));
             poseStack.mulPose(Axis.XP.rotationDegrees(-70.0F));
             poseStack.mulPose(Axis.ZP.rotationDegrees(6.0F));
-        } else if (isGun && inCombat) {
-            // Shouldered firing stance (SEM's combat numbers)
-            poseStack.translate(0.0D, 0.1D, 0.28D);
+        } else if (iGun != null) {
+            // Blended carry: the same smooth combatBlend/recoil/reload inputs
+            // the model's arm pose runs on, so hand and gun never disagree.
+            UnitProceduralAnimState state = UnitProceduralAnimState.get(entity);
+            float b = state.smoothCombatBlend();
+            float recoil = state.recoilImpulse() * UnitProceduralAnimState.classRecoilScale(entity);
+            float rel = state.smoothReloadBlend();
+
+            double ty = Mth.lerp(b, 0.35D, 0.10D);
+            double tz = Mth.lerp(b, 0.13D, 0.28D) - recoil * 0.012D;
+            float rx = Mth.lerp(b, -90.0F, -95.0F) + recoil * 1.5F + rel * 8.0F;
+            float rz = rel * -16.0F;
+
+            poseStack.translate(0.0D, ty, tz);
             poseStack.mulPose(Axis.YP.rotationDegrees(-180.0F));
-            poseStack.mulPose(Axis.XP.rotationDegrees(-95.0F));
+            poseStack.mulPose(Axis.XP.rotationDegrees(rx));
+            if (Math.abs(rz) > 0.01F) {
+                poseStack.mulPose(Axis.ZP.rotationDegrees(rz));
+            }
         } else {
-            // Lowered carry - idle guns and melee weapons
+            // Lowered carry - non-gun fallback (militia always draw guns,
+            // but a stray non-gun stack should still render sanely)
             poseStack.translate(0.0D, 0.35D, 0.13D);
             poseStack.mulPose(Axis.YP.rotationDegrees(-180.0F));
             poseStack.mulPose(Axis.XP.rotationDegrees(-90.0F));
