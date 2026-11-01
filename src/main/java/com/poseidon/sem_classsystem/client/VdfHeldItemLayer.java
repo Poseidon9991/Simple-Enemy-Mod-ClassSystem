@@ -6,6 +6,7 @@ import com.mojang.math.Axis;
 import com.poseidon.sem_classsystem.entity.VdfUnitEntity;
 import com.tacz.guns.api.item.IGun;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.client.renderer.ItemInHandRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
@@ -19,9 +20,10 @@ import net.minecraft.world.item.ItemStack;
 // AbstractUnit). Bone chain is resolved by name so this stays correct even
 // if the rig's root tree changes.
 //
-// The gun transforms mirror SEM's two stances exactly:
+// The gun transforms mirror SEM's three stances exactly:
 //   combat  - translate(0, 0.1, 0.28), YP -180, XP -95  (raised, shouldered)
 //   idle    - translate(0, 0.35, 0.13), YP -180, XP -90 (lowered carry)
+//   minigun - translate(0.01, 0.3, -0.25), YP -180, XP -70, roll +6 (hip carry)
 // Non-gun items (the melee militia's sword) use the idle carry pose.
 public class VdfHeldItemLayer extends RenderLayer<VdfUnitEntity, VdfUnitModel> {
 
@@ -59,8 +61,11 @@ public class VdfHeldItemLayer extends RenderLayer<VdfUnitEntity, VdfUnitModel> {
         ModelPart rightArm = unit.getChild("rightArm");
         ModelPart anchor = rightArm.getChild("rightHandAnchor");
 
-        boolean isGun = IGun.getIGunOrNull(stack) != null;
+        IGun iGun = IGun.getIGunOrNull(stack);
+        boolean isGun = iGun != null;
         boolean inCombat = entity.getTarget() != null;
+        ResourceLocation gunId = isGun ? iGun.getGunId(stack) : null;
+        boolean minigun = gunId != null && gunId.getPath().contains("minigun");
 
         poseStack.pushPose();
         fakeRoot.translateAndRotate(poseStack);
@@ -68,7 +73,13 @@ public class VdfHeldItemLayer extends RenderLayer<VdfUnitEntity, VdfUnitModel> {
         rightArm.translateAndRotate(poseStack);
         anchor.translateAndRotate(poseStack);
 
-        if (isGun && inCombat) {
+        if (minigun) {
+            // Hip carry - SEM's minigun branch overrides both stances
+            poseStack.translate(0.01D, 0.3D, -0.25D);
+            poseStack.mulPose(Axis.YP.rotationDegrees(-180.0F));
+            poseStack.mulPose(Axis.XP.rotationDegrees(-70.0F));
+            poseStack.mulPose(Axis.ZP.rotationDegrees(6.0F));
+        } else if (isGun && inCombat) {
             // Shouldered firing stance (SEM's combat numbers)
             poseStack.translate(0.0D, 0.1D, 0.28D);
             poseStack.mulPose(Axis.YP.rotationDegrees(-180.0F));

@@ -2,6 +2,7 @@
 // class (no @Unique weaving headaches when referenced from injected code).
 package com.poseidon.sem_classsystem.entity;
 
+import com.mojang.logging.LogUtils;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.item.IAmmo;
 import com.tacz.guns.api.item.IGun;
@@ -13,8 +14,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
+import org.slf4j.Logger;
 
 public final class UnitAmmoService {
+
+    private static final Logger LOG = LogUtils.getLogger();
 
     // SEM unit inventory layout: 0 = gun, 1 = offhand, 2-5 = armor, 6-17 = storage.
     private static final int STORAGE_START = 6;
@@ -43,9 +47,13 @@ public final class UnitAmmoService {
             iGun = IGun.getIGunOrNull(gun);
         }
         if (iGun == null) {
+            LOG.warn("[SEMCAmmo] {} skipped: no gun in mainhand ({}) or slot0",
+                    entity.getType().getDescriptionId(), gun);
             return;
         }
         if (modifiable == null) {
+            LOG.warn("[SEMCAmmo] {} skipped: item handler missing/not modifiable ({})",
+                    entity.getType().getDescriptionId(), raw);
             return;
         }
         ResourceLocation gunId = iGun.getGunId(gun);
@@ -53,6 +61,9 @@ public final class UnitAmmoService {
                 .map(index -> index.getGunData() == null ? null : index.getGunData().getAmmoId())
                 .orElse(null);
         if (ammoId == null) {
+            LOG.warn("[SEMCAmmo] {} skipped: gun {} has no resolvable ammoId (index present: {})",
+                    entity.getType().getDescriptionId(), gunId,
+                    gunId != null && TimelessAPI.getCommonGunIndex(gunId).isPresent());
             return;
         }
 
@@ -93,6 +104,11 @@ public final class UnitAmmoService {
         int deficit = MIN_RESERVE_ROUNDS - carried;
         if (deficit > 0) {
             ItemStack tmpl = AmmoItemBuilder.create().setId(ammoId).setCount(1).build();
+            if (tmpl.isEmpty() || IAmmo.getIAmmoOrNull(tmpl) == null) {
+                LOG.warn("[SEMCAmmo] {} skipped: ammo {} failed to build a valid stack",
+                        entity.getType().getDescriptionId(), ammoId);
+                return;
+            }
             placeSplitAmmo(modifiable, tmpl, deficit);
         }
     }
