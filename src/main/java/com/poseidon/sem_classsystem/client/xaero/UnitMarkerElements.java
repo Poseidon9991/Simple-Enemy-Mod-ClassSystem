@@ -53,10 +53,11 @@ public final class UnitMarkerElements {
     }
 
     // One-letter glyph per weapon class - BMP chars so unifont covers them.
-    public static String classGlyph(int classOrd) {
+    // VDF militia without a class gets the village house mark instead of "?".
+    public static String classGlyph(int classOrd, int factionOrd) {
         WeaponClass[] values = WeaponClass.values();
         if (classOrd < 0 || classOrd >= values.length) {
-            return "?";
+            return factionOrd == UnitClass.VDF_UNIT.ordinal() ? "⌂" : "?";
         }
         return switch (values[classOrd]) {
             case RIFLE -> "R";
@@ -186,7 +187,7 @@ public final class UnitMarkerElements {
 
             // Weapon silhouette, centred - drawn in code so no icon assets
             // are needed and every class reads at map zoom.
-            drawWeaponIcon(guiGraphics, marker.classOrd());
+            drawWeaponIcon(guiGraphics, marker.classOrd(), marker.factionOrd());
 
             // Duty badge in the top-right corner: a dark chip + one glyph so
             // posted units read at a glance (guard/patrol/route).
@@ -272,7 +273,7 @@ public final class UnitMarkerElements {
         // left-to-right (stock at -x, muzzle at +x). White on the faction
         // fill with a 1px dark drop-shadow offset so it stays legible on
         // pale faction colours.
-        private static void drawWeaponIcon(GuiGraphics g, int classOrd) {
+        private static void drawWeaponIcon(GuiGraphics g, int classOrd, int factionOrd) {
             int ink = 0xFF202020;
             int white = 0xFFF2F2F2;
             g.pose().pushPose();
@@ -285,6 +286,15 @@ public final class UnitMarkerElements {
                 WeaponClass cls = classOrd >= 0 && classOrd < values.length
                         ? values[classOrd] : null;
                 if (cls == null) {
+                    // Classless VDF militia - house mark, not a blank icon.
+                    if (factionOrd == UnitClass.VDF_UNIT.ordinal()) {
+                        gun(g, ox, oy, color, -5, -3, -1, -3);   // roof left half
+                        gun(g, ox, oy, color, 0, -3, 4, -3);
+                        gun(g, ox, oy, color, -4, -2, -2, -2);
+                        gun(g, ox, oy, color, 1, -2, 3, -2);
+                        gun(g, ox, oy, color, -3, -1, 3, 3);     // walls
+                        gun(g, ox, oy, color, -1, 1, 1, 3);      // door (dark on pass 0 hides under ink)
+                    }
                     break;
                 }
                 switch (cls) {
@@ -471,7 +481,7 @@ public final class UnitMarkerElements {
         @Override
         public String getMenuName(UnitMarker marker) {
             return marker.name() == null || marker.name().isEmpty()
-                    ? classGlyph(marker.classOrd()) : marker.name();
+                    ? classGlyph(marker.classOrd(), marker.factionOrd()) : marker.name();
         }
 
         @Override

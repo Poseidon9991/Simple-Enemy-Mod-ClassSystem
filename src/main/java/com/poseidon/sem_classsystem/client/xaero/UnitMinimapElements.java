@@ -83,7 +83,7 @@ public final class UnitMinimapElements {
             guiGraphics.fill(-HALF, -HALF, HALF, HALF, 0xFF000000 | marker.rgb());
 
             Minecraft mc = Minecraft.getInstance();
-            String glyph = UnitMarkerElements.classGlyph(marker.classOrd());
+            String glyph = UnitMarkerElements.classGlyph(marker.classOrd(), marker.factionOrd());
             guiGraphics.drawString(mc.font, glyph,
                     -mc.font.width(glyph) / 2, -4, 0xFFFFFFFF, false);
 
@@ -205,7 +205,7 @@ public final class UnitMinimapElements {
         @Override
         public String getMenuName(UnitMarker marker) {
             return marker.name() == null || marker.name().isEmpty()
-                    ? UnitMarkerElements.classGlyph(marker.classOrd()) : marker.name();
+                    ? UnitMarkerElements.classGlyph(marker.classOrd(), marker.factionOrd()) : marker.name();
         }
 
         @Override
