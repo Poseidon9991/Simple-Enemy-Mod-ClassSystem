@@ -65,11 +65,8 @@ public class SemcsWailaPlugin implements IWailaPlugin {
             if (faction != null) {
                 raw.putString(TAG_FACTION, faction.name().split("_")[0]);   // "RU","PMC","BHQ","VDF"
             }
-            if (unit instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
-                // Every militia member is a gunner - no class roll to show.
-                raw.putString(TAG_CLASS, "VDF_GUNNER");
-                return;
-            }
+            // VDF militia carries a real assigned class now - same
+            // WeaponClassSupport.get() read as every other unit.
             WeaponClass cls = WeaponClassSupport.get(unit);
             if (cls == null) {
                 return;
@@ -98,12 +95,6 @@ public class SemcsWailaPlugin implements IWailaPlugin {
             CompoundTag raw = accessor.getData().raw();
             String clsName = raw.getString(TAG_CLASS);
             if (clsName.isEmpty()) {
-                return;
-            }
-            if ("VDF_GUNNER".equals(clsName)) {
-                tooltip.addLine(Component.literal("VDF Militia · ").withStyle(ChatFormatting.GRAY)
-                        .append(Component.literal("Rifleman (Gunner)")
-                                .withStyle(style -> style.withColor(0x6FAF4E))));
                 return;
             }
             WeaponClass cls;

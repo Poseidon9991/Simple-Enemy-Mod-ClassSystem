@@ -442,36 +442,34 @@ public class ClassSystemConfig {
 
     // ---- per-faction stat defaults -------------------------------------
     // RU/US/PMC keep SEM's vanilla-feel numbers (20 HP / 0.27 / 96 / x1.0).
+    // VDF is PMC-equal on purpose: a militia gunner now fights through the
+    // same class system, so its faction numbers match the line troops'.
     // BHQ is the elite tier: tougher, faster, spots further, shoots straighter.
     private static double factionHealthDefault(UnitClass c) {
         return switch (c) {
             case BHQ_UNIT -> 35.0;
-            case VDF_UNIT -> 22.0;      // militia: a touch tougher than line troops
-            default -> 20.0;
+            default -> 20.0;            // PMC baseline - VDF matches
         };
     }
 
     private static double factionSpeedDefault(UnitClass c) {
         return switch (c) {
             case BHQ_UNIT -> 0.30;
-            case VDF_UNIT -> 0.28;      // brisk patrol pace
-            default -> 0.27;
+            default -> 0.27;            // PMC baseline - VDF matches
         };
     }
 
     private static double factionRangeDefault(UnitClass c) {
         return switch (c) {
             case BHQ_UNIT -> 112.0;
-            case VDF_UNIT -> 80.0;      // defends the village, not the horizon
-            default -> 96.0;
+            default -> 96.0;            // PMC baseline - VDF matches
         };
     }
 
     private static double factionSpreadDefault(UnitClass c) {
         return switch (c) {
             case BHQ_UNIT -> 0.65;
-            case VDF_UNIT -> 1.15;      // farmers with rifles - looser groupings
-            default -> 1.0;
+            default -> 1.0;             // PMC baseline - VDF matches
         };
     }
 

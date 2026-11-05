@@ -259,7 +259,7 @@ public final class UnitProceduralPoses {
 
     // -------------------------------------------------------------------
     // Class-specific crouch/kneel stances. Caller passes the effective
-    // weapon class (RIFLE default for classless rigs like the VDF).
+    // weapon class (RIFLE is the default for classless rigs).
     // -------------------------------------------------------------------
     public static void applyCrouchStance(float c, WeaponClass cls,
                                          ModelPart body, ModelPart head,
@@ -276,10 +276,12 @@ public final class UnitProceduralPoses {
         }
     }
 
-    // The weapon class a pose pass should read for ANY unit rig: SEM units
-    // resolve through the class system (held gun can subclass the assigned
-    // class); classless rigs like the VDF militia fall back to the held
-    // gun's inferred class so a militia shotgun still poses as SHOTGUN.
+    // The weapon class a pose pass should read for ANY unit rig: classed
+    // units (SEM units + the VDF militia, which now implements
+    // IClassifiedUnit natively) resolve through the class system - the
+    // held gun can still subclass the assigned class (pistol sidearm).
+    // The inference fallback stays for any rig carrying a gun with no
+    // class at all.
     public static WeaponClass effectiveClass(LivingEntity living) {
         WeaponClass cls = WeaponClassSupport.getEffective(living);
         if (cls != null) {

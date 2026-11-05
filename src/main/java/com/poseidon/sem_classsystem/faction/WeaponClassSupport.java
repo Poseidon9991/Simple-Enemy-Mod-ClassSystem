@@ -35,7 +35,9 @@ public final class WeaponClassSupport {
         return null;
     }
 
-    // Only SEM's own three concrete unit types take part in the class system.
+    // Only SEM's own three concrete unit types plus our two take part in
+    // the class system: BHQ via the AbstractUnit mixin, VDF militia via its
+    // native IClassifiedUnit implementation.
     // Addon subclasses (e.g. sewv's medics/engineers/commanders) keep their
     // own weapons and fire rules - assigning them a random class could
     // fire-gate their custom guns, so they stay classless on purpose.
@@ -44,7 +46,8 @@ public final class WeaponClassSupport {
         return c == net.nekoyuni.SimpleEnemyMod.entity.unit.RUunitEntity.class
                 || c == net.nekoyuni.SimpleEnemyMod.entity.unit.USunitEntity.class
                 || c == net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity.class
-                || c == com.poseidon.sem_classsystem.entity.BhqUnitEntity.class;
+                || c == com.poseidon.sem_classsystem.entity.BhqUnitEntity.class
+                || c == com.poseidon.sem_classsystem.entity.VdfUnitEntity.class;
     }
 
     // Per-tick cache for getEffective: the held-gun scan (item stack -> IGun

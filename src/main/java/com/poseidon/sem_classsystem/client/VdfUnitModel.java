@@ -142,8 +142,10 @@ public class VdfUnitModel extends HierarchicalModel<VdfUnitEntity> {
                     this.rightArm, this.leftArm, this.rightLeg, this.leftLeg);
         }
         if (prone <= 0.5F) {
-            // Night-watch sneak -> smooth crouch stance, same kneel catalogue
-            // the PMC classes use (militia reads the held gun's class).
+            // Crouch (firing stance or night-watch sneak) -> smooth kneel,
+            // same catalogue the PMC classes use. The militia's ASSIGNED
+            // class drives the pick through getEffective (gun subclasses
+            // like a pistol still override, same as SEM units).
             float crouch = animState.smoothCrouchBlend() * (1.0F - prone);
             if (crouch > 0.001F) {
                 com.poseidon.sem_classsystem.faction.WeaponClass cls =

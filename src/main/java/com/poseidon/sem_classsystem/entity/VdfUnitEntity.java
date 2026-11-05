@@ -40,7 +40,10 @@ import net.nekoyuni.SimpleEnemyMod.entity.ai.goals.VerticalAwareTargetGoal;  // 
 import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;           // SEM soldier exclusion in target lists
 import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;          // PMC + BHQ neutrality pact
 import net.nekoyuni.SimpleEnemyMod.entity.unit.util.UnitFactionTags;   // ru_units/us_units tag checks
+import com.poseidon.sem_classsystem.bridge.IClassifiedUnit;           // class-system interface (native, no mixin needed - this is OUR class)
+import com.poseidon.sem_classsystem.faction.ClassLoadouts;            // gun-id -> class inference on fallbacks
 import com.poseidon.sem_classsystem.faction.UnitClassAttributes;       // configured stat application
+import com.poseidon.sem_classsystem.faction.WeaponClassSupport;        // NBT save/restore + last-resort class roll
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;          // vdf_* militia armor set
 import com.poseidon.sem_classsystem.faction.WeaponClass;              // militia loadout roll categories
 import com.tacz.guns.api.item.IGun;                                    // held-gun checks
@@ -63,13 +66,21 @@ import org.jetbrains.annotations.Nullable;                             // Nullab
 // combat package is a single gun goal (every militia member carries a
 // firearm), and its stats come from our own [vdf_unit] config section
 // via UnitClassAttributes.
-public class VdfUnitEntity extends PathfinderMob {
+public class VdfUnitEntity extends PathfinderMob implements IClassifiedUnit {
 
     // How many militia skins ship under textures/entity/vdf_unit/.
     public static final int VARIANT_COUNT = 4;
 
     // Synched skin index - saved into NBT via the persistent-data merge.
     private static final EntityDataAccessor<Integer> DATA_VARIANT =
+            SynchedEntityData.defineId(VdfUnitEntity.class, EntityDataSerializers.INT);
+
+    // Synched weapon-class ordinal (-1 = unassigned). Synced so the CLIENT
+    // model reads the same class the server assigned (pose/recoil/WAILA) -
+    // same pattern as DATA_VARIANT. Implementing IClassifiedUnit natively
+    // puts the militia on the exact contract the AbstractUnit mixin gives
+    // SEM units, so WeaponClassSupport.get/getEffective work unchanged.
+    private static final EntityDataAccessor<Integer> DATA_WEAPON_CLASS =
             SynchedEntityData.defineId(VdfUnitEntity.class, EntityDataSerializers.INT);
 
     // Client-side animation states. Driven in tick() below, straight off
@@ -86,11 +97,17 @@ public class VdfUnitEntity extends PathfinderMob {
     @Nullable
     private BlockPos villageCenter;
 
-    // Militia small-arms pool - village-appropriate rifles/shotguns/SMGs
-    // matching data/sem_classsystem/class_loadouts/vdf_units.json. Kept as
-    // code (not datapack) because VDF is classless and never joins the
-    // weapon-class system - the table is only here so the armament list
-    // stays visible next to the other factions'.
+    // Class roll weights for militia gunners - the pick happens BEFORE the
+    // gun is drawn from data/sem_classsystem/class_loadouts/vdf_units.json
+    // and becomes the unit's assigned weapon class.
+    private static final WeaponClass[] MILITIA_POOL = {
+            WeaponClass.RIFLE, WeaponClass.RIFLE,
+            WeaponClass.SHOTGUN, WeaponClass.SMG,
+            WeaponClass.SNIPER, WeaponClass.PISTOL
+    };
+    // Inline armory: village-appropriate rifles/shotguns/SMGs mirroring the
+    // datapack table - the FALLBACK for when the table is missing or hands
+    // back a non-gun stack. The class is then inferred from the drawn gun.
     private static final ResourceLocation[] MILITIA_GUNS = {
             ResourceLocation.fromNamespaceAndPath("tacz", "ak47"),
             ResourceLocation.fromNamespaceAndPath("tacz", "type_81"),
@@ -125,7 +142,9 @@ public class VdfUnitEntity extends PathfinderMob {
                 .add(Attributes.MAX_HEALTH, 20.0D)
                 .add(Attributes.MOVEMENT_SPEED, 0.35D)
                 .add(Attributes.FOLLOW_RANGE, 32.0D)
-                .add(Attributes.ATTACK_DAMAGE, 4.0D)
+                // 3.0 matches SEM's AbstractUnit base (PMC melee value) -
+                // VDF never swings, but parity costs nothing.
+                .add(Attributes.ATTACK_DAMAGE, 3.0D)
                 .add(Attributes.ARMOR, 0.0D);
     }
 
@@ -133,6 +152,7 @@ public class VdfUnitEntity extends PathfinderMob {
     protected void defineSynchedData() {
         super.defineSynchedData();
         this.entityData.define(DATA_VARIANT, 0);
+        this.entityData.define(DATA_WEAPON_CLASS, -1);
     }
 
     public int getVariant() {
@@ -141,6 +161,23 @@ public class VdfUnitEntity extends PathfinderMob {
 
     public void setVariant(int variant) {
         this.entityData.set(DATA_VARIANT, Math.floorMod(variant, VARIANT_COUNT));
+    }
+
+    // ---- IClassifiedUnit --------------------------------------------------
+    // Same accessors MixinAbstractUnit injects on SEM units - backed by the
+    // synced ordinal above instead of a plain field so the client side
+    // resolves the identical class.
+    @Override
+    public WeaponClass semcs$getWeaponClass() {
+        int ordinal = this.entityData.get(DATA_WEAPON_CLASS);
+        WeaponClass[] values = WeaponClass.values();
+        return ordinal < 0 || ordinal >= values.length ? null : values[ordinal];
+    }
+
+    @Override
+    public void semcs$setWeaponClass(WeaponClass weaponClass) {
+        this.entityData.set(DATA_WEAPON_CLASS,
+                weaponClass == null ? -1 : weaponClass.ordinal());
     }
 
     // ---- client animation ---------------------------------------------------
@@ -301,12 +338,17 @@ public class VdfUnitEntity extends PathfinderMob {
 
     // Every militia member carries a firearm - a village-appropriate gun
     // with a dummy-ammo reserve (unlimited reloads, SEM convention). Guns
-    // come from the datapack table data/*/class_loadouts/vdf_units.json -
-    // the same pool MixinWeaponEquippers used to route VDF through - so
+    // come from the datapack table data/*/class_loadouts/vdf_units.json so
     // pack authors can retune the armament; the inline pool below is the
     // fallback so a bad table never leaves a unit unarmed.
+    //
+    // The weapon class rolls FIRST (MILITIA_POOL weights) - the datapack
+    // pool for that class then picks the gun, and the roll itself becomes
+    // the unit's assigned class: it IS the intended class, same contract
+    // MixinAbstractUnit gives SEM units at finalizeSpawn HEAD.
     private void equipMilitiaWeapon() {
-        ItemStack gun = rollMilitiaGun();
+        WeaponClass rolled = MILITIA_POOL[this.random.nextInt(MILITIA_POOL.length)];
+        ItemStack gun = rollMilitiaGun(rolled);
         IGun iGun = IGun.getIGunOrNull(gun);
         if (iGun == null) {
             gun = rollInlineMilitiaGun();
@@ -314,6 +356,17 @@ public class VdfUnitEntity extends PathfinderMob {
             if (iGun == null) {
                 return;                                   // keep whatever it had
             }
+            // Inline fallback: the class follows the gun actually drawn,
+            // not the pool roll that found no datapack entry.
+            ResourceLocation gunId = iGun.getGunId(gun);     // @Nullable per TacZ API
+            rolled = gunId == null ? null : ClassLoadouts.inferClass(gunId);
+        }
+        if (rolled != null) {
+            this.semcs$setWeaponClass(rolled);
+        } else {
+            // Gun id maps to no class anywhere - assign at random so the
+            // militia still joins the class system.
+            WeaponClassSupport.getOrAssign(this, this.random);
         }
         iGun.setMaxDummyAmmoAmount(gun, Integer.MAX_VALUE);     // unlimited reserve
         iGun.setDummyAmmoAmount(gun, 9999);
@@ -321,29 +374,25 @@ public class VdfUnitEntity extends PathfinderMob {
         this.setDropChance(EquipmentSlot.MAINHAND, 0.0F);       // stays on the corpse
     }
 
-    // One gun stack for a militia gunner: datapack table first, inline
-    // pool as fallback so a missing table never disarms a unit.
-    private ItemStack rollMilitiaGun() {
-        WeaponClass[] militiaPool = {
-                WeaponClass.RIFLE, WeaponClass.RIFLE,
-                WeaponClass.SHOTGUN, WeaponClass.SMG,
-                WeaponClass.SNIPER, WeaponClass.PISTOL
-        };
+    // One gun stack from the datapack table for the already-rolled class.
+    // ItemStack.EMPTY when the table has no pool for it so the caller falls
+    // back to the inline armory (and re-derives the class from whatever it
+    // actually draws).
+    private ItemStack rollMilitiaGun(WeaponClass cls) {
         net.nekoyuni.SimpleEnemyMod.data.UnitLoadout loadout =
-                com.poseidon.sem_classsystem.faction.ClassLoadouts.pick(
-                        "vdf_units", militiaPool[this.random.nextInt(militiaPool.length)], this.random);
-        if (loadout != null && loadout.gunId != null) {
-            GunItemBuilder builder = GunItemBuilder.create()
-                    .setId(loadout.gunId)
-                    .setAmmoCount(loadout.ammoCount)
-                    .setCount(1);
-            try {
-                builder.setFireMode(FireMode.valueOf(loadout.fireMode));
-            } catch (IllegalArgumentException ignored) {
-            }
-            return builder.build();
+                ClassLoadouts.pick("vdf_units", cls, this.random);
+        if (loadout == null || loadout.gunId == null) {
+            return ItemStack.EMPTY;
         }
-        return rollInlineMilitiaGun();
+        GunItemBuilder builder = GunItemBuilder.create()
+                .setId(loadout.gunId)
+                .setAmmoCount(loadout.ammoCount)
+                .setCount(1);
+        try {
+            builder.setFireMode(FireMode.valueOf(loadout.fireMode));
+        } catch (IllegalArgumentException ignored) {
+        }
+        return builder.build();
     }
 
     // Inline pool pick - the hardcoded village armory used when the
@@ -405,6 +454,9 @@ public class VdfUnitEntity extends PathfinderMob {
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         tag.putInt("vdfVariant", this.getVariant());
+        // Same "semcs_weapon_class" key + WeaponClass.byName format the
+        // AbstractUnit mixin writes for SEM units.
+        WeaponClassSupport.saveToTag(this, tag);
         if (this.villageCenter != null) {
             tag.putLong("vdfCenter", this.villageCenter.asLong());       // bell anchor survives restarts
         }
@@ -413,6 +465,9 @@ public class VdfUnitEntity extends PathfinderMob {
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
+        // Restore the class up front (same spot the SEM mixin restores it)
+        // so every step below - including the legacy re-arm - can read it.
+        WeaponClassSupport.restoreFromTag(this, tag);
         if (tag.contains("vdfVariant")) {
             setVariant(tag.getInt("vdfVariant"));
         }
@@ -427,9 +482,25 @@ public class VdfUnitEntity extends PathfinderMob {
         }
         // Legacy migration: militia saved before the all-gunner change may
         // still hold a melee weapon - re-arm them so no old save keeps a
-        // sword-carrying VDF the combat goals can no longer drive.
+        // sword-carrying VDF the combat goals can no longer drive. The
+        // re-arm also assigns the class itself.
         if (IGun.getIGunOrNull(this.getMainHandItem()) == null) {
             equipMilitiaWeapon();
+        }
+        // Militia saved before it joined the class system (or after a
+        // failed re-arm) has no class in NBT - infer one from the held
+        // gun, mirroring the MixinAbstractUnit readAdditionalSaveData tail;
+        // a gun no table/type can classify falls back to a random roll.
+        if (this.semcs$getWeaponClass() == null) {
+            ItemStack held = this.getMainHandItem();
+            IGun heldGun = IGun.getIGunOrNull(held);
+            ResourceLocation heldId = heldGun == null ? null : heldGun.getGunId(held);
+            WeaponClass inferred = heldId == null ? null : ClassLoadouts.inferClass(heldId);
+            if (inferred != null) {
+                this.semcs$setWeaponClass(inferred);
+            } else {
+                WeaponClassSupport.getOrAssign(this, this.random);
+            }
         }
     }
 

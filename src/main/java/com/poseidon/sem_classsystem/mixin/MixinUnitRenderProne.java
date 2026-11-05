@@ -23,6 +23,19 @@ public abstract class MixinUnitRenderProne {
     private void semcs$applyProneTransform(LivingEntity entity, PoseStack poseStack,
                                            float ageInTicks, float bodyYRot, float partialTicks,
                                            CallbackInfo ci) {
+        // VDF militia rigs get the same prone tilt as SEM units - its own
+        // death clip check replaces the AbstractUnit one.
+        if (entity instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity vdf) {
+            if (vdf.deathAnimationState.isStarted()) {
+                return;
+            }
+            float pv = UnitProceduralAnimState.get(vdf).smoothProneBlend();
+            if (pv > 0.001F) {
+                poseStack.translate(0.0F, 0.18F * pv, 0.62F * pv);
+                poseStack.mulPose(Axis.XP.rotationDegrees(-82.0F * pv));
+            }
+            return;
+        }
         if (!(entity instanceof AbstractUnit unit) || unit.deathAnimationState.isStarted()) {
             return;
         }

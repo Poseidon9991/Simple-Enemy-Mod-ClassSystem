@@ -279,9 +279,9 @@ public final class UnitProceduralAnimState {
     }
 
     public static float classRecoilScale(LivingEntity entity) {
-        // Classed SEM units resolve through the class system; classless rigs
-        // (VDF militia) fall back to the held gun's inferred class so the
-        // recoil read still matches the weapon in hand.
+        // Classed units (SEM units + VDF militia) resolve through the class
+        // system - assigned class with gun-subclass overlay; the inference
+        // fallback stays for rigs carrying a gun with no class.
         WeaponClass cls = WeaponClassSupport.getEffective(entity);
         if (cls == null) {
             cls = UnitProceduralPoses.effectiveClass(entity);

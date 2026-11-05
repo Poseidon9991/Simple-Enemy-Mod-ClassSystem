@@ -43,15 +43,12 @@ public abstract class MixinWeaponEquippers {
         // BHQ operators go through SEM's PMC equipper (factionId "pmc_units")
         // but have their own table: class_loadouts/bhq_units.json.
         // VDF militia gunners use class_loadouts/vdf_units.json (rifles,
-        // pump shotguns, SMGs, and pistols - no heavy explosive launchers).
+        // pump shotguns, SMGs, and pistols - no heavy explosive launchers) -
+        // the unit's ASSIGNED class drives the pick now that VDF joins the
+        // class system.
         if (entity instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
-            WeaponClass[] militiaPool = {
-                    WeaponClass.RIFLE, WeaponClass.RIFLE,
-                    WeaponClass.SHOTGUN, WeaponClass.SMG,
-                    WeaponClass.SNIPER, WeaponClass.PISTOL
-            };
-            WeaponClass vdfCls = militiaPool[random.nextInt(militiaPool.length)];
-            UnitLoadout vdfLoadout = ClassLoadouts.pick("vdf_units", vdfCls, random);
+            UnitLoadout vdfLoadout = ClassLoadouts.pick("vdf_units",
+                    WeaponClassSupport.getOrAssign(entity, random), random);
             if (vdfLoadout != null) {
                 return vdfLoadout;
             }
