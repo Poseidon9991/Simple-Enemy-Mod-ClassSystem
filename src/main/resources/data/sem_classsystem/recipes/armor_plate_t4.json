@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "DOD",
+    "QPQ",
+    "DOD"
+  ],
+  "key": {
+    "D": { "item": "minecraft:diamond" },
+    "O": { "item": "minecraft:obsidian" },
+    "Q": { "item": "minecraft:quartz" },
+    "P": { "item": "sem_classsystem:armor_plate_t3" }
+  },
+  "result": {
+    "item": "sem_classsystem:armor_plate_t4",
+    "count": 1
+  }
+}

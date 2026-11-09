@@ -49,23 +49,22 @@ public final class SpottingScopeCurioRenderer implements ICurioRenderer {
         PartDefinition head = root.addOrReplaceChild("head", CubeListBuilder.create(), PartPose.ZERO);
         root.addOrReplaceChild("hat", CubeListBuilder.create(), PartPose.ZERO);
 
-        // Whole-number cube sizes + a generated 64x64 atlas: every face maps
-        // to its own texel block (fractional sizes / a 32x32 layer vs a 64x64
-        // PNG is what corrupted the old render). Head-local space, -Z = front,
-        // -X = wearer's right eye.
+        // Whole-number cube sizes + 64x64 atlas: every face maps to its own
+        // texel block. Head-local space, -Z = front, -X = wearer's right eye.
         head.addOrReplaceChild("scope", CubeListBuilder.create()
                 // Head-band wrapping the brow
                 .texOffs(0, 0).addBox(-4.0F, -6.0F, -4.0F, 8.0F, 1.0F, 8.0F, new CubeDeformation(0.5F))
-                // Forehead optic mount + swing arm to the right eye
+                // Forehead Wilcox optic mount + articulated swing arm to the right eye
                 .texOffs(32, 0).addBox(-1.0F, -7.0F, -6.0F, 2.0F, 2.0F, 2.0F, CubeDeformation.NONE)
                 .texOffs(40, 0).addBox(-3.0F, -7.0F, -6.0F, 2.0F, 1.0F, 2.0F, CubeDeformation.NONE)
-                // Eyecup, olive optic tube, brass focus ring, objective bell (cyan lens on its front face)
+                // Eyecup, olive optic tube, top elevation turret, brass focus ring, objective bell (cyan lens)
                 .texOffs(48, 0).addBox(-3.0F, -4.0F, -5.0F, 2.0F, 2.0F, 1.0F, CubeDeformation.NONE)
                 .texOffs(0, 9).addBox(-3.0F, -5.0F, -9.0F, 3.0F, 3.0F, 4.0F, CubeDeformation.NONE)
+                .texOffs(14, 9).addBox(-2.0F, -6.0F, -8.0F, 1.0F, 1.0F, 2.0F, CubeDeformation.NONE)
                 .texOffs(14, 9).addBox(-3.0F, -5.0F, -8.0F, 3.0F, 3.0F, 1.0F, new CubeDeformation(0.4F))
-                .texOffs(22, 9).addBox(-3.0F, -5.0F, -10.0F, 3.0F, 3.0F, 1.0F, new CubeDeformation(0.5F))
-                // Side laser rangefinder module (red emitter on its front face)
-                .texOffs(30, 9).addBox(-5.0F, -4.0F, -9.0F, 2.0F, 2.0F, 3.0F, CubeDeformation.NONE),
+                .texOffs(22, 9).addBox(-3.0F, -5.0F, -10.0F, 3.0F, 3.0F, 1.0F, new CubeDeformation(0.55F))
+                // Side AN/PEQ laser rangefinder module (red emitter + IR lens on front face)
+                .texOffs(30, 9).addBox(-5.0F, -4.0F, -9.0F, 2.0F, 2.0F, 3.0F, new CubeDeformation(0.15F)),
                 PartPose.ZERO);
 
         return LayerDefinition.create(mesh, 64, 64);

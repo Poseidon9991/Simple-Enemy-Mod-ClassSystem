@@ -29,6 +29,18 @@ public final class UnitProceduralPoses {
     private UnitProceduralPoses() {
     }
 
+    private static void resetScales(ModelPart unit, ModelPart head, ModelPart body,
+                                    ModelPart rightArm, ModelPart leftArm,
+                                    ModelPart rightLeg, ModelPart leftLeg) {
+        unit.xScale = 1.0F; unit.yScale = 1.0F; unit.zScale = 1.0F;
+        head.xScale = 1.0F; head.yScale = 1.0F; head.zScale = 1.0F;
+        body.xScale = 1.0F; body.yScale = 1.0F; body.zScale = 1.0F;
+        rightArm.xScale = 1.0F; rightArm.yScale = 1.0F; rightArm.zScale = 1.0F;
+        leftArm.xScale = 1.0F; leftArm.yScale = 1.0F; leftArm.zScale = 1.0F;
+        rightLeg.xScale = 1.0F; rightLeg.yScale = 1.0F; rightLeg.zScale = 1.0F;
+        leftLeg.xScale = 1.0F; leftLeg.yScale = 1.0F; leftLeg.zScale = 1.0F;
+    }
+
     // -------------------------------------------------------------------
     // Combat stance: smoothly blends between the low-ready patrol hold and
     // whatever raised pose the clips / weapon-pose layer produced.
@@ -51,84 +63,472 @@ public final class UnitProceduralPoses {
     // -------------------------------------------------------------------
     // Dynamic distance-locked locomotion: replaces SEM's fixed 0.9s wall-clock
     // UNIT_WALK hip-sliding & 32.5-deg torso whip with smooth distance-driven
-    // stride, natural knee lift, idle breathing, and rush lean.
+    // stride, strafe/backpedal leg direction, turn banking, airborne tuck,
+    // natural knee lift, idle breathing, and rush lean.
     // -------------------------------------------------------------------
     public static void applyLocomotionPolish(ModelPart unit, ModelPart head, ModelPart body,
                                              ModelPart rightArm, ModelPart leftArm,
                                              ModelPart rightLeg, ModelPart leftLeg,
                                              float limbSwing, float limbSwingAmount, float ageInTicks,
-                                             float walkBlend, float combatBlend) {
-        // 1. Strip SEM's cartoon squash-and-stretch scale keyframes (1.10x/0.97y)
-        for (ModelPart part : new ModelPart[]{
-                unit, head, body, rightArm, leftArm, rightLeg, leftLeg}) {
-            part.xScale = 1.0F;
-            part.yScale = 1.0F;
-            part.zScale = 1.0F;
-        }
+                                             UnitProceduralAnimState state) {
+        float phase = state.walkPhase() > 0.001F ? state.walkPhase() : (limbSwing * 0.6662F);
+        float effLimbAmt = Math.max(limbSwingAmount, state.smoothStrideAmplitude());
+        applyLocomotionPolish(unit, head, body, rightArm, leftArm, rightLeg, leftLeg,
+                phase / 0.6662F, effLimbAmt, ageInTicks,
+                state.smoothWalkBlend(), state.smoothRunBlend(), state.smoothCombatBlend(),
+                state.moveForward(), state.moveSide(), state.turnRate(), state.smoothAirBlend());
+    }
 
-        float moveAmt = Mth.clamp(Math.max(limbSwingAmount * 1.15F, walkBlend * 0.45F) * walkBlend, 0.0F, 1.0F);
-        float stride = Mth.cos(limbSwing * 0.6662F);
-        float stepSin = Mth.sin(limbSwing * 0.6662F);
+    public static void applyLocomotionPolish(ModelPart unit, ModelPart head, ModelPart body,
+                                             ModelPart rightArm, ModelPart leftArm,
+                                             ModelPart rightLeg, ModelPart leftLeg,
+                                             float limbSwing, float limbSwingAmount, float ageInTicks,
+                                             float walkBlend, float combatBlend) {
+        applyLocomotionPolish(unit, head, body, rightArm, leftArm, rightLeg, leftLeg,
+                limbSwing, limbSwingAmount, ageInTicks, walkBlend, 0.0F, combatBlend,
+                1.0F, 0.0F, 0.0F, 0.0F);
+    }
+
+    public static void applyLocomotionPolish(ModelPart unit, ModelPart head, ModelPart body,
+                                             ModelPart rightArm, ModelPart leftArm,
+                                             ModelPart rightLeg, ModelPart leftLeg,
+                                             float limbSwing, float limbSwingAmount, float ageInTicks,
+                                             float walkBlend, float combatBlend,
+                                             float moveFwd, float moveSide, float turnRate, float airBlend) {
+        applyLocomotionPolish(unit, head, body, rightArm, leftArm, rightLeg, leftLeg,
+                limbSwing, limbSwingAmount, ageInTicks, walkBlend, 0.0F, combatBlend,
+                moveFwd, moveSide, turnRate, airBlend);
+    }
+
+    public static void applyLocomotionPolish(ModelPart unit, ModelPart head, ModelPart body,
+                                             ModelPart rightArm, ModelPart leftArm,
+                                             ModelPart rightLeg, ModelPart leftLeg,
+                                             float limbSwing, float limbSwingAmount, float ageInTicks,
+                                             float walkBlend, float runBlend, float combatBlend,
+                                             float moveFwd, float moveSide, float turnRate, float airBlend) {
+        // 1. Strip SEM's cartoon squash-and-stretch scale keyframes (1.10x/0.97y)
+        resetScales(unit, head, body, rightArm, leftArm, rightLeg, leftLeg);
+
+        // Stride dynamics: moveAmt reflects actual speed (gentle walk vs full athletic sprint)
+        float moveAmt = Mth.clamp(limbSwingAmount * walkBlend, 0.0F, 1.0F);
+        // Flip the stride phase when backpedalling so the lifted knee leads the
+        // actual direction of travel instead of moonwalking.
+        float dirSign = moveFwd < -0.15F ? -1.0F : 1.0F;
+        float stride = Mth.cos(limbSwing * 0.6662F) * dirSign;
+        float stepSin = Mth.sin(limbSwing * 0.6662F) * dirSign;
         float doubleStep = Mth.cos(limbSwing * 1.3324F);
         float breath = Mth.sin(ageInTicks * 0.09F);
+        float idleSway = Mth.cos(ageInTicks * 0.045F) * (1.0F - moveAmt);
+        float turnBank = Mth.clamp(turnRate * 0.0045F, -0.09F, 0.09F);
 
-        // 2. Stabilize root & torso against UNIT_WALK's fixed-timer -32.5 deg twist
-        unit.x = 0.0F;
-        unit.y = -Math.abs(stepSin) * 0.42F * moveAmt;
+        // 2. Stabilize root & torso: slow walk has calm vertical step, running has athletic bounce
+        float bounceScale = Mth.lerp(runBlend, 0.16F, 0.50F);
+        unit.x = stepSin * 0.22F * moveAmt + idleSway * 0.08F;
+        unit.y = -Math.abs(stepSin) * bounceScale * moveAmt;
         unit.z = 0.0F;
         unit.xRot = 0.0873F;
         unit.yRot = 0.0F;
-        unit.zRot = stepSin * 0.018F * moveAmt;
+        unit.zRot = stepSin * 0.022F * moveAmt + turnBank;
 
-        // When patrolling out of combat or moving, slightly relax the 37.5-deg
-        // bladed firing torso toward the direction of travel so walking looks natural.
+        // Upright tactical walk vs forward-pitched athletic sprint lean:
+        // Slow walk keeps torso completely upright (fwdLean = 0); sprint drives chest forward.
         float baseBodyYRot = Mth.lerp(walkBlend * (1.0F - 0.55F * combatBlend), 0.6536F, 0.34F);
-        float rushLean = Math.max(0.0F, moveAmt - 0.30F) * 0.24F;
+        float fwdLean = runBlend * (0.22F * Math.max(-0.4F, moveFwd));
+        float sideLean = moveSide * 0.09F * moveAmt + turnBank * 0.7F;
         body.x = 0.0F;
-        body.y = -6.26F + breath * 0.08F * (1.0F - moveAmt);
+        body.y = -6.26F + breath * 0.09F * (1.0F - moveAmt);
         body.z = 1.0616F;
-        body.xRot = 0.0997F + rushLean + breath * 0.015F * (1.0F - moveAmt);
-        body.yRot = baseBodyYRot - stride * 0.10F * moveAmt;
-        body.zRot = 0.0238F + stepSin * 0.02F * moveAmt;
+        body.xRot = 0.0997F + fwdLean + breath * 0.018F * (1.0F - moveAmt);
+        body.yRot = baseBodyYRot - stride * (0.05F + runBlend * 0.08F) * moveAmt - turnBank * 0.9F;
+        body.zRot = 0.0238F + stepSin * 0.024F * moveAmt + sideLean + idleSway * 0.012F;
 
         head.x = 0.0F;
-        head.y = -6.16F;
-        head.z = 1.0616F - rushLean * 2.2F;
+        head.y = -6.16F + breath * 0.04F * (1.0F - moveAmt);
+        head.z = 1.0616F - Math.max(0.0F, fwdLean) * 2.2F;
+        head.zRot -= sideLean * 0.35F;
 
-        // 3. Distance-synchronized legs: smoothly converge from SEM's wide
-        //    stationary firing stagger (z = +4.0 / -1.0) into a clean walking
-        //    hip line (z = +1.4 / +0.6) so slow patrol strolls never piston-slide.
-        float rSwing = stride * 1.15F * moveAmt;
-        float lSwing = -stride * 1.15F * moveAmt;
-        float rLift = Math.max(0.0F, -rSwing) * 0.75F;
-        float lLift = Math.max(0.0F, -lSwing) * 0.75F;
+        // 3. Distance-synchronized legs:
+        //    Slow walk: gentle 20-30 degree swing, low knee lift
+        //    Running: wide 60-70 degree swing, high driving knee lift
+        float absSide = Math.abs(moveSide) * moveAmt;
+        float fwdScale = 1.0F - 0.38F * absSide;
+        float rSwing = stride * 1.15F * moveAmt * fwdScale;
+        float lSwing = -stride * 1.15F * moveAmt * fwdScale;
+        float liftScale = Mth.lerp(runBlend, 0.35F, 0.85F);
+        float rLift = Math.max(0.0F, -rSwing) * liftScale + Math.max(0.0F, stepSin * moveSide) * 0.45F * absSide;
+        float lLift = Math.max(0.0F, -lSwing) * liftScale + Math.max(0.0F, -stepSin * moveSide) * 0.45F * absSide;
+        float strafeRoll = stride * moveSide * 0.24F * moveAmt;
+        float strafeShiftX = stepSin * moveSide * 0.45F * moveAmt;
 
-        rightLeg.x = -1.9F;
+        rightLeg.x = -1.9F + strafeShiftX;
         rightLeg.y = 6.0F - rLift;
         rightLeg.z = Mth.lerp(walkBlend, 4.0F, 1.4F) + rSwing * 0.45F;
         rightLeg.xRot = Mth.lerp(walkBlend, 0.1309F, 0.02F) + rSwing;
-        rightLeg.yRot = 0.0F;
-        rightLeg.zRot = 0.0F;
+        rightLeg.yRot = moveSide * 0.14F * moveAmt;
+        rightLeg.zRot = strafeRoll;
 
-        leftLeg.x = Mth.lerp(walkBlend, 2.15F, 1.95F);
+        leftLeg.x = Mth.lerp(walkBlend, 2.15F, 1.95F) + strafeShiftX;
         leftLeg.y = Mth.lerp(walkBlend, 5.85F, 6.0F) - lLift;
         leftLeg.z = Mth.lerp(walkBlend, -1.0F, 0.6F) + lSwing * 0.45F;
         leftLeg.xRot = Mth.lerp(walkBlend, -0.1745F, -0.02F) + lSwing;
-        leftLeg.yRot = 0.0F;
-        leftLeg.zRot = 0.0F;
+        leftLeg.yRot = moveSide * 0.14F * moveAmt;
+        leftLeg.zRot = -strafeRoll * 0.85F;
 
-        // 4. Keep shoulders anchored to their tactical pivots (eliminates UNIT_WALK arm jitter)
-        float armBobY = doubleStep * 0.28F * moveAmt + breath * 0.10F * (1.0F - moveAmt);
-        float swayX = stepSin * 0.05F * moveAmt * (1.0F - 0.55F * combatBlend);
+        // 4. Anchored shoulders & natural arm cadence
+        float patrolRelax = 1.0F - 0.68F * combatBlend;
+        float armBobY = doubleStep * (0.12F + runBlend * 0.22F) * moveAmt + breath * 0.11F * (1.0F - moveAmt);
+        float swayX = stepSin * (0.05F + runBlend * 0.06F) * moveAmt * patrolRelax;
+        float swayY = stride * (0.03F + runBlend * 0.04F) * moveAmt * patrolRelax;
         rightArm.x = -3.0F;
         rightArm.y = -2.9089F + armBobY;
         rightArm.z = 3.4377F;
         rightArm.xRot += swayX;
+        rightArm.yRot += swayY;
 
         leftArm.x = 2.5F;
         leftArm.y = -3.2588F + armBobY;
         leftArm.z = -3.4123F;
-        leftArm.xRot += swayX;
+        leftArm.xRot += swayX * 0.85F;
+        leftArm.yRot += swayY;
+
+        // 5. Airborne tuck (jumping / dropping off a ledge)
+        if (airBlend > 0.001F) {
+            rightLeg.xRot = Mth.lerp(airBlend, rightLeg.xRot, 0.38F);
+            leftLeg.xRot = Mth.lerp(airBlend, leftLeg.xRot, -0.28F);
+            rightLeg.y -= 0.9F * airBlend;
+            leftLeg.y -= 0.5F * airBlend;
+            rightArm.xRot -= 0.12F * airBlend;
+            leftArm.xRot -= 0.12F * airBlend;
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // Shared Better Combat melee pose pass (guards, 3-hit combos, lunge
+    // thrusts and watch crouch) - called by both MixinUnitMeleeWeaponPose
+    // (for PMC/RU/US/BHQ) and VdfUnitModel (for militia carrying knives/
+    // machetes/axes).
+    // -------------------------------------------------------------------
+    public static void applyMeleePose(LivingEntity living, float limbSwing, float limbSwingAmount,
+                                      float ageInTicks, float fallbackAttackTime,
+                                      ModelPart unit, ModelPart head, ModelPart body,
+                                      ModelPart rightArm, ModelPart leftArm,
+                                      ModelPart rightLeg, ModelPart leftLeg) {
+        ItemStack main = living.getMainHandItem();
+        UnitProceduralAnimState animState = UnitProceduralAnimState.get(living);
+        animState.update(living, ageInTicks);
+
+        resetScales(unit, head, body, rightArm, leftArm, rightLeg, leftLeg);
+
+        float walkBlend = animState.smoothWalkBlend();
+        float combatBlend = animState.smoothCombatBlend();
+        float crouchBlend = animState.smoothCrouchBlend();
+        float moveFwd = animState.moveForward();
+        float moveSide = animState.moveSide();
+        float turnBank = Mth.clamp(animState.turnRate() * 0.0045F, -0.09F, 0.09F);
+        float dirSign = moveFwd < -0.15F ? -1.0F : 1.0F;
+        float effLimbAmt = Math.max(limbSwingAmount, animState.smoothStrideAmplitude());
+        float legMove = Mth.clamp(Math.max(effLimbAmt * 1.15F, walkBlend * 0.58F) * walkBlend, 0.0F, 1.0F);
+        float phase = animState.walkPhase() > 0.001F ? animState.walkPhase() : (limbSwing * 0.6662F);
+        float stride = Mth.cos(phase) * dirSign;
+        float stepSin = Mth.sin(phase) * dirSign;
+        float breath = Mth.sin(ageInTicks * 0.09F);
+
+        unit.x = stepSin * 0.20F * legMove;
+        unit.y = -Math.abs(stepSin) * 0.44F * legMove;
+        unit.z = 0.0F;
+        unit.xRot = 0.04F;
+        unit.yRot = 0.0F;
+        unit.zRot = stepSin * 0.018F * legMove + turnBank;
+
+        float pt = Mth.frac(ageInTicks);
+        float bodyYaw = Mth.rotLerp(pt, living.yBodyRotO, living.yBodyRot);
+        float headYaw = Mth.rotLerp(pt, living.yHeadRotO, living.yHeadRot);
+        float smoothYaw = Mth.clamp(Mth.wrapDegrees(headYaw - bodyYaw), -45.0F, 45.0F);
+        float smoothPitch = Mth.clamp(Mth.lerp(pt, living.xRotO, living.getXRot()), -30.0F, 45.0F);
+        head.x = 0.0F;
+        head.y = -6.16F;
+        head.z = 1.0616F;
+        head.xRot = smoothPitch * Mth.DEG_TO_RAD;
+        head.yRot = smoothYaw * Mth.DEG_TO_RAD;
+        head.zRot = 0.0F;
+
+        body.x = 0.0F;
+        body.y = -6.26F + breath * 0.07F * (1.0F - legMove);
+        body.z = 1.0616F;
+        body.xRot = 0.04F + breath * 0.012F * (1.0F - legMove);
+        body.yRot = 0.0F;
+        body.zRot = moveSide * 0.07F * legMove + turnBank * 0.6F;
+
+        rightArm.x = -4.0F;
+        rightArm.y = -4.15F + breath * 0.09F * (1.0F - legMove);
+        rightArm.z = 1.06F;
+
+        leftArm.x = 4.0F;
+        leftArm.y = -4.15F + breath * 0.09F * (1.0F - legMove);
+        leftArm.z = 1.06F;
+
+        float legSwing = stride * 1.25F * legMove;
+        float rLift = Math.max(0.0F, -legSwing) * 0.75F;
+        float lLift = Math.max(0.0F, legSwing) * 0.75F;
+        float strafeRoll = stride * moveSide * 0.22F * legMove;
+
+        rightLeg.x = -1.95F + stepSin * moveSide * 0.35F * legMove;
+        rightLeg.y = 6.0F - rLift;
+        rightLeg.z = 1.06F + legSwing * 0.35F;
+        rightLeg.xRot = legSwing;
+        rightLeg.yRot = moveSide * 0.12F * legMove;
+        rightLeg.zRot = strafeRoll;
+
+        leftLeg.x = 1.95F + stepSin * moveSide * 0.35F * legMove;
+        leftLeg.y = 6.0F - lLift;
+        leftLeg.z = 1.06F - legSwing * 0.35F;
+        leftLeg.xRot = -legSwing;
+        leftLeg.yRot = moveSide * 0.12F * legMove;
+        leftLeg.zRot = -strafeRoll * 0.85F;
+
+        boolean twoHanded = isTwoHandedWeapon(main);
+        boolean spearOrThrust = isSpearOrThrustWeapon(main);
+
+        float swing = animState.meleeSwingProgress();
+        if (swing <= 0.0F && fallbackAttackTime > 0.0F) {
+            swing = fallbackAttackTime;
+        }
+        int combo = Math.max(0, animState.meleeComboIndex());
+
+        if (swing > 0.001F) {
+            // Subtle forward weight lunge into the strike
+            float lunge = Mth.sin(swing * (float) Math.PI);
+            rightLeg.xRot += 0.22F * lunge;
+            rightLeg.z -= 0.7F * lunge;
+            leftLeg.xRot -= 0.18F * lunge;
+            leftLeg.z += 0.5F * lunge;
+            unit.y += 0.35F * lunge;
+
+            if (spearOrThrust) {
+                applyThrustComboSwing(swing, body, rightArm, leftArm);
+            } else if (twoHanded) {
+                applyTwoHandedComboSwing(swing, combo, body, rightArm, leftArm);
+            } else {
+                applyOneHandedComboSwing(swing, combo, body, rightArm, leftArm);
+            }
+            if (crouchBlend > 0.001F) {
+                applyMeleeWatchCrouch(crouchBlend, body, head, rightArm, leftArm, rightLeg, leftLeg);
+            }
+            return;
+        }
+
+        if (twoHanded) {
+            body.yRot = -0.18F - stride * 0.08F * legMove;
+            body.xRot = 0.08F + legMove * 0.14F;
+
+            rightArm.x = -3.4F;
+            rightArm.z = 1.6F;
+            rightArm.xRot = -0.78F + stride * 0.22F * legMove;
+            rightArm.yRot = -0.28F;
+            rightArm.zRot = 0.12F;
+
+            leftArm.x = 3.2F;
+            leftArm.z = -0.2F;
+            leftArm.xRot = -0.82F + stride * 0.22F * legMove;
+            leftArm.yRot = 0.52F;
+            leftArm.zRot = -0.10F;
+        } else {
+            float patrolRx = -0.18F + stride * 0.52F * legMove;
+            float patrolRy = -0.04F;
+            float patrolRz = 0.06F;
+            float patrolLx = -0.06F - stride * 0.58F * legMove;
+            float patrolLy = 0.04F;
+            float patrolLz = -0.05F;
+
+            float guardRx = -0.68F + stride * 0.30F * legMove;
+            float guardRy = -0.20F;
+            float guardRz = 0.16F;
+            float guardLx = -0.38F - stride * 0.38F * legMove;
+            float guardLy = 0.22F;
+            float guardLz = -0.16F;
+
+            body.yRot = Mth.lerp(combatBlend, -stride * 0.09F * legMove, -0.16F - stride * 0.06F * legMove);
+            body.xRot = Mth.lerp(combatBlend, 0.05F + legMove * 0.10F, 0.12F + legMove * 0.16F);
+
+            rightArm.xRot = Mth.lerp(combatBlend, patrolRx, guardRx);
+            rightArm.yRot = Mth.lerp(combatBlend, patrolRy, guardRy);
+            rightArm.zRot = Mth.lerp(combatBlend, patrolRz, guardRz);
+
+            leftArm.xRot = Mth.lerp(combatBlend, patrolLx, guardLx);
+            leftArm.yRot = Mth.lerp(combatBlend, patrolLy, guardLy);
+            leftArm.zRot = Mth.lerp(combatBlend, patrolLz, guardLz);
+        }
+
+        if (crouchBlend > 0.001F) {
+            applyMeleeWatchCrouch(crouchBlend, body, head, rightArm, leftArm, rightLeg, leftLeg);
+        }
+    }
+
+    private static void applyMeleeWatchCrouch(float c, ModelPart body, ModelPart head,
+                                              ModelPart rightArm, ModelPart leftArm,
+                                              ModelPart rightLeg, ModelPart leftLeg) {
+        body.xRot += 0.36F * c;
+        body.y += 1.8F * c;
+        body.z += 0.5F * c;
+
+        head.y += 2.8F * c;
+        head.z += 0.9F * c;
+
+        rightLeg.xRot += 0.24F * c;
+        rightLeg.y -= 0.3F * c;
+        leftLeg.xRot -= 0.32F * c;
+        leftLeg.y += 0.9F * c;
+
+        rightArm.y += 2.4F * c;
+        rightArm.z += 0.8F * c;
+        rightArm.xRot -= 0.18F * c;
+        leftArm.y += 2.4F * c;
+        leftArm.z += 0.8F * c;
+    }
+
+    private static void applyOneHandedComboSwing(float t, int combo, ModelPart body,
+                                                 ModelPart rightArm, ModelPart leftArm) {
+        float strike = combo >= 2 ? strikeCurve(t, true) : strikeCurve(t, false);
+        float arc = Mth.sin(t * (float) Math.PI);
+
+        if (combo == 0) {
+            float twist = Mth.lerp(strike, -0.38F, 0.46F) * arc;
+            body.yRot = twist;
+            body.xRot = 0.08F + 0.16F * arc;
+            applyShoulderTwistOffsets(twist, rightArm, leftArm);
+
+            rightArm.xRot = Mth.lerp(strike, -1.75F, -0.45F);
+            rightArm.yRot = Mth.lerp(strike, -0.55F, 0.65F);
+            rightArm.zRot = Mth.lerp(strike, 0.35F, -0.48F);
+
+            leftArm.xRot = -0.25F + 0.45F * arc;
+            leftArm.yRot = -0.25F * arc;
+            leftArm.zRot = -0.28F * arc;
+        } else if (combo == 1) {
+            float twist = Mth.lerp(strike, 0.42F, -0.44F) * arc;
+            body.yRot = twist;
+            body.xRot = 0.08F + 0.14F * arc;
+            applyShoulderTwistOffsets(twist, rightArm, leftArm);
+
+            rightArm.xRot = Mth.lerp(strike, -1.15F, -0.75F);
+            rightArm.yRot = Mth.lerp(strike, 0.72F, -0.68F);
+            rightArm.zRot = Mth.lerp(strike, -0.42F, 0.42F);
+
+            leftArm.xRot = 0.20F + 0.35F * arc;
+            leftArm.zRot = -0.22F;
+        } else {
+            float twist = Mth.lerp(strike, -0.22F, 0.28F) * arc;
+            body.yRot = twist;
+            body.xRot = Mth.lerp(strike, -0.10F, 0.30F) * arc;
+            applyShoulderTwistOffsets(twist, rightArm, leftArm);
+
+            rightArm.xRot = Mth.lerp(strike, -2.35F, -0.25F);
+            rightArm.yRot = Mth.lerp(strike, -0.15F, 0.20F);
+            rightArm.zRot = 0.10F * (1.0F - strike);
+
+            leftArm.xRot = 0.35F * arc;
+            leftArm.zRot = -0.25F * arc;
+        }
+    }
+
+    private static void applyTwoHandedComboSwing(float t, int combo, ModelPart body,
+                                                 ModelPart rightArm, ModelPart leftArm) {
+        float strike = combo == 1 ? strikeCurve(t, false) : strikeCurve(t, true);
+        float arc = Mth.sin(t * (float) Math.PI);
+
+        if (combo == 1) {
+            float twist = Mth.lerp(strike, -0.52F, 0.55F) * arc;
+            body.yRot = twist;
+            body.xRot = 0.16F * arc;
+            applyShoulderTwistOffsets(twist, rightArm, leftArm);
+
+            float armX = Mth.lerp(strike, -1.25F, -0.85F);
+            float armY = Mth.lerp(strike, -0.55F, 0.60F);
+            rightArm.xRot = armX;
+            rightArm.yRot = armY;
+            rightArm.zRot = 0.20F;
+
+            leftArm.xRot = armX - 0.08F;
+            leftArm.yRot = armY + 0.45F;
+            leftArm.zRot = -0.15F;
+        } else {
+            body.xRot = Mth.lerp(strike, -0.16F, 0.34F) * arc;
+            body.yRot = Mth.lerp(strike, -0.18F, 0.18F) * arc;
+
+            float chopX = Mth.lerp(strike, -2.45F, -0.35F);
+            rightArm.xRot = chopX;
+            rightArm.yRot = -0.12F;
+            rightArm.zRot = 0.08F;
+
+            leftArm.xRot = chopX - 0.10F;
+            leftArm.yRot = 0.28F;
+            leftArm.zRot = -0.08F;
+        }
+    }
+
+    private static void applyThrustComboSwing(float t, ModelPart body,
+                                              ModelPart rightArm, ModelPart leftArm) {
+        float thrust = strikeCurve(t, false);
+        float twist = 0.35F * thrust;
+        body.yRot = twist;
+        body.xRot = 0.22F * thrust;
+        applyShoulderTwistOffsets(twist, rightArm, leftArm);
+
+        rightArm.xRot = -0.75F - 0.85F * thrust;
+        rightArm.yRot = 0.10F * thrust;
+        rightArm.z -= 2.2F * thrust;
+
+        leftArm.xRot = -0.35F + 0.45F * thrust;
+        leftArm.zRot = -0.25F * thrust;
+    }
+
+    private static void applyShoulderTwistOffsets(float twist, ModelPart rightArm, ModelPart leftArm) {
+        rightArm.z = 1.06F + Mth.sin(twist) * 3.6F;
+        leftArm.z = 1.06F - Mth.sin(twist) * 3.6F;
+    }
+
+    private static float strikeCurve(float t, boolean heavy) {
+        float windupEnd = heavy ? 0.20F : 0.16F;
+        float pullBack = heavy ? -0.20F : -0.14F;
+        float overshoot = heavy ? 1.15F : 1.10F;
+        if (t < windupEnd) {
+            float u = t / windupEnd;
+            return pullBack * (u * u);
+        }
+        float strikeEnd = heavy ? 0.62F : 0.55F;
+        if (t < strikeEnd) {
+            float u = (t - windupEnd) / (strikeEnd - windupEnd);
+            return Mth.lerp(u * u * (3.0F - 2.0F * u), pullBack, overshoot);
+        }
+        float u = (t - strikeEnd) / (1.0F - strikeEnd);
+        return Mth.lerp(1.0F - (1.0F - u) * (1.0F - u), overshoot, 0.10F);
+    }
+
+    private static boolean isTwoHandedWeapon(ItemStack stack) {
+        if (stack.getItem() instanceof net.minecraft.world.item.AxeItem) {
+            return true;
+        }
+        ResourceLocation id = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+        if (id == null) {
+            return false;
+        }
+        String p = id.getPath().toLowerCase(java.util.Locale.ROOT);
+        return p.contains("greatsword") || p.contains("claymore") || p.contains("zweihander")
+                || p.contains("halberd") || p.contains("glaive") || p.contains("sledge")
+                || p.contains("hammer") || p.contains("battleaxe") || p.contains("scythe")
+                || p.contains("longsword") || p.contains("katana");
+    }
+
+    private static boolean isSpearOrThrustWeapon(ItemStack stack) {
+        if (stack.getItem() instanceof net.minecraft.world.item.TridentItem) {
+            return true;
+        }
+        ResourceLocation id = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+        if (id == null) {
+            return false;
+        }
+        String p = id.getPath().toLowerCase(java.util.Locale.ROOT);
+        return p.contains("spear") || p.contains("pike") || p.contains("lance") || p.contains("rapier");
     }
 
     // -------------------------------------------------------------------
@@ -137,23 +537,24 @@ public final class UnitProceduralPoses {
     public static void applyGunProcedural(LivingEntity living, UnitProceduralAnimState state,
                                           ModelPart body, ModelPart head,
                                           ModelPart rightArm, ModelPart leftArm) {
-        // 1. Subtle per-shot recoil micro-kick (reduced so units stay steady)
+        // 1. Per-shot recoil kick: crisp muzzle rise + shoulder pushback
         float recoil = state.recoilImpulse();
         if (recoil > 0.005F) {
             float scale = UnitProceduralAnimState.classRecoilScale(living);
             float kick = recoil * scale;
-            float side = state.recoilSign() * 0.012F * kick;
+            float side = state.recoilSign() * 0.016F * kick;
 
-            rightArm.xRot -= 0.045F * kick;
+            rightArm.xRot -= 0.068F * kick;
             rightArm.yRot += side;
-            rightArm.z += 0.20F * kick;
+            rightArm.z += 0.28F * kick;
 
-            leftArm.xRot -= 0.038F * kick;
+            leftArm.xRot -= 0.056F * kick;
             leftArm.yRot += side;
-            leftArm.z += 0.18F * kick;
+            leftArm.z += 0.24F * kick;
 
-            body.xRot -= 0.012F * kick;
-            head.xRot -= 0.008F * kick;
+            body.xRot -= 0.022F * kick;
+            body.yRot += 0.014F * kick;
+            head.xRot -= 0.014F * kick;
         }
 
         // 2. Tactical reload animation (cant weapon, left hand mag pouch -> magwell -> bolt)
@@ -165,7 +566,9 @@ public final class UnitProceduralPoses {
             rightArm.yRot -= 0.18F * rel;
             rightArm.zRot -= 0.32F * rel;
 
-            // Head glances down toward receiver
+            // Slight torso settle + head glances down toward receiver
+            body.xRot += 0.06F * rel;
+            body.yRot -= 0.08F * rel;
             head.xRot += 0.20F * rel;
             head.yRot -= 0.10F * rel;
 
@@ -196,24 +599,51 @@ public final class UnitProceduralPoses {
             leftArm.zRot += lz * rel;
         }
 
-        // 3. Bolt-action / pump cycling
+        // 3. Bolt-action / pump cycling: pump shotguns cycle the left forend
+        //    hand back-and-forth while bolt rifles work the right-hand bolt.
         float bolt = state.smoothBoltBlend();
         if (bolt > 0.005F) {
             float cycle = Mth.sin(Math.min(1.0F, state.boltTicks() / 12.0F) * (float) Math.PI);
-            rightArm.xRot += 0.24F * bolt * cycle;
-            rightArm.yRot += 0.16F * bolt * cycle;
-            rightArm.zRot -= 0.20F * bolt * cycle;
+            WeaponClass cls = effectiveClass(living);
+            if (cls == WeaponClass.SHOTGUN) {
+                leftArm.xRot += 0.28F * bolt * cycle;
+                leftArm.yRot -= 0.10F * bolt * cycle;
+                leftArm.z += 0.55F * bolt * cycle;
+                rightArm.xRot += 0.08F * bolt * cycle;
+                body.xRot += 0.03F * bolt * cycle;
+            } else {
+                rightArm.xRot += 0.26F * bolt * cycle;
+                rightArm.yRot += 0.18F * bolt * cycle;
+                rightArm.zRot -= 0.22F * bolt * cycle;
+                head.yRot -= 0.05F * bolt * cycle;
+            }
         }
     }
 
     // -------------------------------------------------------------------
     // Smoothly blended eating food / applying bandage or medkit animation
-    // (offhand use - VDF never triggers it, SEM units do).
+    // (offhand use - supports both self-heal and kneeling Medic triage).
     // -------------------------------------------------------------------
     public static void applyUseItem(UnitProceduralAnimState state, float ageInTicks,
                                     ModelPart head, ModelPart rightArm, ModelPart leftArm) {
         float useBlend = state.smoothUseItemBlend();
         if (useBlend <= 0.001F) {
+            return;
+        }
+        float crouch = state.smoothCrouchBlend();
+        if (crouch > 0.35F) {
+            // Kneeling Medic triage: both arms reach forward toward the patient
+            // and perform an active rhythmic bandaging / compress motion.
+            float wrap = Mth.sin(ageInTicks * 0.75F);
+            float cross = Mth.cos(ageInTicks * 0.75F);
+            leftArm.xRot = Mth.lerp(useBlend, leftArm.xRot, -1.25F + wrap * 0.22F);
+            leftArm.yRot = Mth.lerp(useBlend, leftArm.yRot, 0.38F + cross * 0.16F);
+            leftArm.zRot = Mth.lerp(useBlend, leftArm.zRot, 0.15F);
+
+            rightArm.xRot = Mth.lerp(useBlend, rightArm.xRot, -1.18F - wrap * 0.28F);
+            rightArm.yRot = Mth.lerp(useBlend, rightArm.yRot, -0.34F - cross * 0.18F);
+            rightArm.zRot = Mth.lerp(useBlend, rightArm.zRot, -0.14F);
+            head.xRot += (0.28F + wrap * 0.06F) * useBlend;
             return;
         }
         float chew = Mth.sin(ageInTicks * 0.85F);

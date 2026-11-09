@@ -7,6 +7,7 @@ import com.poseidon.sem_classsystem.entity.UnitAmmoService;
 import com.poseidon.sem_classsystem.faction.ClassLoadouts;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
+import com.poseidon.sem_classsystem.item.ArmorPlateItem;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.item.IGun;
@@ -153,6 +154,8 @@ public abstract class MixinUnitAmmoReserve {
             boots = SemcsRegistries.PMC_BOOTS.get();
         }
 
+        Item defaultPlate = semcs$defaultPlateFor(entity, cls, random);
+
         if (entity instanceof PmcUnitEntity) {
             entity.getCapability(ForgeCapabilities.ITEM_HANDLER).ifPresent(handler -> {
                 if (!(handler instanceof IItemHandlerModifiable modifiable)) {
@@ -170,6 +173,9 @@ public abstract class MixinUnitAmmoReserve {
                 }
                 if (modifiable.getStackInSlot(4).isEmpty()) {
                     ItemStack s = new ItemStack(vest);
+                    if (defaultPlate != null) {
+                        ArmorPlateItem.insertOrReplacePlate(s, new ItemStack(defaultPlate));
+                    }
                     modifiable.setStackInSlot(4, s);
                     entity.setItemSlot(EquipmentSlot.CHEST, s.copy());
                 }
@@ -187,7 +193,11 @@ public abstract class MixinUnitAmmoReserve {
                 entity.setItemSlot(EquipmentSlot.LEGS, new ItemStack(pants));
             }
             if (entity.getItemBySlot(EquipmentSlot.CHEST).isEmpty()) {
-                entity.setItemSlot(EquipmentSlot.CHEST, new ItemStack(vest));
+                ItemStack vestStack = new ItemStack(vest);
+                if (defaultPlate != null) {
+                    ArmorPlateItem.insertOrReplacePlate(vestStack, new ItemStack(defaultPlate));
+                }
+                entity.setItemSlot(EquipmentSlot.CHEST, vestStack);
             }
             if (entity.getItemBySlot(EquipmentSlot.HEAD).isEmpty()) {
                 entity.setItemSlot(EquipmentSlot.HEAD, new ItemStack(helmet));
@@ -203,9 +213,54 @@ public abstract class MixinUnitAmmoReserve {
     }
 
     @Unique
+    private static Item semcs$defaultPlateFor(LivingEntity entity, WeaponClass cls, RandomSource random) {
+        boolean heavyRole = cls == WeaponClass.HEAVY_MG || cls == WeaponClass.HEAVY;
+        if (entity instanceof BhqUnitEntity) {
+            return heavyRole ? SemcsRegistries.ARMOR_PLATE_T4.get() : SemcsRegistries.ARMOR_PLATE_T3.get();
+        }
+        if (entity instanceof PmcUnitEntity) {
+            return heavyRole ? SemcsRegistries.ARMOR_PLATE_T3.get() : SemcsRegistries.ARMOR_PLATE_T2.get();
+        }
+        if (entity instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
+            return random.nextBoolean() ? SemcsRegistries.ARMOR_PLATE_T1.get() : null;
+        }
+        return heavyRole ? SemcsRegistries.ARMOR_PLATE_T2.get() : SemcsRegistries.ARMOR_PLATE_T1.get();
+    }
+
+    @Unique
     private static void semcs$equipBackupSidearm(LivingEntity entity, RandomSource random) {
         WeaponClass cls = WeaponClassSupport.get(entity);
-        if (cls == WeaponClass.PISTOL) {
+
+        // 1. Always issue field rations + Medic IFAK supplies first
+        if (entity instanceof PmcUnitEntity) {
+            entity.getCapability(ForgeCapabilities.ITEM_HANDLER).ifPresent(handler -> {
+                if (!(handler instanceof IItemHandlerModifiable modifiable)) {
+                    return;
+                }
+                for (int slot = STORAGE_START; slot < modifiable.getSlots(); slot++) {
+                    if (modifiable.getStackInSlot(slot).isEmpty()) {
+                        modifiable.setStackInSlot(slot, new ItemStack(Items.COOKED_BEEF, 3));
+                        break;
+                    }
+                }
+                if (cls == WeaponClass.MEDIC) {
+                    for (int slot = STORAGE_START; slot < modifiable.getSlots(); slot++) {
+                        if (modifiable.getStackInSlot(slot).isEmpty()) {
+                            modifiable.setStackInSlot(slot, new ItemStack(SemcsRegistries.IFAK_POUCH.get()));
+                            break;
+                        }
+                    }
+                }
+            });
+        } else {
+            entity.getPersistentData().putInt("semcs_field_rations", 3);
+        }
+        if (cls == WeaponClass.MEDIC) {
+            entity.getPersistentData().putInt("semcs_medic_charges", 12);
+        }
+
+        // 2. Camper (SNIPER), Demolisher (HEAVY), and PISTOL subclass do NOT receive a backup sidearm
+        if (cls == WeaponClass.PISTOL || cls == WeaponClass.SNIPER || cls == WeaponClass.HEAVY) {
             return;
         }
         String tableKey = entity instanceof BhqUnitEntity ? "bhq_units"
@@ -253,18 +308,11 @@ public abstract class MixinUnitAmmoReserve {
                     ItemStack pAmmoTmpl = AmmoItemBuilder.create().setId(pistolAmmoId).setCount(1).build();
                     semcs$placeSplitAmmo(modifiable, pAmmoTmpl, 60);
                 }
-                for (int slot = STORAGE_START; slot < modifiable.getSlots(); slot++) {
-                    if (modifiable.getStackInSlot(slot).isEmpty()) {
-                        modifiable.setStackInSlot(slot, new ItemStack(Items.COOKED_BEEF, 3));
-                        break;
-                    }
-                }
             });
         } else {
             pistolGun.setMaxDummyAmmoAmount(pistol, Integer.MAX_VALUE);
             pistolGun.setDummyAmmoAmount(pistol, 9999);
             entity.getPersistentData().put("semcs_backup_sidearm", pistol.save(new CompoundTag()));
-            entity.getPersistentData().putInt("semcs_field_rations", 3);
         }
     }
 }

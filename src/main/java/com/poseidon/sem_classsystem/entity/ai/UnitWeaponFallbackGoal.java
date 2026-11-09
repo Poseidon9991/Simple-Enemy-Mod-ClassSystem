@@ -45,6 +45,12 @@ public class UnitWeaponFallbackGoal extends Goal {
         if (this.mob.level().isClientSide || !this.mob.isAlive() || this.mob.isUsingItem()) {
             return;
         }
+        com.poseidon.sem_classsystem.faction.WeaponClass assigned =
+                com.poseidon.sem_classsystem.faction.WeaponClassSupport.get(this.mob);
+        if (assigned == com.poseidon.sem_classsystem.faction.WeaponClass.SNIPER
+                || assigned == com.poseidon.sem_classsystem.faction.WeaponClass.HEAVY) {
+            return;
+        }
         if (--this.scanCooldown > 0) {
             return;
         }

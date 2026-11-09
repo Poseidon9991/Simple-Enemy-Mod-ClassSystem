@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "NAN",
+    "DPD",
+    "NAN"
+  ],
+  "key": {
+    "N": { "item": "minecraft:netherite_scrap" },
+    "A": { "item": "minecraft:amethyst_shard" },
+    "D": { "item": "minecraft:diamond" },
+    "P": { "item": "sem_classsystem:armor_plate_t4" }
+  },
+  "result": {
+    "item": "sem_classsystem:armor_plate_t5",
+    "count": 1
+  }
+}

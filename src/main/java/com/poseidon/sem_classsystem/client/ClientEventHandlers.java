@@ -42,6 +42,7 @@ public final class ClientEventHandlers {
     public static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             MenuScreens.register(SemcsRegistries.RECRUIT_TABLE_MENU.get(), RecruitTableScreen::new);
+            MenuScreens.register(SemcsRegistries.ARMOR_PLATE_MENU.get(), ArmorPlateScreen::new);
             if (ModList.get().isLoaded("curios")) {
                 SpottingScopeCurioRenderer.register();
             }

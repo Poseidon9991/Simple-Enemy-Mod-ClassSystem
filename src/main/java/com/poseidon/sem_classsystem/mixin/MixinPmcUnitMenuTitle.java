@@ -5,12 +5,23 @@ import com.poseidon.sem_classsystem.config.ClassSystemConfig;
 import com.poseidon.sem_classsystem.entity.BhqUnitEntity;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
+import com.poseidon.sem_classsystem.item.ArmorPlateItem;
+import com.poseidon.sem_classsystem.item.BhqArmorItem;
+import com.poseidon.sem_classsystem.menu.ArmorPlateMenu;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // BhqUnitEntity inherits PmcUnitEntity.mobInteract, which opens the unit
 // inventory with a hardcoded "PMC Unit Equipment" title. The class name no
@@ -20,6 +31,20 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 // messages) - the redirect checks the string, only the equipment title swaps.
 @Mixin(PmcUnitEntity.class)
 public abstract class MixinPmcUnitMenuTitle {
+
+    @Inject(method = "mobInteract", at = @At("HEAD"), cancellable = true)
+    private void semcs$openUnitVestPlates(Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
+        if (player.isShiftKeyDown() && player.getItemInHand(hand).isEmpty()) {
+            PmcUnitEntity self = (PmcUnitEntity) (Object) this;
+            ItemStack chest = self.getItemBySlot(EquipmentSlot.CHEST);
+            if (chest.getItem() instanceof BhqArmorItem && ArmorPlateItem.maxPlateSlots(chest) > 0) {
+                if (!self.level().isClientSide && player instanceof ServerPlayer sp) {
+                    ArmorPlateMenu.openForEntity(sp, self, EquipmentSlot.CHEST);
+                }
+                cir.setReturnValue(InteractionResult.sidedSuccess(self.level().isClientSide));
+            }
+        }
+    }
 
     @Redirect(method = "mobInteract",
             at = @At(value = "INVOKE",

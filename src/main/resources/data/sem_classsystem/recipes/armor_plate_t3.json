@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "QBQ",
+    "IPI",
+    "QBQ"
+  ],
+  "key": {
+    "Q": { "item": "minecraft:quartz" },
+    "B": { "item": "minecraft:brick" },
+    "I": { "item": "minecraft:iron_ingot" },
+    "P": { "item": "sem_classsystem:armor_plate_t2" }
+  },
+  "result": {
+    "item": "sem_classsystem:armor_plate_t3",
+    "count": 1
+  }
+}

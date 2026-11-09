@@ -46,18 +46,37 @@ public class VdfHeldItemLayer extends RenderLayer<VdfUnitEntity, VdfUnitModel> {
         if (entity.isDeadOrDying()) {
             return;
         }
-        ItemStack stack = entity.getItemInHand(InteractionHand.MAIN_HAND);
-        if (stack.isEmpty()) {
-            return;
-        }
-        // Walk the bone chain by name: root -> fakeRoot -> unit -> rightArm
-        // -> rightHandAnchor
         ModelPart part = this.getParentModel().root();
         if (!part.hasChild("fakeRoot")) {
             return;
         }
         ModelPart fakeRoot = part.getChild("fakeRoot");
         ModelPart unit = fakeRoot.getChild("unit");
+
+        // Render offhand bandage / IFAK kit in the left hand while the unit is using it
+        if (entity.isUsingItem() && !entity.getOffhandItem().isEmpty() && unit.hasChild("leftArm")) {
+            ModelPart leftArm = unit.getChild("leftArm");
+            poseStack.pushPose();
+            unit.translateAndRotate(poseStack);
+            leftArm.translateAndRotate(poseStack);
+            poseStack.mulPose(Axis.XP.rotationDegrees(-90.0F));
+            poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
+            poseStack.translate(-1.0F / 16.0F, 0.125F, -0.625F);
+            this.itemInHandRenderer.renderItem(entity, entity.getOffhandItem(),
+                    ItemDisplayContext.THIRD_PERSON_LEFT_HAND, true,
+                    poseStack, buffer, packedLight);
+            poseStack.popPose();
+        }
+
+        ItemStack stack = entity.getItemInHand(InteractionHand.MAIN_HAND);
+        if (stack.isEmpty()) {
+            return;
+        }
+        // Bone lookup: root -> fakeRoot -> unit -> rightArm -> rightHandAnchor.
+        // fakeRoot is used for traversal ONLY - SEM's GunLayerRenderer never
+        // applies its pose (its root() IS fakeRoot and it transforms unit ->
+        // arm -> anchor). Applying fakeRoot's (0,6,-1) offset here drops the
+        // gun 6/16 under the arm instead of resting it on top like PMC.
         if (!unit.hasChild("rightArm")
                 || !unit.getChild("rightArm").hasChild("rightHandAnchor")) {
             return;
@@ -70,7 +89,6 @@ public class VdfHeldItemLayer extends RenderLayer<VdfUnitEntity, VdfUnitModel> {
         boolean minigun = gunId != null && gunId.getPath().contains("minigun");
 
         poseStack.pushPose();
-        fakeRoot.translateAndRotate(poseStack);
         unit.translateAndRotate(poseStack);
         rightArm.translateAndRotate(poseStack);
         anchor.translateAndRotate(poseStack);
@@ -101,11 +119,23 @@ public class VdfHeldItemLayer extends RenderLayer<VdfUnitEntity, VdfUnitModel> {
                 poseStack.mulPose(Axis.ZP.rotationDegrees(rz));
             }
         } else {
-            // Lowered carry - non-gun fallback (militia always draw guns,
-            // but a stray non-gun stack should still render sanely)
-            poseStack.translate(0.0D, 0.35D, 0.13D);
-            poseStack.mulPose(Axis.YP.rotationDegrees(-180.0F));
+            // Melee / non-gun item - same grip + wrist follow-through that
+            // MixinGunLayerMeleeItem applies on the SEM unit path so knives
+            // and machetes sit inside the fist and track combo slashes.
+            UnitProceduralAnimState state = UnitProceduralAnimState.get(entity);
+            float swing = state.meleeSwingProgress();
             poseStack.mulPose(Axis.XP.rotationDegrees(-90.0F));
+            poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
+            if (swing > 0.001F) {
+                float wristSnap = Mth.sin(swing * (float) Math.PI) * 18.0F;
+                poseStack.mulPose(Axis.XP.rotationDegrees(wristSnap));
+            }
+            poseStack.translate(0.0F, 0.0625F, -0.0625F);
+            this.itemInHandRenderer.renderItem(entity, stack,
+                    ItemDisplayContext.THIRD_PERSON_RIGHT_HAND, false,
+                    poseStack, buffer, packedLight);
+            poseStack.popPose();
+            return;
         }
         poseStack.scale(1.0F, -1.0F, -1.0F);
         this.itemInHandRenderer.renderItem(entity, stack,

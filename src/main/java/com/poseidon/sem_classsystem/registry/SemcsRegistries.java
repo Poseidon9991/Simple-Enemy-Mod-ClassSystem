@@ -8,12 +8,15 @@ import com.poseidon.sem_classsystem.block.GuardPostBlockEntity;
 import com.poseidon.sem_classsystem.entity.BhqUnitEntity;
 import com.poseidon.sem_classsystem.entity.VdfUnitEntity;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
+import com.poseidon.sem_classsystem.item.ArmorPlateItem;
 import com.poseidon.sem_classsystem.item.BhqArmorItem;
 import com.poseidon.sem_classsystem.item.ClassSpawnEggItem;
 import com.poseidon.sem_classsystem.item.FieldTabletItem;
 import com.poseidon.sem_classsystem.item.SemcsCurioItem;
 import com.poseidon.sem_classsystem.item.SquadWhistleItem;
+import com.poseidon.sem_classsystem.menu.ArmorPlateMenu;
 import com.poseidon.sem_classsystem.menu.RecruitTableMenu;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleType;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.resources.ResourceLocation;
@@ -118,6 +121,9 @@ public final class SemcsRegistries {
 
     public static final RegistryObject<MenuType<RecruitTableMenu>> RECRUIT_TABLE_MENU =
             MENU_TYPES.register("recruit_table", () -> IForgeMenuType.create(RecruitTableMenu::new));
+
+    public static final RegistryObject<MenuType<ArmorPlateMenu>> ARMOR_PLATE_MENU =
+            MENU_TYPES.register("armor_plate_menu", () -> IForgeMenuType.create(ArmorPlateMenu::new));
 
     // ---- BHQ unit ---------------------------------------------------------
     // Same physical box + tracking range SEM uses for pmcunit so hitboxes,
@@ -236,6 +242,30 @@ public final class SemcsRegistries {
     public static final RegistryObject<Item> IFAK_POUCH = ITEMS.register(
             "ifak_pouch",
             () -> new SemcsCurioItem(new Item.Properties().stacksTo(1).durability(8))
+    );
+
+    // ---- Ballistic Armor Plates (Level 1 to Level 5) ------------------------
+    // Craftable trauma plates slotted into vests (2 slots) and helmets (1 slot)
+    // to reduce attack damage and especially TaCZ bullet damage.
+    public static final RegistryObject<Item> ARMOR_PLATE_T1 = ITEMS.register(
+            "armor_plate_t1",
+            () -> new ArmorPlateItem(1, 150, 0.20F, 0.32F, ChatFormatting.GREEN)
+    );
+    public static final RegistryObject<Item> ARMOR_PLATE_T2 = ITEMS.register(
+            "armor_plate_t2",
+            () -> new ArmorPlateItem(2, 300, 0.32F, 0.48F, ChatFormatting.WHITE)
+    );
+    public static final RegistryObject<Item> ARMOR_PLATE_T3 = ITEMS.register(
+            "armor_plate_t3",
+            () -> new ArmorPlateItem(3, 450, 0.45F, 0.64F, ChatFormatting.AQUA)
+    );
+    public static final RegistryObject<Item> ARMOR_PLATE_T4 = ITEMS.register(
+            "armor_plate_t4",
+            () -> new ArmorPlateItem(4, 650, 0.58F, 0.78F, ChatFormatting.GOLD)
+    );
+    public static final RegistryObject<Item> ARMOR_PLATE_T5 = ITEMS.register(
+            "armor_plate_t5",
+            () -> new ArmorPlateItem(5, 900, 0.70F, 0.88F, ChatFormatting.LIGHT_PURPLE)
     );
 
     // ---- BHQ armor set -----------------------------------------------------
@@ -477,6 +507,11 @@ public final class SemcsRegistries {
                         output.accept(SPOTTING_SCOPE.get());
                         output.accept(SERGEANTS_INSIGNIA.get());
                         output.accept(IFAK_POUCH.get());
+                        output.accept(ARMOR_PLATE_T1.get());
+                        output.accept(ARMOR_PLATE_T2.get());
+                        output.accept(ARMOR_PLATE_T3.get());
+                        output.accept(ARMOR_PLATE_T4.get());
+                        output.accept(ARMOR_PLATE_T5.get());
                         output.accept(BHQ_UNIT_SPAWN_EGG.get());
                         output.accept(VDF_UNIT_SPAWN_EGG.get());
                         for (RegistryObject<Item> egg : CLASS_SPAWN_EGGS) {
@@ -556,6 +591,13 @@ public final class SemcsRegistries {
                 event.accept(SPOTTING_SCOPE.get());
                 event.accept(SERGEANTS_INSIGNIA.get());
                 event.accept(IFAK_POUCH.get());
+            }
+            if (event.getTabKey() == CreativeModeTabs.COMBAT) {
+                event.accept(ARMOR_PLATE_T1.get());
+                event.accept(ARMOR_PLATE_T2.get());
+                event.accept(ARMOR_PLATE_T3.get());
+                event.accept(ARMOR_PLATE_T4.get());
+                event.accept(ARMOR_PLATE_T5.get());
             }
             if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
                 event.accept(BHQ_UNIT_SPAWN_EGG.get());

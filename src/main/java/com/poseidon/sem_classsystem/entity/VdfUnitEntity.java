@@ -8,6 +8,7 @@ import net.minecraft.network.syncher.EntityDataSerializers;            // INT se
 import net.minecraft.network.syncher.SynchedEntityData;                // entity data registry
 import net.minecraft.resources.ResourceLocation;                       // militia gun ids
 import net.minecraft.server.level.ServerLevel;                         // POI scan on spawn/load
+import net.minecraft.util.Mth;                                         // combat-yaw atan2
 import net.minecraft.sounds.SoundEvent;                                // sound return type
 import net.minecraft.sounds.SoundEvents;                               // villager hums
 import net.minecraft.world.DifficultyInstance;                         // finalizeSpawn signature arg
@@ -44,11 +45,17 @@ import com.poseidon.sem_classsystem.bridge.IClassifiedUnit;           // class-s
 import com.poseidon.sem_classsystem.faction.ClassLoadouts;            // gun-id -> class inference on fallbacks
 import com.poseidon.sem_classsystem.faction.UnitClassAttributes;       // configured stat application
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;        // NBT save/restore + last-resort class roll
+import com.poseidon.sem_classsystem.item.ArmorPlateItem;
+import com.poseidon.sem_classsystem.item.BhqArmorItem;
+import com.poseidon.sem_classsystem.menu.ArmorPlateMenu;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;          // vdf_* militia armor set
 import com.poseidon.sem_classsystem.faction.WeaponClass;              // militia loadout roll categories
 import com.tacz.guns.api.item.IGun;                                    // held-gun checks
 import com.tacz.guns.api.item.builder.GunItemBuilder;                  // militia gun construction
 import com.tacz.guns.api.item.gun.FireMode;                            // SEMI/AUTO
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import org.jetbrains.annotations.Nullable;                             // Nullable marker for the anchor
 
 // VDF (Village Defense Force) - village militia, NOT a faction soldier.
@@ -83,6 +90,16 @@ public class VdfUnitEntity extends PathfinderMob implements IClassifiedUnit {
     private static final EntityDataAccessor<Integer> DATA_WEAPON_CLASS =
             SynchedEntityData.defineId(VdfUnitEntity.class, EntityDataSerializers.INT);
 
+    // Synched combat flag + facing yaw - the militia's copy of SEM's
+    // AbstractUnit.IS_IN_COMBAT / COMBAT_YAW. mob.getTarget() only exists on
+    // the server, so without these the client never knew a militia was
+    // fighting: arms stayed in low-ready, no raise-to-aim, body never turned
+    // to the target. NaN yaw = "no valid facing yet" (no body lock).
+    private static final EntityDataAccessor<Boolean> DATA_IN_COMBAT =
+            SynchedEntityData.defineId(VdfUnitEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> DATA_COMBAT_YAW =
+            SynchedEntityData.defineId(VdfUnitEntity.class, EntityDataSerializers.FLOAT);
+
     // Client-side animation states. Driven in tick() below, straight off
     // Entity.walkAnimation (the vanilla synced movement tracker) - so the
     // legs move whenever the server-side position actually moves, and idle
@@ -91,6 +108,9 @@ public class VdfUnitEntity extends PathfinderMob implements IClassifiedUnit {
     public final AnimationState idleAnimationState = new AnimationState();
     public final AnimationState hurtAnimationState = new AnimationState();
     public final AnimationState deathAnimationState = new AnimationState();
+    private static final int HURT_ANIM_TICKS = 10;
+    private int hurtAnimStartTick;
+    public int hurtVariant;
 
     // Village bell / meeting-point this militia defends - set by the
     // garrison spawner, persisted so patrol/raid goals survive chunk reloads.
@@ -153,6 +173,12 @@ public class VdfUnitEntity extends PathfinderMob implements IClassifiedUnit {
         super.defineSynchedData();
         this.entityData.define(DATA_VARIANT, 0);
         this.entityData.define(DATA_WEAPON_CLASS, -1);
+        this.entityData.define(DATA_IN_COMBAT, false);
+        this.entityData.define(DATA_COMBAT_YAW, Float.NaN);
+    }
+
+    public boolean isInCombat() {
+        return this.entityData.get(DATA_IN_COMBAT);
     }
 
     public int getVariant() {
@@ -189,21 +215,71 @@ public class VdfUnitEntity extends PathfinderMob implements IClassifiedUnit {
     @Override
     public void tick() {
         super.tick();
+        if (!this.level().isClientSide) {
+            // Same rule as SEM's AbstractUnit.tick: in combat while the target
+            // lives or for 5s after being hurt by a mob; face the target.
+            LivingEntity target = this.getTarget();
+            boolean targetAlive = target != null && target.isAlive();
+            int hurtStamp = this.getLastHurtByMobTimestamp();
+            boolean inCombat = targetAlive || (hurtStamp > 0 && this.tickCount - hurtStamp < 100);
+            this.entityData.set(DATA_IN_COMBAT, inCombat);
+            if (targetAlive) {
+                double dx = target.getX() - this.getX();
+                double dz = target.getZ() - this.getZ();
+                this.entityData.set(DATA_COMBAT_YAW,
+                        (float) (Mth.atan2(dz, dx) * 57.29577951308232D) - 90.0F);
+            } else if (!inCombat) {
+                this.entityData.set(DATA_COMBAT_YAW, Float.NaN);
+            }
+        }
+        // Client + server: lock body/head toward the target while fighting
+        // (SEM units do exactly this) so the shouldered gun points at it.
+        float combatYaw = this.entityData.get(DATA_COMBAT_YAW);
+        if (this.isInCombat() && !this.isDeadOrDying() && !Float.isNaN(combatYaw)) {
+            this.yBodyRot = combatYaw;
+            this.yHeadRot = combatYaw;
+        }
         if (this.level().isClientSide) {
-            if (this.walkAnimation.speed() > 0.02F) {
+            double cdx = this.getX() - this.xo;
+            double cdz = this.getZ() - this.zo;
+            if (this.walkAnimation.speed() > 0.008F || (cdx * cdx + cdz * cdz) > 0.000004D) {
                 this.walkAnimationState.startIfStopped(this.tickCount);
                 this.idleAnimationState.stop();
             } else {
                 this.idleAnimationState.startIfStopped(this.tickCount);
                 this.walkAnimationState.stop();
             }
-            if (this.hurtTime > 0) {
-                this.hurtAnimationState.startIfStopped(this.tickCount);
+            // Hurt clip is one-shot: SEM's UNIT_HURT variants are 1.0s long,
+            // played at 2x -> 10 ticks. It MUST be stopped afterwards - a
+            // permanently started state froze the pose and made the model skip
+            // its whole locomotion/gun tail pass (raw sliding walk, no recoil).
+            if (this.hurtAnimationState.isStarted()) {
+                if (this.tickCount - this.hurtAnimStartTick >= HURT_ANIM_TICKS) {
+                    this.hurtAnimationState.stop();
+                }
+            } else if (this.hurtTime > 0) {
+                this.hurtAnimationState.start(this.tickCount);
+                this.hurtAnimStartTick = this.tickCount;
+                this.hurtVariant = this.random.nextInt(2);
             }
             if (!this.isAlive() && !this.deathAnimationState.isStarted()) {
                 this.deathAnimationState.start(this.tickCount);
             }
         }
+    }
+
+    @Override
+    public InteractionResult mobInteract(Player player, InteractionHand hand) {
+        if (player.isShiftKeyDown() && player.getItemInHand(hand).isEmpty()) {
+            ItemStack chest = this.getItemBySlot(EquipmentSlot.CHEST);
+            if (chest.getItem() instanceof BhqArmorItem && ArmorPlateItem.maxPlateSlots(chest) > 0) {
+                if (!this.level().isClientSide && player instanceof ServerPlayer sp) {
+                    ArmorPlateMenu.openForEntity(sp, this, EquipmentSlot.CHEST);
+                }
+                return InteractionResult.sidedSuccess(this.level().isClientSide);
+            }
+        }
+        return super.mobInteract(player, hand);
     }
 
     // ---- village anchor -----------------------------------------------------
@@ -283,6 +359,7 @@ public class VdfUnitEntity extends PathfinderMob implements IClassifiedUnit {
     protected void registerGoals() {
         // --- combat core (our own gun goal replaces SEM's role goals) ---
         this.goalSelector.addGoal(0, new FloatGoal(this));
+        this.goalSelector.addGoal(1, new com.poseidon.sem_classsystem.entity.ai.UnitMedicHealGoal(this));
         this.goalSelector.addGoal(1, new com.poseidon.sem_classsystem.entity.ai.VdfGunAttackGoal(this, 1.0D));
 
         // --- militia duties ---

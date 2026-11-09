@@ -31,8 +31,8 @@ public abstract class MixinAbstractUnitGoals {
         entity.goalSelector.addGoal(1, new UnitSelfHealGoal(entity));
         // Priority 1 (ahead of SeekCoverGoal at 2) so melee units immediately rush and fight
         entity.goalSelector.addGoal(1, new UnitMeleeAttackGoal(entity, 1.12D, true));
-        // Medic: patches up wounded allies between fights (self-gates on MEDIC class)
-        entity.goalSelector.addGoal(4, new UnitMedicHealGoal(entity));
+        // Medic: priority 1 so a Medic immediately sprints to wounded allies and performs interactive triage
+        entity.goalSelector.addGoal(1, new UnitMedicHealGoal(entity));
         // Ammo auto-resupply: swaps to the sidearm when the primary runs dry
         entity.goalSelector.addGoal(9, new UnitWeaponFallbackGoal(entity));
         // Chunk duty (guard/patrol claimed map chunks) - priority 2 beats the

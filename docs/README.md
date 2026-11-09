@@ -28,4 +28,4 @@ spec — check `developmentflow.md` for the update log.
 - **Depends on:** TaCZ (guns/ammo), GeckoLib (armor), optional: Curios,
   Xaero's maps, WTHIT, Superb Warfare
 - **Build:** `gradlew compileJava` / `gradlew build` →
-  `build/libs/sem_classsystem-1.20.1-0.4.0.jar`
+  `build/libs/sem_classsystem-1.20.1-0.5.0.jar`

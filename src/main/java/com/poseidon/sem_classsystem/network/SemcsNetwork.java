@@ -63,6 +63,9 @@ public final class SemcsNetwork {
             CHANNEL.registerMessage(id++, PacketSyncIntel.class,
                     PacketSyncIntel::encode, PacketSyncIntel::decode,
                     PacketSyncIntel::handle);
+            CHANNEL.registerMessage(id++, PacketOpenWornVest.class,
+                    PacketOpenWornVest::encode, PacketOpenWornVest::decode,
+                    PacketOpenWornVest::handle);
         });
     }
 }

@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "ICI",
+    "IPI",
+    "ICI"
+  ],
+  "key": {
+    "I": { "item": "minecraft:iron_ingot" },
+    "C": { "tag": "minecraft:coals" },
+    "P": { "item": "sem_classsystem:armor_plate_t1" }
+  },
+  "result": {
+    "item": "sem_classsystem:armor_plate_t2",
+    "count": 1
+  }
+}

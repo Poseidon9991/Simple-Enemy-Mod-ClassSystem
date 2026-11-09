@@ -9,10 +9,15 @@ import com.poseidon.sem_classsystem.entity.ai.UnitMeleeAttackGoal;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
 import com.tacz.guns.api.item.nbt.GunItemDataAccessor;
+import net.minecraft.client.animation.AnimationDefinition;
+import net.minecraft.client.model.HierarchicalModel;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.AnimationState;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
+import net.nekoyuni.SimpleEnemyMod.entity.client.animation.ModAnimationsDefinitions;
 import net.nekoyuni.SimpleEnemyMod.entity.client.pmc_unit.PmcUnitModel;
 import net.nekoyuni.SimpleEnemyMod.entity.client.ru_unit.RUunitModel;
 import net.nekoyuni.SimpleEnemyMod.entity.client.us_unit.USunitModel;
@@ -20,8 +25,10 @@ import net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // All three SEM unit models share the same field names (verified identical),
@@ -60,6 +67,40 @@ public abstract class MixinUnitModelCrouch {
     @Shadow(remap = false) @Final private ModelPart rightLeg;
     @Shadow(remap = false) @Final private ModelPart leftLeg;
 
+    @Unique private LivingEntity semcs$currentLiving;
+    @Unique private UnitProceduralAnimState semcs$currentAnimState;
+
+    @Inject(method = "setupAnim", at = @At("HEAD"))
+    private void semcs$captureEntity(Entity entity, float limbSwing, float limbSwingAmount,
+                                     float ageInTicks, float netHeadYaw, float headPitch,
+                                     CallbackInfo ci) {
+        if (entity instanceof LivingEntity living && living.isAlive()) {
+            this.semcs$currentLiving = living;
+            UnitProceduralAnimState animState = UnitProceduralAnimState.get(living);
+            animState.update(living, ageInTicks);
+            this.semcs$currentAnimState = animState;
+        } else {
+            this.semcs$currentLiving = null;
+            this.semcs$currentAnimState = null;
+        }
+    }
+
+    @ModifyArg(
+        method = "setupAnim",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/model/HierarchicalModel;animate(Lnet/minecraft/world/entity/AnimationState;Lnet/minecraft/client/animation/AnimationDefinition;FF)V"),
+        index = 3
+    )
+    private float semcs$scaleWalkSpeed(float originalSpeed) {
+        UnitProceduralAnimState animState = this.semcs$currentAnimState;
+        if (animState != null) {
+            float ratio = animState.locomotionSpeedRatio();
+            if (ratio > 0.05F) {
+                return Mth.clamp(ratio, 0.20F, 1.35F);
+            }
+        }
+        return originalSpeed;
+    }
+
     // TAIL of setupAnim: SEM resets every part's pose, runs the keyframe
     // animations and all procedural aim layers - we then layer our class
     // pose on top so it composes with idle/aim instead of fighting it.
@@ -67,8 +108,12 @@ public abstract class MixinUnitModelCrouch {
     private void semcs$applyClassKneelPose(Entity entity, float limbSwing, float limbSwingAmount,
                                            float ageInTicks, float netHeadYaw, float headPitch,
                                            CallbackInfo ci) {
+        LivingEntity living = this.semcs$currentLiving;
+        UnitProceduralAnimState animState = this.semcs$currentAnimState;
+        this.semcs$currentLiving = null;
+        this.semcs$currentAnimState = null;
 
-        if (!(entity instanceof LivingEntity living) || !living.isAlive()) {
+        if (living == null || animState == null) {
             return;
         }
         if (entity instanceof AbstractUnit unitEntity
@@ -81,14 +126,10 @@ public abstract class MixinUnitModelCrouch {
             return;
         }
 
-        UnitProceduralAnimState animState = UnitProceduralAnimState.get(living);
-        animState.update(living, ageInTicks);
-
         // 1. Dynamic distance-locked locomotion (replaces SEM's fixed-speed piston leg slide)
         UnitProceduralPoses.applyLocomotionPolish(this.unit, this.head, this.body,
                 this.rightArm, this.leftArm, this.rightLeg, this.leftLeg,
-                limbSwing, limbSwingAmount, ageInTicks,
-                animState.smoothWalkBlend(), animState.smoothCombatBlend());
+                limbSwing, limbSwingAmount, ageInTicks, animState);
 
         // 2. Gun procedural animations: recoil kick, tactical reload, bolt-action cycling
         if (main.getItem() instanceof GunItemDataAccessor) {
@@ -115,16 +156,17 @@ public abstract class MixinUnitModelCrouch {
 
         // 5. Smoothly blended class crouch/kneel stances (no 1-frame snap)
         float crouch = animState.smoothCrouchBlend() * (1.0F - prone);
-        if (crouch <= 0.001F) {
-            return;
+        if (crouch > 0.001F) {
+            // Resolve the effective class from the entity (including sidearm pistols).
+            WeaponClass cls = WeaponClassSupport.getEffective(living);
+            if (cls == null) cls = WeaponClass.RIFLE; // safe default
+
+            UnitProceduralPoses.applyCrouchStance(crouch, cls, this.body, this.head,
+                    this.rightArm, this.leftArm, this.rightLeg, this.leftLeg);
+            // Re-apply use-item arm rotations after crouch shoulder offsets so
+            // a kneeling Medic's two-handed triage animation is never overwritten.
+            UnitProceduralPoses.applyUseItem(animState, ageInTicks,
+                    this.head, this.rightArm, this.leftArm);
         }
-
-        // Resolve the effective class from the entity (including sidearm pistols).
-        WeaponClass cls = WeaponClassSupport.getEffective(living);
-
-        if (cls == null) cls = WeaponClass.RIFLE; // safe default
-
-        UnitProceduralPoses.applyCrouchStance(crouch, cls, this.body, this.head,
-                this.rightArm, this.leftArm, this.rightLeg, this.leftLeg);
     }
 }

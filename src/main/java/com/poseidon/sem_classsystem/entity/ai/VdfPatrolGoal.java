@@ -23,7 +23,7 @@ public class VdfPatrolGoal extends Goal {
 
     private static final int RESCAN_INTERVAL = 60;                      // ticks between POI waypoint picks
     private static final int STUCK_REPATH = 100;                        // force a new waypoint after this long stuck
-    private static final double WALK_SPEED = 0.55D;                     // patrol is a stroll, not a sprint
+    private static final double WALK_SPEED = 0.72D;                     // natural village patrol walk speed
 
     private final VdfUnitEntity unit;                                   // the militia unit this goal drives
     private int scanCooldown = 0;                                       // ticks until the next POI scan

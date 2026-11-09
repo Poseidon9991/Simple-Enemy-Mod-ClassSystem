@@ -11,6 +11,7 @@
   },
   "elements": [
     {
+      "name": "base_cabinet",
       "from": [
         0,
         0,
@@ -43,15 +44,16 @@
       }
     },
     {
+      "name": "field_radio_body",
       "from": [
-        2,
+        1.5,
         16,
-        2
+        2.0
       ],
       "to": [
-        6,
-        19,
-        5
+        6.2,
+        19.2,
+        5.4
       ],
       "faces": {
         "north": {
@@ -103,159 +105,231 @@
           "texture": "#props",
           "uv": [
             8,
+            0,
             12,
-            12,
-            15
+            3
           ]
         }
       }
     },
     {
+      "name": "radio_antenna_mount",
       "from": [
-        2.5,
-        19,
+        2.2,
+        19.2,
+        2.6
+      ],
+      "to": [
+        3.8,
+        20.2,
+        4.2
+      ],
+      "faces": {
+        "north": {
+          "texture": "#props",
+          "uv": [
+            0,
+            8,
+            2,
+            10
+          ]
+        },
+        "south": {
+          "texture": "#props",
+          "uv": [
+            0,
+            8,
+            2,
+            10
+          ]
+        },
+        "east": {
+          "texture": "#props",
+          "uv": [
+            0,
+            8,
+            2,
+            10
+          ]
+        },
+        "west": {
+          "texture": "#props",
+          "uv": [
+            0,
+            8,
+            2,
+            10
+          ]
+        },
+        "up": {
+          "texture": "#props",
+          "uv": [
+            0,
+            8,
+            2,
+            10
+          ]
+        },
+        "down": {
+          "texture": "#props",
+          "uv": [
+            0,
+            8,
+            2,
+            10
+          ]
+        }
+      }
+    },
+    {
+      "name": "radio_whip_antenna",
+      "from": [
+        2.7,
+        20.2,
+        3.1
+      ],
+      "to": [
+        3.3,
+        26.5,
+        3.7
+      ],
+      "faces": {
+        "north": {
+          "texture": "#props",
+          "uv": [
+            1,
+            8,
+            2,
+            12
+          ]
+        },
+        "south": {
+          "texture": "#props",
+          "uv": [
+            1,
+            8,
+            2,
+            12
+          ]
+        },
+        "east": {
+          "texture": "#props",
+          "uv": [
+            1,
+            8,
+            2,
+            12
+          ]
+        },
+        "west": {
+          "texture": "#props",
+          "uv": [
+            1,
+            8,
+            2,
+            12
+          ]
+        },
+        "up": {
+          "texture": "#props",
+          "uv": [
+            1,
+            8,
+            2,
+            9
+          ]
+        },
+        "down": {
+          "texture": "#props",
+          "uv": [
+            1,
+            8,
+            2,
+            9
+          ]
+        }
+      }
+    },
+    {
+      "name": "radio_handset",
+      "from": [
+        6.2,
+        16.5,
         2.5
       ],
       "to": [
-        4.5,
-        20,
-        4.5
+        7.3,
+        18.4,
+        4.9
       ],
       "faces": {
         "north": {
           "texture": "#props",
           "uv": [
             0,
-            9,
+            8,
             2,
-            10
+            11
           ]
         },
         "south": {
           "texture": "#props",
           "uv": [
             0,
-            9,
+            8,
             2,
-            10
+            11
           ]
         },
         "east": {
           "texture": "#props",
           "uv": [
             0,
-            9,
-            2,
-            10
+            8,
+            3,
+            11
           ]
         },
         "west": {
           "texture": "#props",
           "uv": [
             0,
-            9,
-            2,
-            10
+            8,
+            3,
+            11
           ]
         },
         "up": {
           "texture": "#props",
           "uv": [
             0,
-            9,
+            8,
             2,
-            10
+            11
           ]
         },
         "down": {
           "texture": "#props",
           "uv": [
             0,
-            9,
+            8,
             2,
-            10
+            11
           ]
         }
       }
     },
     {
+      "name": "toughbook_base",
       "from": [
-        3,
-        20,
-        3
-      ],
-      "to": [
-        4,
-        26,
-        4
-      ],
-      "faces": {
-        "north": {
-          "texture": "#props",
-          "uv": [
-            1,
-            8,
-            2,
-            12
-          ]
-        },
-        "south": {
-          "texture": "#props",
-          "uv": [
-            1,
-            8,
-            2,
-            12
-          ]
-        },
-        "east": {
-          "texture": "#props",
-          "uv": [
-            1,
-            8,
-            2,
-            12
-          ]
-        },
-        "west": {
-          "texture": "#props",
-          "uv": [
-            1,
-            8,
-            2,
-            12
-          ]
-        },
-        "up": {
-          "texture": "#props",
-          "uv": [
-            1.75,
-            8,
-            2,
-            8.25
-          ]
-        },
-        "down": {
-          "texture": "#props",
-          "uv": [
-            1,
-            8,
-            2,
-            12
-          ]
-        }
-      }
-    },
-    {
-      "from": [
-        9,
+        8.8,
         16,
-        5
+        4.2
       ],
       "to": [
-        14,
-        16.6,
-        9
+        14.4,
+        16.65,
+        8.6
       ],
       "faces": {
         "up": {
@@ -270,17 +344,17 @@
         "down": {
           "texture": "#props",
           "uv": [
-            0,
-            4,
-            4,
-            8
+            8,
+            8,
+            12,
+            12
           ]
         },
         "north": {
           "texture": "#props",
           "uv": [
             0,
-            7.5,
+            7,
             4,
             8
           ]
@@ -289,7 +363,7 @@
           "texture": "#props",
           "uv": [
             0,
-            7.5,
+            7,
             4,
             8
           ]
@@ -298,7 +372,7 @@
           "texture": "#props",
           "uv": [
             0,
-            7.5,
+            7,
             4,
             8
           ]
@@ -307,7 +381,7 @@
           "texture": "#props",
           "uv": [
             0,
-            7.5,
+            7,
             4,
             8
           ]
@@ -315,16 +389,26 @@
       }
     },
     {
+      "name": "toughbook_screen",
       "from": [
-        9,
-        16.6,
-        8.4
+        8.8,
+        16.65,
+        7.95
       ],
       "to": [
-        14,
-        20.6,
-        9
+        14.4,
+        20.85,
+        8.65
       ],
+      "rotation": {
+        "angle": -22.5,
+        "axis": "x",
+        "origin": [
+          11.6,
+          16.65,
+          8.3
+        ]
+      },
       "faces": {
         "north": {
           "texture": "#props",
@@ -347,119 +431,199 @@
         "up": {
           "texture": "#props",
           "uv": [
+            8,
+            8,
             12,
-            0,
-            16,
-            0.25
+            9
           ]
         },
         "down": {
           "texture": "#props",
           "uv": [
+            8,
+            11,
             12,
-            3.5,
-            16,
-            4
+            12
           ]
         },
         "east": {
           "texture": "#props",
           "uv": [
-            15.75,
-            0,
-            16,
-            4
+            8,
+            8,
+            9,
+            12
           ]
         },
         "west": {
           "texture": "#props",
           "uv": [
+            11,
+            8,
             12,
-            0,
-            12.25,
-            4
+            12
           ]
         }
       }
     },
     {
+      "name": "tactical_map_sheet",
       "from": [
-        4,
+        2.0,
         16,
+        8.2
+      ],
+      "to": [
+        8.5,
+        16.25,
+        14.5
+      ],
+      "faces": {
+        "up": {
+          "texture": "#props",
+          "uv": [
+            4,
+            4,
+            8,
+            8
+          ]
+        },
+        "down": {
+          "texture": "#props",
+          "uv": [
+            4,
+            4,
+            8,
+            8
+          ]
+        },
+        "north": {
+          "texture": "#props",
+          "uv": [
+            4,
+            7.5,
+            8,
+            8
+          ]
+        },
+        "south": {
+          "texture": "#props",
+          "uv": [
+            4,
+            7.5,
+            8,
+            8
+          ]
+        },
+        "east": {
+          "texture": "#props",
+          "uv": [
+            4,
+            7.5,
+            8,
+            8
+          ]
+        },
+        "west": {
+          "texture": "#props",
+          "uv": [
+            4,
+            7.5,
+            8,
+            8
+          ]
+        }
+      }
+    },
+    {
+      "name": "classified_dossier",
+      "from": [
+        3.2,
+        16.25,
         9.5
       ],
       "to": [
-        9,
-        16.35,
-        14
+        7.2,
+        16.6,
+        13.2
       ],
+      "rotation": {
+        "angle": 22.5,
+        "axis": "y",
+        "origin": [
+          5.2,
+          16.4,
+          11.35
+        ]
+      },
       "faces": {
         "up": {
           "texture": "#props",
           "uv": [
             4,
-            4,
             8,
-            8
+            8,
+            12
           ]
         },
         "down": {
           "texture": "#props",
           "uv": [
             4,
-            4,
             8,
-            8
+            8,
+            12
           ]
         },
         "north": {
           "texture": "#props",
           "uv": [
             4,
-            7.5,
+            11,
             8,
-            8
+            12
           ]
         },
         "south": {
           "texture": "#props",
           "uv": [
             4,
-            7.5,
+            11,
             8,
-            8
+            12
           ]
         },
         "east": {
           "texture": "#props",
           "uv": [
             4,
-            7.5,
+            11,
             8,
-            8
+            12
           ]
         },
         "west": {
           "texture": "#props",
           "uv": [
             4,
-            7.5,
+            11,
             8,
-            8
+            12
           ]
         }
       }
     },
     {
+      "name": "pelican_case",
       "from": [
-        11.5,
+        10.0,
         16,
-        10.5
+        10.0
       ],
       "to": [
-        15,
+        14.8,
         18.5,
-        14
+        14.5
       ],
       "faces": {
         "north": {
@@ -519,127 +683,69 @@
       }
     },
     {
+      "name": "tactical_binoculars",
       "from": [
-        13.5,
-        16,
-        2
+        11.1,
+        18.5,
+        11.0
       ],
       "to": [
-        14,
-        20,
-        2.5
+        13.7,
+        19.6,
+        13.4
       ],
       "faces": {
         "north": {
           "texture": "#props",
           "uv": [
+            12,
             8,
-            8,
-            8.5,
-            12
+            16,
+            11
           ]
         },
         "south": {
           "texture": "#props",
           "uv": [
-            8,
-            8,
-            8.5,
+            12,
+            10,
+            16,
             12
           ]
         },
         "east": {
           "texture": "#props",
           "uv": [
-            8,
-            8,
-            8.5,
+            12,
+            10,
+            16,
             12
           ]
         },
         "west": {
           "texture": "#props",
           "uv": [
-            8,
-            8,
-            8.5,
+            12,
+            10,
+            16,
             12
           ]
         },
         "up": {
           "texture": "#props",
           "uv": [
-            8,
-            8,
-            8.5,
-            8.5
+            12,
+            9,
+            16,
+            12
           ]
         },
         "down": {
           "texture": "#props",
           "uv": [
-            8,
-            8,
-            8.5,
-            12
-          ]
-        }
-      }
-    },
-    {
-      "from": [
-        14,
-        17,
-        2
-      ],
-      "to": [
-        17,
-        20,
-        2.3
-      ],
-      "faces": {
-        "north": {
-          "texture": "#props",
-          "uv": [
-            4,
-            8,
-            8,
-            12
-          ]
-        },
-        "south": {
-          "texture": "#props",
-          "uv": [
-            4,
-            8,
-            8,
-            12
-          ]
-        },
-        "up": {
-          "texture": "#props",
-          "uv": [
-            4,
-            8,
-            7,
-            8.3
-          ]
-        },
-        "down": {
-          "texture": "#props",
-          "uv": [
-            4,
-            11.7,
-            7,
-            12
-          ]
-        },
-        "east": {
-          "texture": "#props",
-          "uv": [
-            7.7,
-            8,
-            8,
+            12,
+            9,
+            16,
             12
           ]
         }

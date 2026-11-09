@@ -660,10 +660,8 @@ public class ClassSystemConfig {
 
     private static double classSidearmDrawDefault(WeaponClass cls) {
         return switch (cls) {
-            case SNIPER -> 7.5;
-            case HEAVY -> 10.0;   // blast radius - draws earlier than the others
             case HEAVY_MG -> 7.5;
-            default -> 0.0;       // assault classes keep the rifle out
+            default -> 0.0;       // Camper (SNIPER), Demolisher (HEAVY) and assault classes stay on primary weapon
         };
     }
 

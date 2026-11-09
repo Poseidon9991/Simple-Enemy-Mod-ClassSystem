@@ -43,3 +43,21 @@ Parchment mappings, MixinGradle.
 - Curios is a soft dependency: accessed reflectively or behind
   `ModList.get().isLoaded("curios")` checks.
 - Commits are authored by the repo owner (Poseidon9991).
+
+<!-- FUSION-ORCHESTRATOR:START -->
+# Fusion Multi-Agent Collaboration Protocol
+
+Connected to **Fusion Desktop Orchestrator** via Streamable HTTP MCP at `http://127.0.0.1:4545/mcp`.
+Active Workspace Mode: **`live_folder`**.
+
+## Connected IDE Roster
+- **`antigravity` (Antigravity Desktop)** — Role: *Lead Architect* | Active Model: `Gemini 3.8 Flash (High)`
+- **`devin` (Devin Desktop)** — Role: *Backend & Implementer* | Active Model: `swe-2-max`
+
+## Mandatory 5-Step MCP Teamwork Protocol
+1. **`fusion_sync_session({ agent_id })`** — Call this FIRST when starting any task to read the global project goal, active workspace mode, teammate roster, active file locks, and recent checkpoints.
+2. **`fusion_claim_locks({ agent_id, file_paths, reason })`** — In `live_folder` mode, ALWAYS claim locks on target files BEFORE editing them. If `success: false`, do not overwrite files owned by `blocked_by`; coordinate or work on unlocked files.
+3. **`fusion_publish_checkpoint({ agent_id, summary, modified_files })`** — Publish concise progress summaries after meaningful milestones so teammates stay synchronized without reading raw transcripts.
+4. **`fusion_send_a2a_message({ from_agent, to_agent, task_prompt, context_files, auto_wake })`** — Delegate subtasks or request reviews directly from another IDE agent. Fusion automatically wakes the target IDE when `auto_wake` is `true`.
+5. **`fusion_complete_and_unlock({ agent_id, final_summary })`** — Call this when your task is finished to release all owned file locks, record the final checkpoint, and advance the Master Router sequential queue.
+<!-- FUSION-ORCHESTRATOR:END -->

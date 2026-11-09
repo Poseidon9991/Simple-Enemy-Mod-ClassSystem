@@ -405,7 +405,8 @@ public abstract class MixinTacticalManagerGoal {
             return;
         }
         WeaponClass assigned = WeaponClassSupport.get(this.unit);
-        if (assigned == null || assigned == WeaponClass.PISTOL) {
+        if (assigned == null || assigned == WeaponClass.PISTOL
+                || assigned == WeaponClass.SNIPER || assigned == WeaponClass.HEAVY) {
             return;
         }
         long now = this.unit.level().getGameTime();

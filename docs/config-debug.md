@@ -40,4 +40,4 @@ Removed keys: `vdfGunnerChance` (VDF is all-gun now),
 - `gradlew compileJava` / `gradlew build` (Java 17, ForgeGradle 6,
   `-Xmx3G`, no daemon)
 - No test sources — `test` is `NO-SOURCE`
-- jar: `build/libs/sem_classsystem-1.20.1-0.4.0.jar`
+- jar: `build/libs/sem_classsystem-1.20.1-0.5.0.jar`

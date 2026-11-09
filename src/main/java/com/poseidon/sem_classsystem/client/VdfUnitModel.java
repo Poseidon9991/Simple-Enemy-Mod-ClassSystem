@@ -81,23 +81,28 @@ public class VdfUnitModel extends HierarchicalModel<VdfUnitEntity> {
                           float ageInTicks, float netHeadYaw, float headPitch) {
         this.root().getAllParts().forEach(ModelPart::resetPose);
 
+        // Per-entity procedural state: tracks ground speed, walk/run blend,
+        // and cadence so slow strolls advance base keyframes at slow speed
+        // while combat sprints advance at full athletic speed.
+        UnitProceduralAnimState animState = UnitProceduralAnimState.get(entity);
+        animState.update(entity, ageInTicks);
+
         // Locomotion: our own states, started/stopped by the entity's tick()
-        // off the synced movement tracker. Walk wins while moving, idle fills
-        // the gaps - no layered manager, no deltaMovement condition.
+        // off the synced movement tracker. Walk speed scales with actual speed!
         if (entity.walkAnimationState.isStarted()) {
-            this.animate(entity.walkAnimationState, ModAnimationsDefinitions.UNIT_WALK, ageInTicks);
+            float animSpeed = animState.locomotionSpeedRatio() > 0.05F
+                    ? net.minecraft.util.Mth.clamp(animState.locomotionSpeedRatio(), 0.20F, 1.35F)
+                    : 1.0F;
+            this.animate(entity.walkAnimationState, ModAnimationsDefinitions.UNIT_WALK, ageInTicks, animSpeed);
         } else {
             this.animate(entity.idleAnimationState, ModAnimationsDefinitions.UNIT_IDLE, ageInTicks);
         }
         // Action clips layer on top of locomotion (they own the bones they touch)
-        this.animate(entity.hurtAnimationState, ModAnimationsDefinitions.UNIT_HURT, ageInTicks);
+        if (entity.hurtAnimationState.isStarted()) {
+            int variant = Math.floorMod(entity.hurtVariant, ModAnimationsDefinitions.UNIT_HURT_VARIANTS.length);
+            this.animate(entity.hurtAnimationState, ModAnimationsDefinitions.UNIT_HURT_VARIANTS[variant], ageInTicks, 2.0F);
+        }
         this.animate(entity.deathAnimationState, ModAnimationsDefinitions.UNIT_DEATH, ageInTicks);
-
-        // Per-entity procedural state (WeakHashMap-keyed, same store the SEM
-        // models feed through their mixins): combat/walk/crouch blends,
-        // recoil impulse, reload + bolt progress - all frame-rate smooth.
-        UnitProceduralAnimState animState = UnitProceduralAnimState.get(entity);
-        animState.update(entity, ageInTicks);
 
         net.minecraft.world.item.ItemStack mainHand = entity.getMainHandItem();
         IGun iGun = IGun.getIGunOrNull(mainHand);
@@ -118,17 +123,22 @@ public class VdfUnitModel extends HierarchicalModel<VdfUnitEntity> {
             this.weaponPoseLayer.apply(this.root, entity, ageInTicks);
         }
 
-        // Tail pass - the same polish MixinUnitModelCrouch layers on the SEM
-        // models. Skipped while the hurt/death clips own the rig, same gate.
+        // Tail pass - the same polish MixinUnitModelCrouch + MixinUnitMeleeWeaponPose
+        // layer on the SEM models. Skipped while the hurt/death clips own the rig.
         if (!entity.isAlive()
                 || entity.hurtAnimationState.isStarted()
                 || entity.deathAnimationState.isStarted()) {
             return;
         }
+        if (com.poseidon.sem_classsystem.entity.ai.UnitMeleeAttackGoal.isMeleeWeapon(mainHand)) {
+            UnitProceduralPoses.applyMeleePose(entity, limbSwing, limbSwingAmount, ageInTicks,
+                    this.attackTime, this.unit, this.head, this.body,
+                    this.rightArm, this.leftArm, this.rightLeg, this.leftLeg);
+            return;
+        }
         UnitProceduralPoses.applyLocomotionPolish(this.unit, this.head, this.body,
                 this.rightArm, this.leftArm, this.rightLeg, this.leftLeg,
-                limbSwing, limbSwingAmount, ageInTicks,
-                animState.smoothWalkBlend(), animState.smoothCombatBlend());
+                limbSwing, limbSwingAmount, ageInTicks, animState);
         if (holdsGun) {
             UnitProceduralPoses.applyGunProcedural(entity, animState,
                     this.body, this.head, this.rightArm, this.leftArm);
@@ -155,6 +165,8 @@ public class VdfUnitModel extends HierarchicalModel<VdfUnitEntity> {
                 }
                 UnitProceduralPoses.applyCrouchStance(crouch, cls, this.body, this.head,
                         this.rightArm, this.leftArm, this.rightLeg, this.leftLeg);
+                UnitProceduralPoses.applyUseItem(animState, ageInTicks,
+                        this.head, this.rightArm, this.leftArm);
             }
         }
     }
@@ -181,7 +193,7 @@ public class VdfUnitModel extends HierarchicalModel<VdfUnitEntity> {
                 PartPose.offsetAndRotation(0.0F, -6.16F, 1.0616F, -0.0105F, 0.0735F, 0.0228F));
         head.addOrReplaceChild("nose", CubeListBuilder.create()
                         .texOffs(24, 0).addBox(-1.0F, -3.2F, -6.0F, 2.0F, 4.0F, 2.0F, new CubeDeformation(0.0F))
-                        .texOffs(24, 6).addBox(-3.0F, -4.5F, -4.5F, 6.0F, 1.0F, 1.0F, new CubeDeformation(0.0F)),
+                        .texOffs(24, 6).addBox(-3.0F, -6.0F, -4.5F, 6.0F, 1.0F, 1.0F, new CubeDeformation(0.0F)),
                 PartPose.ZERO);
 
         unit.addOrReplaceChild("body", CubeListBuilder.create()
