@@ -356,6 +356,20 @@ public final class UnitNeeds {
         data.putFloat(TAG_ENERGY, Math.min(MAX, data.getFloat(TAG_ENERGY) + 1));
     }
 
+    // Combat Stim / Auto-Injector: immediate burst recovery of stamina & morale
+    // and wakes resting units for an emergency push.
+    public static void stimInject(PmcUnitEntity unit) {
+        wake(unit);
+        if (!appliesTo(unit)) {
+            return;
+        }
+        CompoundTag data = unit.getPersistentData();
+        ensureInit(unit, data);
+        data.putFloat(TAG_ENERGY, Math.min(MAX, data.getFloat(TAG_ENERGY) + 12.0F));
+        addMorale(unit, 25);
+        data.putInt(TAG_BARKED, data.getInt(TAG_BARKED) & ~(BARK_TIRED | BARK_SHAKEN));
+    }
+
     // ---- bed binding --------------------------------------------------------
 
     // The bunk this unit claimed (BlockPos.asLong), 0 when unassigned.

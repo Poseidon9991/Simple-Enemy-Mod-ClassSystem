@@ -1,6 +1,9 @@
 {
   "replace": false,
   "values": [
-    "sem_classsystem:spotting_scope"
+    "sem_classsystem:spotting_scope",
+    "sem_classsystem:nvg_night",
+    "sem_classsystem:nvg_infrared",
+    "sem_classsystem:nvg_smart"
   ]
 }

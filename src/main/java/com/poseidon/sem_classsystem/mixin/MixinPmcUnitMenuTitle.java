@@ -36,10 +36,22 @@ public abstract class MixinPmcUnitMenuTitle {
     private void semcs$openUnitVestPlates(Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
         if (player.isShiftKeyDown() && player.getItemInHand(hand).isEmpty()) {
             PmcUnitEntity self = (PmcUnitEntity) (Object) this;
+            if (!self.isOwnedBy(player)) {
+                return;
+            }
             ItemStack chest = self.getItemBySlot(EquipmentSlot.CHEST);
+            EquipmentSlot targetSlot = null;
             if (chest.getItem() instanceof BhqArmorItem && ArmorPlateItem.maxPlateSlots(chest) > 0) {
+                targetSlot = EquipmentSlot.CHEST;
+            } else {
+                ItemStack head = self.getItemBySlot(EquipmentSlot.HEAD);
+                if (head.getItem() instanceof BhqArmorItem && ArmorPlateItem.maxPlateSlots(head) > 0) {
+                    targetSlot = EquipmentSlot.HEAD;
+                }
+            }
+            if (targetSlot != null) {
                 if (!self.level().isClientSide && player instanceof ServerPlayer sp) {
-                    ArmorPlateMenu.openForEntity(sp, self, EquipmentSlot.CHEST);
+                    ArmorPlateMenu.openForEntity(sp, self, targetSlot);
                 }
                 cir.setReturnValue(InteractionResult.sidedSuccess(self.level().isClientSide));
             }

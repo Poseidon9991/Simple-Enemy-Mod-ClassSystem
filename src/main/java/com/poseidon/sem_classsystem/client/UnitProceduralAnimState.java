@@ -53,8 +53,15 @@ public final class UnitProceduralAnimState {
     private float moveForward = 1.0F;                                     // +1 forward, -1 backpedal
     private float moveSide = 0.0F;                                        // +1 right, -1 left
     private float turnRate = 0.0F;                                        // deg/tick, smoothed
-    private float lastBodyYaw = Float.NaN;
     private float airBlend = 0.0F;
+    private int lastSampledTick = Integer.MIN_VALUE;
+    private float sampledSpeed = 0.0F;
+    private float sampledMoveForward = 1.0F;
+    private float sampledMoveSide = 0.0F;
+    private float sampledTurnRate = 0.0F;
+    private float lastSampledYaw = Float.NaN;
+    private float phaseDirection = 1.0F;
+    private boolean walkPhaseInitialized = false;
 
     // Better Combat style smooth melee swing timer & 3-hit combo index
     private boolean wasSwinging = false;
@@ -76,9 +83,12 @@ public final class UnitProceduralAnimState {
                 this.combatBlend = vdf.isInCombat() ? 1.0F : 0.0F;
             }
             this.crouchBlend = entity.isShiftKeyDown() ? 1.0F : 0.0F;
-            this.walkBlend = Mth.clamp(entity.walkAnimation.speed() * 2.2F, 0.0F, 1.0F);
+            this.walkBlend = Mth.clamp(entity.walkAnimation.speed() * 1.5F, 0.0F, 1.0F);
             this.useItemBlend = (entity.isUsingItem() && !entity.getOffhandItem().isEmpty()) ? 1.0F : 0.0F;
             this.proneBlend = entity.getPose() == net.minecraft.world.entity.Pose.SWIMMING ? 1.0F : 0.0F;
+            this.lastSampledTick = Integer.MIN_VALUE;
+            this.lastSampledYaw = entity.yBodyRot;
+            this.sampledTurnRate = 0.0F;
         } else {
             float rawDt = ageInTicks - this.lastAgeInTicks;
             if (Math.abs(rawDt) < 1.0E-4F) {
@@ -97,87 +107,111 @@ public final class UnitProceduralAnimState {
         float targetCrouch = (entity.isAlive() && entity.isShiftKeyDown() && targetProne < 0.5F) ? 1.0F : 0.0F;
         this.crouchBlend = approach(this.crouchBlend, targetCrouch, dt * 0.25F);
 
-        // Smooth locomotion blend from client walkAnimation speed + position delta.
-        // Accurately differentiates slow walking/patrolling from running/sprinting so
-        // slow strolls take gentle, measured strides while combat rushes drive forward.
+        // Sample tick-level movement and body rotation once per entity tick using
+        // interpolated yaw so high-FPS render passes never produce sub-tick turn spikes
+        // or jittering forward/strafe estimates.
         float pt = Mth.frac(ageInTicks);
-        float limbSpeed = entity.walkAnimation.speed(pt);
-        double dx = entity.getX() - entity.xo;
-        double dz = entity.getZ() - entity.zo;
-        float horizDist = (float) Math.sqrt(dx * dx + dz * dz);
+        if (entity.tickCount != this.lastSampledTick) {
+            int tickDelta = (this.lastSampledTick == Integer.MIN_VALUE || entity.tickCount < this.lastSampledTick)
+                    ? 1 : Math.min(4, entity.tickCount - this.lastSampledTick);
+            this.lastSampledTick = entity.tickCount;
 
-        // Ground speed estimation (blocks/tick): slow walk is ~0.03-0.12 b/t, sprint is 0.22-0.35+ b/t
-        float speed = Math.max(limbSpeed * 0.25F, horizDist);
-        boolean movingHoriz = speed > 0.003F || limbSpeed > 0.015F;
+            double dx = entity.getX() - entity.xo;
+            double dz = entity.getZ() - entity.zo;
+            float horizDist = (float) Math.sqrt(dx * dx + dz * dz);
+            if (horizDist > 1.2F) {
+                // Ignore sudden teleport jumps so legs do not violently wind up
+                horizDist = 0.0F;
+            }
+            float limbTickSpeed = entity.walkAnimation.speed(1.0F);
+            float instantSpeed = horizDist > 0.002F ? horizDist : (limbTickSpeed * 0.22F);
+            float speedAlpha = 1.0F - (float) Math.pow(0.62D, tickDelta);
+            this.sampledSpeed = Mth.lerp(speedAlpha, this.sampledSpeed, instantSpeed);
 
-        // Walk blend: smoothly rises when moving, returns to 0 when stationary
-        float targetWalk = movingHoriz ? Mth.clamp(Math.max(0.40F, speed * 10.0F), 0.0F, 1.0F) : 0.0F;
-        float walkRate = targetWalk > this.walkBlend ? dt * 0.35F : dt * 0.25F;
-        this.walkBlend = approach(this.walkBlend, targetWalk, walkRate);
+            float interpYaw = Mth.rotLerp(pt, entity.yBodyRotO, entity.yBodyRot);
+            if (!Float.isNaN(this.lastSampledYaw)) {
+                float rawTurn = Mth.clamp(Mth.wrapDegrees(interpYaw - this.lastSampledYaw) / tickDelta, -28.0F, 28.0F);
+                this.sampledTurnRate = Mth.lerp(speedAlpha, this.sampledTurnRate, rawTurn);
+            }
+            this.lastSampledYaw = interpYaw;
 
-        // Run blend: 0 during slow walk/patrol (< 0.16 b/t), rises toward 1.0 during full sprint (> 0.26 b/t)
-        boolean isSprinting = entity.isSprinting() || (entity instanceof AbstractUnit u && u.isInCombat() && speed > 0.22F);
-        float targetRun = (movingHoriz && (speed > 0.16F || isSprinting))
-                ? Mth.clamp(isSprinting ? 1.0F : (speed - 0.16F) / 0.10F, 0.0F, 1.0F)
+            if (horizDist > 0.004F) {
+                float yawRad = interpYaw * Mth.DEG_TO_RAD;
+                float fx = -Mth.sin(yawRad);
+                float fz = Mth.cos(yawRad);
+                float invLen = 1.0F / horizDist;
+                float tFwd = Mth.clamp((float) (dx * fx + dz * fz) * invLen, -1.0F, 1.0F);
+                float tSide = Mth.clamp((float) (-dx * fz + dz * fx) * invLen, -1.0F, 1.0F);
+                if (Math.abs(tSide) < 0.08F) {
+                    tSide = 0.0F;
+                }
+                float dirAlpha = 1.0F - (float) Math.pow(0.66D, tickDelta);
+                this.sampledMoveForward = Mth.lerp(dirAlpha, this.sampledMoveForward, tFwd);
+                this.sampledMoveSide = Mth.lerp(dirAlpha, this.sampledMoveSide, tSide);
+            } else if (this.walkBlend < 0.06F) {
+                float relaxAlpha = 1.0F - (float) Math.pow(0.82D, tickDelta);
+                this.sampledMoveForward = Mth.lerp(relaxAlpha, this.sampledMoveForward, 1.0F);
+                this.sampledMoveSide = Mth.lerp(relaxAlpha, this.sampledMoveSide, 0.0F);
+            }
+        }
+
+        // Exponentially smooth locomotion speed, direction, and turn rate per frame.
+        float speed = this.sampledSpeed;
+        float limbNow = entity.walkAnimation.speed(pt);
+        boolean movingHoriz = speed > 0.004F || limbNow > 0.025F;
+
+        // Walk blend: rises proportionally to actual ground speed rather than pinning to 1.0 on slow strolls
+        float targetWalk = movingHoriz ? Mth.clamp((speed - 0.003F) / 0.12F, 0.25F, 1.0F) : 0.0F;
+        float walkAlpha = 1.0F - (float) Math.exp(-dt * (targetWalk > this.walkBlend ? 0.38F : 0.24F));
+        this.walkBlend = Mth.lerp(walkAlpha, this.walkBlend, targetWalk);
+        if (targetWalk == 0.0F && this.walkBlend < 0.002F) {
+            this.walkBlend = 0.0F;
+        }
+
+        // Run blend: strictly 0 during slow patrol & normal walk (< 0.17 b/t), ramps up on sprints
+        boolean isSprinting = (entity.isSprinting() && speed > 0.10F)
+                || (entity instanceof AbstractUnit u && u.isInCombat() && speed > 0.20F)
+                || (entity instanceof VdfUnitEntity v && v.isInCombat() && speed > 0.20F);
+        float targetRun = (movingHoriz && (speed > 0.17F || isSprinting))
+                ? Mth.clamp(isSprinting ? Math.max(0.75F, (speed - 0.15F) / 0.10F) : (speed - 0.17F) / 0.10F, 0.0F, 1.0F)
                 : 0.0F;
-        float runRate = targetRun > this.runBlend ? dt * 0.30F : dt * 0.20F;
-        this.runBlend = approach(this.runBlend, targetRun, runRate);
+        float runAlpha = 1.0F - (float) Math.exp(-dt * (targetRun > this.runBlend ? 0.30F : 0.20F));
+        this.runBlend = Mth.lerp(runAlpha, this.runBlend, targetRun);
 
-        // Locomotion speed ratio for base clip advancement:
-        // Slow stroll (~0.04 b/t) -> ~0.25x speed
-        // Normal walk (~0.14 b/t) -> ~0.70x speed
-        // Fast sprint (~0.30+ b/t) -> ~1.25x speed
+        // Clip playback ratio for base UNIT_WALK definition
         float targetSpeedRatio = movingHoriz
-                ? Mth.clamp(0.20F + speed * 3.5F, 0.20F, 1.35F)
+                ? Mth.clamp(0.14F + speed * 3.2F, 0.16F, 1.30F)
                 : 0.0F;
-        this.speedRatio = approach(this.speedRatio, targetSpeedRatio, dt * 0.35F);
+        float ratioAlpha = 1.0F - (float) Math.exp(-dt * 0.32F);
+        this.speedRatio = Mth.lerp(ratioAlpha, this.speedRatio, targetSpeedRatio);
 
-        // Stride amplitude:
-        // Slow walk: 0.32F - 0.50F (gentle, relaxed, compact leg swing)
-        // Normal walk: 0.55F - 0.70F
-        // Sprint: 1.0F - 1.15F (wide athletic drive)
+        // Stride amplitude: calm compact steps at stroll (<0.4), measured at walk (~0.5), full drive at sprint
+        float walkStride = Mth.clamp(0.24F + speed * 2.1F, 0.24F, 0.56F);
         float targetStrideAmp = movingHoriz
-                ? Mth.lerp(this.runBlend, Mth.clamp(0.32F + speed * 1.8F, 0.32F, 0.65F), 1.15F)
+                ? Mth.lerp(this.runBlend, walkStride, Mth.clamp(0.76F + speed * 0.9F, 0.80F, 1.05F))
                 : 0.0F;
-        float ampRate = targetStrideAmp > this.strideAmplitude ? dt * 0.35F : dt * 0.22F;
-        this.strideAmplitude = approach(this.strideAmplitude, targetStrideAmp, ampRate);
+        float ampAlpha = 1.0F - (float) Math.exp(-dt * (targetStrideAmp > this.strideAmplitude ? 0.34F : 0.22F));
+        this.strideAmplitude = Mth.lerp(ampAlpha, this.strideAmplitude, targetStrideAmp);
 
-        // Step frequency (cadence):
-        // Scales directly with ground translation speed so legs never piston on ice!
-        // At slow patrol: stepFreq ~ 0.10 rad/tick (takes ~2.5s per cycle)
-        // At full sprint: stepFreq ~ 0.50 rad/tick (takes ~0.6s per cycle)
+        float moveAlpha = 1.0F - (float) Math.exp(-dt * 0.34F);
+        this.moveForward = Mth.lerp(moveAlpha, this.moveForward, this.sampledMoveForward);
+        this.moveSide = Mth.lerp(moveAlpha, this.moveSide, this.sampledMoveSide);
+        this.turnRate = Mth.lerp(moveAlpha, this.turnRate, this.sampledTurnRate);
+
+        // Smooth cadence direction with hysteresis band [-0.25, -0.05] and exponential slewing
+        // so forward/backpedal transitions slow cleanly through zero instead of 180-deg leg flips.
+        float targetPhaseDir = this.moveForward < -0.25F ? -1.0F
+                : (this.moveForward > -0.05F ? 1.0F : this.phaseDirection);
+        float pdAlpha = 1.0F - (float) Math.exp(-dt * 0.24F);
+        this.phaseDirection = Mth.lerp(pdAlpha, this.phaseDirection, targetPhaseDir);
+
         if (this.walkBlend > 0.02F) {
-            float stepFreq = Mth.clamp(0.08F + speed * 1.45F, 0.08F, 0.60F);
-            this.walkPhase += dt * stepFreq;
+            float stepFreq = Mth.lerp(this.runBlend,
+                    Mth.clamp(0.11F + speed * 1.45F, 0.11F, 0.38F),
+                    Mth.clamp(0.36F + speed * 1.15F, 0.38F, 0.58F));
+            this.walkPhase += dt * stepFreq * this.phaseDirection;
+            this.walkPhaseInitialized = true;
         }
-
-        // Movement direction in body space. yBodyRot 0 faces +Z; the body's
-        // right-hand side is (-cos, -sin). Only re-aim while actually moving
-        // so the legs don't snap back to "forward" in the last stride frames.
-        if (horizDist > 0.004F) {
-            float yawRad = entity.yBodyRot * Mth.DEG_TO_RAD;
-            float fx = -Mth.sin(yawRad);
-            float fz = Mth.cos(yawRad);
-            float invLen = 1.0F / horizDist;
-            float tFwd = (float) (dx * fx + dz * fz) * invLen;
-            float tSide = (float) (-dx * fz + dz * fx) * invLen;
-            float dirRate = Mth.clamp(dt * 0.30F, 0.0F, 1.0F);
-            this.moveForward = Mth.lerp(dirRate, this.moveForward, tFwd);
-            this.moveSide = Mth.lerp(dirRate, this.moveSide, tSide);
-        } else if (this.walkBlend < 0.05F) {
-            float relax = Mth.clamp(dt * 0.10F, 0.0F, 1.0F);
-            this.moveForward = Mth.lerp(relax, this.moveForward, 1.0F);
-            this.moveSide = Mth.lerp(relax, this.moveSide, 0.0F);
-        }
-
-        // Body turn rate (deg per tick), smoothed - drives a small bank /
-        // torso lag so pivots read as weight instead of a rigid spin.
-        float bodyYaw = entity.yBodyRot;
-        if (!Float.isNaN(this.lastBodyYaw) && dt > 0.0001F) {
-            float rate = Mth.clamp(Mth.wrapDegrees(bodyYaw - this.lastBodyYaw) / dt, -40.0F, 40.0F);
-            this.turnRate = Mth.lerp(Mth.clamp(dt * 0.25F, 0.0F, 1.0F), this.turnRate, rate);
-        }
-        this.lastBodyYaw = bodyYaw;
 
         // Airborne (jump / drop off a ledge) - legs tuck, arms balance
         boolean airborne = entity.isAlive() && !entity.onGround() && !entity.isInWater()
@@ -328,6 +362,10 @@ public final class UnitProceduralAnimState {
 
     public float walkPhase() {
         return this.walkPhase;
+    }
+
+    public boolean hasWalkPhase() {
+        return this.walkPhaseInitialized;
     }
 
     public float smoothStrideAmplitude() {

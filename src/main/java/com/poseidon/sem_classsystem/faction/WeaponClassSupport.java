@@ -47,21 +47,9 @@ public final class WeaponClassSupport {
                 || c == net.nekoyuni.SimpleEnemyMod.entity.unit.USunitEntity.class
                 || c == net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity.class
                 || c == com.poseidon.sem_classsystem.entity.BhqUnitEntity.class
-                || c == com.poseidon.sem_classsystem.entity.VdfUnitEntity.class;
+                || c == com.poseidon.sem_classsystem.entity.VdfUnitEntity.class
+                || c == com.poseidon.sem_classsystem.entity.TerroristUnitEntity.class;
     }
-
-    // Per-tick cache for getEffective: the held-gun scan (item stack -> IGun
-    // -> gun id -> loadout table lookup) is cheap but not free, and combat
-    // mixins call this several times per tick per fighting unit (aim, both
-    // spread calls, shoot, suppression). The hand-slot stack instance is
-    // stable within a tick, so (same stack, same game time) => reuse.
-    // synchronizedMap: server-thread combat code AND the client render
-    // thread (UnitProceduralAnimState, MixinUnitModelCrouch) both call
-    // getEffective - in single-player those run concurrently, and a plain
-    // WeakHashMap can corrupt its table on a racing put/expunge.
-    private record EffCache(ItemStack held, WeaponClass cls, long gameTime) {}
-    private static final java.util.Map<Entity, EffCache> EFFECTIVE_CACHE =
-            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
 
     // The class that actually drives combat tuning RIGHT NOW: if the unit
     // is holding a gun that belongs to a known class, that gun's class wins
@@ -70,24 +58,18 @@ public final class WeaponClassSupport {
     // to the assigned class; classless units stay classless either way.
     @Nullable
     public static WeaponClass getEffective(Entity entity) {
+        if (entity instanceof IClassifiedUnit classified) {
+            return classified.semcs$getCachedEffectiveClass();
+        }
         if (!(entity instanceof LivingEntity living)) {
             return get(entity);
         }
-        ItemStack held = living.getMainHandItem();
-        long now = entity.level().getGameTime();
-        EffCache cached = EFFECTIVE_CACHE.get(entity);
-        if (cached != null && cached.held() == held && cached.gameTime() == now) {
-            return cached.cls();
-        }
-        WeaponClass cls = computeEffective(entity, living, held);
-        EFFECTIVE_CACHE.put(entity, new EffCache(held, cls, now));
-        return cls;
+        return computeEffective(living, living.getMainHandItem());
     }
 
     @Nullable
-    private static WeaponClass computeEffective(Entity entity, LivingEntity living,
-                                                ItemStack held) {
-        WeaponClass cls = get(entity);
+    public static WeaponClass computeEffective(LivingEntity living, ItemStack held) {
+        WeaponClass cls = get(living);
         if (cls == null) {
             return null;
         }
@@ -126,6 +108,13 @@ public final class WeaponClassSupport {
             return null;
         }
         WeaponClass cls = classified.semcs$getWeaponClass();
+        if (entity instanceof com.poseidon.sem_classsystem.entity.TerroristUnitEntity) {
+            if (!com.poseidon.sem_classsystem.entity.TerroristUnitEntity.isAllowedClass(cls)) {
+                cls = com.poseidon.sem_classsystem.entity.TerroristUnitEntity.rollAllowedClass(random);
+                classified.semcs$setWeaponClass(cls);
+            }
+            return cls;
+        }
         if (cls == null) {
             WeaponClass[] all = WeaponClass.mainClasses();
             cls = all[random.nextInt(all.length)];

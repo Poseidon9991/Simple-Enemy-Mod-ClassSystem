@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "IAI",
+    "WCW"
+  ],
+  "key": {
+    "I": { "item": "minecraft:iron_ingot" },
+    "A": { "item": "minecraft:anvil" },
+    "W": { "tag": "minecraft:planks" },
+    "C": { "item": "minecraft:chest" }
+  },
+  "result": {
+    "item": "sem_classsystem:armorer_bench",
+    "count": 1
+  }
+}

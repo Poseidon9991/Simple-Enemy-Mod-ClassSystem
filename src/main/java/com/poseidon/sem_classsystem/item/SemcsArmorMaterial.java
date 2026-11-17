@@ -19,7 +19,9 @@ public enum SemcsArmorMaterial implements ArmorMaterial {
     RU("ru_", 26, new int[]{3, 5, 7, 3}, 10, 1.0F, 0.0F, SoundEvents.ARMOR_EQUIP_IRON, () -> Ingredient.of(Items.IRON_INGOT)),
     US("us_", 28, new int[]{3, 6, 8, 3}, 10, 1.5F, 0.05F, SoundEvents.ARMOR_EQUIP_DIAMOND, () -> Ingredient.of(Items.IRON_INGOT)),
     PMC("pmc_", 30, new int[]{3, 6, 8, 4}, 12, 1.5F, 0.1F, SoundEvents.ARMOR_EQUIP_NETHERITE, () -> Ingredient.of(Items.NETHERITE_SCRAP)),
-    VDF("vdf_", 20, new int[]{2, 4, 5, 3}, 14, 0.5F, 0.0F, SoundEvents.ARMOR_EQUIP_LEATHER, () -> Ingredient.of(Items.LEATHER));
+    VDF("vdf_", 20, new int[]{2, 4, 5, 3}, 14, 0.5F, 0.0F, SoundEvents.ARMOR_EQUIP_LEATHER, () -> Ingredient.of(Items.LEATHER)),
+    TERRORIST("terrorist_", 22, new int[]{2, 4, 6, 3}, 12, 0.75F, 0.0F, SoundEvents.ARMOR_EQUIP_LEATHER, () -> Ingredient.of(Items.LEATHER)),
+    TANYA("tanya_", 34, new int[]{3, 6, 8, 4}, 15, 2.0F, 0.1F, SoundEvents.ARMOR_EQUIP_IRON, () -> Ingredient.of(Items.GOLD_INGOT));
 
     private static final int[] BASE_DURABILITY = {13, 15, 16, 11};
 

@@ -1,0 +1,10 @@
+{
+  "type": "forge:add_spawns",
+  "biomes": "#forge:is_desert",
+  "spawners": {
+    "type": "sem_classsystem:terrorist_unit",
+    "weight": 28,
+    "minCount": 2,
+    "maxCount": 4
+  }
+}

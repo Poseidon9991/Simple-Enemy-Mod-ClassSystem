@@ -124,9 +124,26 @@ public class ArmorPlateMenu extends AbstractContainerMenu {
             }
         }
 
-        // 3. Player Hotbar (1 row of 9 slots at y=142)
+        // 3. Player Hotbar (1 row of 9 slots at y=142; lock active mainhand slot when opened from hand)
         for (int col = 0; col < 9; col++) {
-            this.addSlot(new Slot(playerInv, col, 8 + col * 18, 142));
+            boolean lockedHand = (this.sourceType == SourceType.HAND
+                    && this.sourceIndex == 0
+                    && col == playerInv.selected);
+            if (lockedHand) {
+                this.addSlot(new Slot(playerInv, col, 8 + col * 18, 142) {
+                    @Override
+                    public boolean mayPickup(Player p) {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean mayPlace(ItemStack stack) {
+                        return false;
+                    }
+                });
+            } else {
+                this.addSlot(new Slot(playerInv, col, 8 + col * 18, 142));
+            }
         }
     }
 
@@ -239,11 +256,25 @@ public class ArmorPlateMenu extends AbstractContainerMenu {
         if (!player.isAlive() || this.armorStack.isEmpty()) {
             return false;
         }
+        if (this.sourceType == SourceType.HAND) {
+            InteractionHand hand = this.sourceIndex == 0 ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+            return player.getItemInHand(hand) == this.armorStack;
+        }
+        if (this.sourceType == SourceType.WORN) {
+            return this.sourceIndex >= 0 && this.sourceIndex < EQUIPMENT_SLOTS.length
+                    && player.getItemBySlot(EQUIPMENT_SLOTS[this.sourceIndex]) == this.armorStack;
+        }
         if (this.sourceType == SourceType.ENTITY) {
             Entity ent = player.level().getEntity(this.entityId);
-            return ent != null && ent.isAlive() && ent.distanceTo(player) <= 8.0F;
+            if (!(ent instanceof LivingEntity living) || !living.isAlive() || living.distanceTo(player) > 8.0F) {
+                return false;
+            }
+            if (this.sourceIndex >= 0 && this.sourceIndex < EQUIPMENT_SLOTS.length) {
+                return living.getItemBySlot(EQUIPMENT_SLOTS[this.sourceIndex]) == this.armorStack;
+            }
+            return living.getItemBySlot(EquipmentSlot.CHEST) == this.armorStack;
         }
-        return true;
+        return false;
     }
 
     @Override

@@ -1,0 +1,31 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GEG",
+    "AHA",
+    "DND"
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "E": {
+      "item": "minecraft:emerald_block"
+    },
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "H": {
+      "item": "minecraft:diamond_helmet"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    },
+    "N": {
+      "item": "minecraft:netherite_scrap"
+    }
+  },
+  "result": {
+    "item": "sem_classsystem:tanya_helmet"
+  }
+}

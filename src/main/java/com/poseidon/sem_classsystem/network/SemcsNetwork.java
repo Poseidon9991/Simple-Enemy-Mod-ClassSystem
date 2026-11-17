@@ -15,7 +15,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 @Mod.EventBusSubscriber(modid = SemClassSystem.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class SemcsNetwork {
 
-    private static final String VERSION = "5";
+    private static final String VERSION = "6";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID, "main"),
@@ -66,6 +66,15 @@ public final class SemcsNetwork {
             CHANNEL.registerMessage(id++, PacketOpenWornVest.class,
                     PacketOpenWornVest::encode, PacketOpenWornVest::decode,
                     PacketOpenWornVest::handle);
+            CHANNEL.registerMessage(id++, PacketToggleTanyaAbility.class,
+                    PacketToggleTanyaAbility::encode, PacketToggleTanyaAbility::decode,
+                    PacketToggleTanyaAbility::handle);
+            CHANNEL.registerMessage(id++, PacketSyncTanyaState.class,
+                    PacketSyncTanyaState::encode, PacketSyncTanyaState::decode,
+                    PacketSyncTanyaState::handle);
+            CHANNEL.registerMessage(id++, PacketToggleNvg.class,
+                    PacketToggleNvg::encode, PacketToggleNvg::decode,
+                    PacketToggleNvg::handle);
         });
     }
 }

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "sem_classsystem:block/comms_radar_top",
+    "front": "sem_classsystem:block/comms_radar_front_alert",
+    "side": "sem_classsystem:block/comms_radar_side"
+  }
+}

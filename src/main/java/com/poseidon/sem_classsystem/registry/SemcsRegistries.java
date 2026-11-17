@@ -2,19 +2,32 @@
 package com.poseidon.sem_classsystem.registry;
 
 import com.poseidon.sem_classsystem.SemClassSystem;
+import com.poseidon.sem_classsystem.block.ArmorerBenchBlock;
+import com.poseidon.sem_classsystem.block.ArmorerBenchBlockEntity;
 import com.poseidon.sem_classsystem.block.BhqRecruitTableBlock;
+import com.poseidon.sem_classsystem.block.CommsRadarBlock;
+import com.poseidon.sem_classsystem.block.CommsRadarBlockEntity;
+import com.poseidon.sem_classsystem.block.FieldCotBlock;
+import com.poseidon.sem_classsystem.block.FieldCotBlockEntity;
 import com.poseidon.sem_classsystem.block.GuardPostBlock;
 import com.poseidon.sem_classsystem.block.GuardPostBlockEntity;
+import com.poseidon.sem_classsystem.block.MedicalStationBlock;
+import com.poseidon.sem_classsystem.block.MedicalStationBlockEntity;
 import com.poseidon.sem_classsystem.entity.BhqUnitEntity;
+import com.poseidon.sem_classsystem.entity.TerroristUnitEntity;
 import com.poseidon.sem_classsystem.entity.VdfUnitEntity;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
 import com.poseidon.sem_classsystem.item.ArmorPlateItem;
 import com.poseidon.sem_classsystem.item.BhqArmorItem;
 import com.poseidon.sem_classsystem.item.ClassSpawnEggItem;
+import com.poseidon.sem_classsystem.item.CombatStimItem;
 import com.poseidon.sem_classsystem.item.FieldTabletItem;
+import com.poseidon.sem_classsystem.item.LaserDesignatorItem;
 import com.poseidon.sem_classsystem.item.SemcsCurioItem;
 import com.poseidon.sem_classsystem.item.SquadWhistleItem;
 import com.poseidon.sem_classsystem.menu.ArmorPlateMenu;
+import com.poseidon.sem_classsystem.menu.ArmorerBenchMenu;
+import com.poseidon.sem_classsystem.menu.MedicalStationMenu;
 import com.poseidon.sem_classsystem.menu.RecruitTableMenu;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleType;
@@ -25,6 +38,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ArmorItem;
@@ -36,10 +50,12 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
+import net.minecraftforge.event.entity.SpawnPlacementRegisterEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
@@ -108,6 +124,26 @@ public final class SemcsRegistries {
             SOUND_EVENTS.register("voice_bhq_warning", () -> SoundEvent.createVariableRangeEvent(
                     ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID, "voice_bhq_warning")));
 
+    // Imperial Aerial Mage (Tanya / Type-95) magic combat SFX
+    public static final RegistryObject<SoundEvent> TANYA_BARRIER_DEPLOY =
+            SOUND_EVENTS.register("tanya_barrier_deploy", () -> SoundEvent.createVariableRangeEvent(
+                    ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID, "tanya_barrier_deploy")));
+    public static final RegistryObject<SoundEvent> TANYA_BARRIER_HIT =
+            SOUND_EVENTS.register("tanya_barrier_hit", () -> SoundEvent.createVariableRangeEvent(
+                    ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID, "tanya_barrier_hit")));
+    public static final RegistryObject<SoundEvent> TANYA_BARRIER_SHATTER =
+            SOUND_EVENTS.register("tanya_barrier_shatter", () -> SoundEvent.createVariableRangeEvent(
+                    ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID, "tanya_barrier_shatter")));
+    public static final RegistryObject<SoundEvent> TANYA_SPELL_SHOOT =
+            SOUND_EVENTS.register("tanya_spell_shoot", () -> SoundEvent.createVariableRangeEvent(
+                    ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID, "tanya_spell_shoot")));
+    public static final RegistryObject<SoundEvent> TANYA_SPELL_BLAST =
+            SOUND_EVENTS.register("tanya_spell_blast", () -> SoundEvent.createVariableRangeEvent(
+                    ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID, "tanya_spell_blast")));
+    public static final RegistryObject<SoundEvent> TANYA_FLIGHT_ACTIVATE =
+            SOUND_EVENTS.register("tanya_flight_activate", () -> SoundEvent.createVariableRangeEvent(
+                    ResourceLocation.fromNamespaceAndPath(SemClassSystem.MODID, "tanya_flight_activate")));
+
     // ---- custom particles ---------------------------------------------------
     // Zero-dependency unit VFX (see client/particle + event/UnitEffectsEvents).
     // SimpleParticleType carries no data - position/velocity come from the
@@ -118,12 +154,22 @@ public final class SemcsRegistries {
             PARTICLE_TYPES.register("muzzle_flash", () -> new SimpleParticleType(false));
     public static final RegistryObject<SimpleParticleType> ZZZ_PARTICLE =
             PARTICLE_TYPES.register("zzz", () -> new SimpleParticleType(false));
+    public static final RegistryObject<SimpleParticleType> MANA_SPARK_PARTICLE =
+            PARTICLE_TYPES.register("mana_spark", () -> new SimpleParticleType(false));
+    public static final RegistryObject<SimpleParticleType> MANA_BLAST_PARTICLE =
+            PARTICLE_TYPES.register("mana_blast", () -> new SimpleParticleType(false));
 
     public static final RegistryObject<MenuType<RecruitTableMenu>> RECRUIT_TABLE_MENU =
             MENU_TYPES.register("recruit_table", () -> IForgeMenuType.create(RecruitTableMenu::new));
 
     public static final RegistryObject<MenuType<ArmorPlateMenu>> ARMOR_PLATE_MENU =
             MENU_TYPES.register("armor_plate_menu", () -> IForgeMenuType.create(ArmorPlateMenu::new));
+
+    public static final RegistryObject<MenuType<ArmorerBenchMenu>> ARMORER_BENCH_MENU =
+            MENU_TYPES.register("armorer_bench_menu", () -> IForgeMenuType.create(ArmorerBenchMenu::new));
+
+    public static final RegistryObject<MenuType<MedicalStationMenu>> MEDICAL_STATION_MENU =
+            MENU_TYPES.register("medical_station_menu", () -> IForgeMenuType.create(MedicalStationMenu::new));
 
     // ---- BHQ unit ---------------------------------------------------------
     // Same physical box + tracking range SEM uses for pmcunit so hitboxes,
@@ -145,6 +191,16 @@ public final class SemcsRegistries {
                             .sized(0.6F, 1.95F)
                             .clientTrackingRange(256)
                             .build("vdfunit"));
+
+    // ---- Terrorist Insurgent ----------------------------------------------
+    // Desert hostile faction - universally aggressive to every non-Terrorist
+    // unit and player, restricted exclusively to Rifle, Demolisher, Camper.
+    public static final RegistryObject<EntityType<TerroristUnitEntity>> TERRORIST_UNIT =
+            ENTITY_TYPES.register("terrorist_unit",
+                    () -> EntityType.Builder.of(TerroristUnitEntity::new, MobCategory.MONSTER)
+                            .sized(0.6F, 1.95F)
+                            .clientTrackingRange(256)
+                            .build("terrorist_unit"));
 
     // ---- BHQ recruit table ------------------------------------------------
     public static final RegistryObject<Block> BHQ_RECRUIT_TABLE = BLOCKS.register(
@@ -168,6 +224,16 @@ public final class SemcsRegistries {
     public static final RegistryObject<Item> SQUAD_WHISTLE = ITEMS.register(
             "squad_whistle",
             () -> new SquadWhistleItem(new Item.Properties().stacksTo(1))
+    );
+
+    public static final RegistryObject<Item> LASER_DESIGNATOR = ITEMS.register(
+            "laser_designator",
+            () -> new LaserDesignatorItem(new Item.Properties().stacksTo(1))
+    );
+
+    public static final RegistryObject<Item> COMBAT_STIM = ITEMS.register(
+            "combat_stim",
+            () -> new CombatStimItem(new Item.Properties().stacksTo(8))
     );
 
     // ---- Guard Post ---------------------------------------------------------
@@ -218,6 +284,91 @@ public final class SemcsRegistries {
                             com.poseidon.sem_classsystem.block.SupplyCrateBlockEntity::new,
                             SUPPLY_CRATE.get()).build(null));
 
+    // ---- Armorer Bench ------------------------------------------------------
+    public static final RegistryObject<Block> ARMORER_BENCH = BLOCKS.register(
+            "armorer_bench",
+            () -> new ArmorerBenchBlock(
+                    BlockBehaviour.Properties.of()
+                            .mapColor(MapColor.METAL)
+                            .strength(2.0F)
+                            .sound(SoundType.METAL)
+            )
+    );
+
+    public static final RegistryObject<Item> ARMORER_BENCH_ITEM = ITEMS.register(
+            "armorer_bench",
+            () -> new BlockItem(ARMORER_BENCH.get(), new Item.Properties())
+    );
+
+    public static final RegistryObject<BlockEntityType<ArmorerBenchBlockEntity>> ARMORER_BENCH_BE =
+            BLOCK_ENTITIES.register("armorer_bench",
+                    () -> BlockEntityType.Builder.of(ArmorerBenchBlockEntity::new,
+                            ARMORER_BENCH.get()).build(null));
+
+    // ---- Field Medical Station ----------------------------------------------
+    public static final RegistryObject<Block> MEDICAL_STATION = BLOCKS.register(
+            "medical_station",
+            () -> new MedicalStationBlock(
+                    BlockBehaviour.Properties.of()
+                            .mapColor(MapColor.QUARTZ)
+                            .strength(1.5F)
+                            .sound(SoundType.METAL)
+            )
+    );
+
+    public static final RegistryObject<Item> MEDICAL_STATION_ITEM = ITEMS.register(
+            "medical_station",
+            () -> new BlockItem(MEDICAL_STATION.get(), new Item.Properties())
+    );
+
+    public static final RegistryObject<BlockEntityType<MedicalStationBlockEntity>> MEDICAL_STATION_BE =
+            BLOCK_ENTITIES.register("medical_station",
+                    () -> BlockEntityType.Builder.of(MedicalStationBlockEntity::new,
+                            MEDICAL_STATION.get()).build(null));
+
+    // ---- Tactical Comms Radar -----------------------------------------------
+    public static final RegistryObject<Block> COMMS_RADAR = BLOCKS.register(
+            "comms_radar",
+            () -> new CommsRadarBlock(
+                    BlockBehaviour.Properties.of()
+                            .mapColor(MapColor.COLOR_CYAN)
+                            .strength(2.0F)
+                            .sound(SoundType.METAL)
+            )
+    );
+
+    public static final RegistryObject<Item> COMMS_RADAR_ITEM = ITEMS.register(
+            "comms_radar",
+            () -> new BlockItem(COMMS_RADAR.get(), new Item.Properties())
+    );
+
+    public static final RegistryObject<BlockEntityType<CommsRadarBlockEntity>> COMMS_RADAR_BE =
+            BLOCK_ENTITIES.register("comms_radar",
+                    () -> BlockEntityType.Builder.of(CommsRadarBlockEntity::new,
+                            COMMS_RADAR.get()).build(null));
+
+    // ---- Barracks Field Cot -------------------------------------------------
+    public static final RegistryObject<Block> FIELD_COT = BLOCKS.register(
+            "field_cot",
+            () -> new FieldCotBlock(
+                    BlockBehaviour.Properties.of()
+                            .mapColor(MapColor.COLOR_GREEN)
+                            .strength(0.8F)
+                            .sound(SoundType.WOOD)
+                            .noOcclusion()
+            )
+    );
+
+    public static final RegistryObject<Item> FIELD_COT_ITEM = ITEMS.register(
+            "field_cot",
+            () -> new BlockItem(FIELD_COT.get(), new Item.Properties())
+    );
+
+    public static final RegistryObject<BlockEntityType<FieldCotBlockEntity>> FIELD_COT_BE =
+            BLOCK_ENTITIES.register("field_cot",
+                    () -> BlockEntityType.Builder.of(FieldCotBlockEntity::new,
+                            FIELD_COT.get()).build(null));
+
     // ---- Field Tablet -------------------------------------------------------
     // Squad command PDA - right-click boots the SEM-OS desktop (Squad roster
     // app + Intel app). Read-only client UI over synced marker data.
@@ -242,6 +393,21 @@ public final class SemcsRegistries {
     public static final RegistryObject<Item> IFAK_POUCH = ITEMS.register(
             "ifak_pouch",
             () -> new SemcsCurioItem(new Item.Properties().stacksTo(1).durability(8))
+    );
+
+    public static final RegistryObject<Item> NVG_NIGHT = ITEMS.register(
+            "nvg_night",
+            () -> new SemcsCurioItem(new Item.Properties().stacksTo(1))
+    );
+
+    public static final RegistryObject<Item> NVG_INFRARED = ITEMS.register(
+            "nvg_infrared",
+            () -> new SemcsCurioItem(new Item.Properties().stacksTo(1))
+    );
+
+    public static final RegistryObject<Item> NVG_SMART = ITEMS.register(
+            "nvg_smart",
+            () -> new SemcsCurioItem(new Item.Properties().stacksTo(1))
     );
 
     // ---- Ballistic Armor Plates (Level 1 to Level 5) ------------------------
@@ -385,6 +551,27 @@ public final class SemcsRegistries {
     public static final RegistryObject<Item> PMC_BOOTS = ITEMS.register("pmc_boots",
             () -> new BhqArmorItem("pmc_boots", ArmorItem.Type.BOOTS));
 
+    // ---- Terrorist Insurgent (Desert Guerrilla) set ------------------------
+    public static final RegistryObject<Item> TERRORIST_HELMET = ITEMS.register("terrorist_helmet",
+            () -> new BhqArmorItem("terrorist_helmet", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> TERRORIST_VEST = ITEMS.register("terrorist_vest",
+            () -> new BhqArmorItem("terrorist_vest", ArmorItem.Type.CHESTPLATE));
+    public static final RegistryObject<Item> TERRORIST_PANTS = ITEMS.register("terrorist_pants",
+            () -> new BhqArmorItem("terrorist_pants", ArmorItem.Type.LEGGINGS));
+    public static final RegistryObject<Item> TERRORIST_BOOTS = ITEMS.register("terrorist_boots",
+            () -> new BhqArmorItem("terrorist_boots", ArmorItem.Type.BOOTS));
+
+    // ---- Imperial Aerial Mage (Tanya / Type-95) set ------------------------
+    // Wearing all 4 pieces activates timed aerial mana flight for N minutes.
+    public static final RegistryObject<Item> TANYA_HELMET = ITEMS.register("tanya_helmet",
+            () -> new BhqArmorItem("tanya_helmet", ArmorItem.Type.HELMET));
+    public static final RegistryObject<Item> TANYA_VEST = ITEMS.register("tanya_vest",
+            () -> new BhqArmorItem("tanya_vest", ArmorItem.Type.CHESTPLATE));
+    public static final RegistryObject<Item> TANYA_PANTS = ITEMS.register("tanya_pants",
+            () -> new BhqArmorItem("tanya_pants", ArmorItem.Type.LEGGINGS));
+    public static final RegistryObject<Item> TANYA_BOOTS = ITEMS.register("tanya_boots",
+            () -> new BhqArmorItem("tanya_boots", ArmorItem.Type.BOOTS));
+
     // Spawn egg uses SEM's RoleSpawnEggItem so eggs spawn with the same
     // FRIENDLY_DEFAULT role SEM's own PMC egg assigns.
     // Colors: tactical black shell + Cambodian-flag red spots.
@@ -408,6 +595,17 @@ public final class SemcsRegistries {
                     VDF_UNIT::get,
                     0x7A5C2E,   // primary - militia tan
                     0x4E3B1F,   // secondary - worn brown
+                    new Item.Properties().stacksTo(64),
+                    UnitRole.DEFAULT
+            )
+    );
+
+    public static final RegistryObject<Item> TERRORIST_UNIT_SPAWN_EGG = ITEMS.register(
+            "terrorist_unit_spawn_egg",
+            () -> new RoleSpawnEggItem(
+                    TERRORIST_UNIT::get,
+                    0x22201C,   // primary - insurgent black/charcoal
+                    0x9E3028,   // secondary - checkered keffiyeh red
                     new Item.Properties().stacksTo(64),
                     UnitRole.DEFAULT
             )
@@ -442,6 +640,16 @@ public final class SemcsRegistries {
         eggs.addAll(registerClassEggs("us", ModEntities.USUNIT, 0x9C8B6B));   // desert tan
         eggs.addAll(registerClassEggs("pmc", ModEntities.PMCUNIT, 0x3B3B3F)); // charcoal
         eggs.addAll(registerClassEggs("bhq", BHQ_UNIT, 0x141B2E));            // midnight navy
+        for (WeaponClass cls : TerroristUnitEntity.ALLOWED_CLASSES) {
+            eggs.add(ITEMS.register(
+                    "terrorist_" + cls.configKey() + "_spawn_egg",
+                    () -> new ClassSpawnEggItem(
+                            TERRORIST_UNIT,
+                            0x3A3228,
+                            CLASS_SPOT_COLORS.get(cls),
+                            cls,
+                            UnitRole.DEFAULT)));
+        }
         CLASS_SPAWN_EGGS = Collections.unmodifiableList(eggs);
     }
 
@@ -457,6 +665,10 @@ public final class SemcsRegistries {
                         output.accept(BHQ_RECRUIT_TABLE_ITEM.get());
                         output.accept(GUARD_POST_ITEM.get());
                         output.accept(SUPPLY_CRATE_ITEM.get());
+                        output.accept(ARMORER_BENCH_ITEM.get());
+                        output.accept(MEDICAL_STATION_ITEM.get());
+                        output.accept(COMMS_RADAR_ITEM.get());
+                        output.accept(FIELD_COT_ITEM.get());
                         output.accept(BHQ_CAP.get());
                         output.accept(BHQ_HELMET.get());
                         output.accept(BHQ_VEST.get());
@@ -502,11 +714,24 @@ public final class SemcsRegistries {
                         output.accept(VDF_VEST.get());
                         output.accept(VDF_PANTS.get());
                         output.accept(VDF_BOOTS.get());
+                        output.accept(TERRORIST_HELMET.get());
+                        output.accept(TERRORIST_VEST.get());
+                        output.accept(TERRORIST_PANTS.get());
+                        output.accept(TERRORIST_BOOTS.get());
+                        output.accept(TANYA_HELMET.get());
+                        output.accept(TANYA_VEST.get());
+                        output.accept(TANYA_PANTS.get());
+                        output.accept(TANYA_BOOTS.get());
                         output.accept(SQUAD_WHISTLE.get());
+                        output.accept(LASER_DESIGNATOR.get());
                         output.accept(FIELD_TABLET.get());
                         output.accept(SPOTTING_SCOPE.get());
+                        output.accept(NVG_NIGHT.get());
+                        output.accept(NVG_INFRARED.get());
+                        output.accept(NVG_SMART.get());
                         output.accept(SERGEANTS_INSIGNIA.get());
                         output.accept(IFAK_POUCH.get());
+                        output.accept(COMBAT_STIM.get());
                         output.accept(ARMOR_PLATE_T1.get());
                         output.accept(ARMOR_PLATE_T2.get());
                         output.accept(ARMOR_PLATE_T3.get());
@@ -514,6 +739,7 @@ public final class SemcsRegistries {
                         output.accept(ARMOR_PLATE_T5.get());
                         output.accept(BHQ_UNIT_SPAWN_EGG.get());
                         output.accept(VDF_UNIT_SPAWN_EGG.get());
+                        output.accept(TERRORIST_UNIT_SPAWN_EGG.get());
                         for (RegistryObject<Item> egg : CLASS_SPAWN_EGGS) {
                             output.accept(egg.get());
                         }
@@ -573,6 +799,18 @@ public final class SemcsRegistries {
         public static void registerAttributes(EntityAttributeCreationEvent event) {
             event.put(BHQ_UNIT.get(), BhqUnitEntity.createAttributes().build());
             event.put(VDF_UNIT.get(), VdfUnitEntity.createAttributes().build());
+            event.put(TERRORIST_UNIT.get(), TerroristUnitEntity.createAttributes().build());
+        }
+
+        @SubscribeEvent
+        public static void registerSpawnPlacements(SpawnPlacementRegisterEvent event) {
+            event.register(
+                    TERRORIST_UNIT.get(),
+                    SpawnPlacements.Type.ON_GROUND,
+                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    TerroristUnitEntity::canSpawnNaturally,
+                    SpawnPlacementRegisterEvent.Operation.REPLACE
+            );
         }
 
         // Put our items in vanilla creative tabs so players can find them
@@ -584,13 +822,22 @@ public final class SemcsRegistries {
                 event.accept(BHQ_RECRUIT_TABLE_ITEM.get());
                 event.accept(GUARD_POST_ITEM.get());
                 event.accept(SUPPLY_CRATE_ITEM.get());
+                event.accept(ARMORER_BENCH_ITEM.get());
+                event.accept(MEDICAL_STATION_ITEM.get());
+                event.accept(COMMS_RADAR_ITEM.get());
+                event.accept(FIELD_COT_ITEM.get());
             }
             if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
                 event.accept(SQUAD_WHISTLE.get());
+                event.accept(LASER_DESIGNATOR.get());
                 event.accept(FIELD_TABLET.get());
                 event.accept(SPOTTING_SCOPE.get());
+                event.accept(NVG_NIGHT.get());
+                event.accept(NVG_INFRARED.get());
+                event.accept(NVG_SMART.get());
                 event.accept(SERGEANTS_INSIGNIA.get());
                 event.accept(IFAK_POUCH.get());
+                event.accept(COMBAT_STIM.get());
             }
             if (event.getTabKey() == CreativeModeTabs.COMBAT) {
                 event.accept(ARMOR_PLATE_T1.get());
@@ -602,6 +849,7 @@ public final class SemcsRegistries {
             if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
                 event.accept(BHQ_UNIT_SPAWN_EGG.get());
                 event.accept(VDF_UNIT_SPAWN_EGG.get());
+                event.accept(TERRORIST_UNIT_SPAWN_EGG.get());
                 for (RegistryObject<Item> egg : CLASS_SPAWN_EGGS) {
                     event.accept(egg.get());
                 }

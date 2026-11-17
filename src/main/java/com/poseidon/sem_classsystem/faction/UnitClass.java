@@ -24,7 +24,10 @@ public enum UnitClass {
     // VDF militia -> [vdf_unit] section (village garrison; independent
     // PathfinderMob in NO faction tag - instanceof check below is the
     // only way UnitClass.of() can ever see it)
-    VDF_UNIT("vdf_unit", "VDF Militia");
+    VDF_UNIT("vdf_unit", "VDF Militia"),
+    // Terrorist insurgents -> [terrorist_unit] section (universally hostile
+    // desert guerrilla faction; 3 classes only: Demolisher, Rifle, Camper)
+    TERRORIST_UNIT("terrorist_unit", "Terrorist Insurgent");
 
     // Name of the [section] this faction uses in sem_classsystem-server.toml
     private final String configSection;
@@ -69,6 +72,9 @@ public enum UnitClass {
         // identity.
         if (entity instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
             return VDF_UNIT;
+        }
+        if (entity instanceof com.poseidon.sem_classsystem.entity.TerroristUnitEntity) {
+            return TERRORIST_UNIT;
         }
         // SEM tags RU entities with simpleenemymod:ru_units -> this checks that tag
         if (UnitFactionTags.isRuUnit(entity)) {

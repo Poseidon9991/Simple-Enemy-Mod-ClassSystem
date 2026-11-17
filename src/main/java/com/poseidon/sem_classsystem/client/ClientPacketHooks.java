@@ -4,6 +4,7 @@ package com.poseidon.sem_classsystem.client;
 import com.poseidon.sem_classsystem.network.PacketOpenGuardPost;
 import com.poseidon.sem_classsystem.network.PacketRaidPing;
 import com.poseidon.sem_classsystem.network.PacketSyncClaims;
+import com.poseidon.sem_classsystem.network.PacketSyncTanyaState;
 import com.poseidon.sem_classsystem.network.PacketSyncUnitMarkers;
 import net.minecraft.client.Minecraft;
 
@@ -46,5 +47,10 @@ public final class ClientPacketHooks {
     // Casualty board snapshot for the INTEL app.
     public static void onCasualties(java.util.List<String> lines) {
         UnitMarkerStore.acceptCasualties(lines);
+    }
+
+    public static void onTanyaState(PacketSyncTanyaState msg) {
+        ClientTanyaState.update(msg.entityId(), msg.barrierActive(), msg.infusionActive(),
+                msg.manaTicks(), msg.maxManaTicks(), msg.hitFlash());
     }
 }

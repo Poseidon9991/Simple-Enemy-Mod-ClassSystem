@@ -1,0 +1,66 @@
+{
+  "classes": {
+    "rifle": {
+      "ak47": {
+        "gun_id": "tacz:ak47",
+        "ammo_count": 30,
+        "fire_mode": "AUTO"
+      },
+      "type_81": {
+        "gun_id": "tacz:type_81",
+        "ammo_count": 30,
+        "fire_mode": "AUTO",
+        "muzzle_id": "tacz:muzzle_brake_pioneer"
+      }
+    },
+    "heavy": {
+      "rpg7": {
+        "gun_id": "tacz:rpg7",
+        "ammo_count": 1,
+        "fire_mode": "SEMI"
+      },
+      "mgl320": {
+        "gun_id": "sfms:mgl320",
+        "ammo_count": 6,
+        "fire_mode": "SEMI"
+      },
+      "f_faust": {
+        "gun_id": "bf1:f_faust",
+        "ammo_count": 1,
+        "fire_mode": "SEMI"
+      }
+    },
+    "sniper": {
+      "sks_tactical": {
+        "gun_id": "tacz:sks_tactical",
+        "ammo_count": 10,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_mk5hd"
+      },
+      "m700": {
+        "gun_id": "tacz:m700",
+        "ammo_count": 5,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_mk5hd"
+      },
+      "dragonuv": {
+        "gun_id": "maxstuff:dragonuv_svd",
+        "ammo_count": 10,
+        "fire_mode": "SEMI",
+        "scope_id": "tacz:scope_standard_8x"
+      }
+    },
+    "pistol": {
+      "cz75": {
+        "gun_id": "tacz:cz75",
+        "ammo_count": 16,
+        "fire_mode": "SEMI"
+      },
+      "glock_17": {
+        "gun_id": "tacz:glock_17",
+        "ammo_count": 17,
+        "fire_mode": "SEMI"
+      }
+    }
+  }
+}

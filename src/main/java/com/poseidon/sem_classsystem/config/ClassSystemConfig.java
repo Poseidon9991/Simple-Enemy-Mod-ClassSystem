@@ -73,6 +73,20 @@ public class ClassSystemConfig {
     private static ForgeConfigSpec.DoubleValue VDF_ARMOR_DROP_CHANCE;
     private static ForgeConfigSpec.BooleanValue VDF_NIGHT_WATCH;
 
+    // ---- [tanya_armor]: Imperial Aerial Mage flight, barrier & spell bullets ----
+    private static ForgeConfigSpec.DoubleValue TANYA_FLIGHT_MINUTES;
+    private static ForgeConfigSpec.IntValue TANYA_RECHARGE_PER_TICK;
+    private static ForgeConfigSpec.IntValue TANYA_BARRIER_DRAIN_PER_TICK;
+    private static ForgeConfigSpec.DoubleValue TANYA_BARRIER_DAMAGE_REDUCTION;
+    private static ForgeConfigSpec.IntValue TANYA_SPELL_BULLET_MANA_COST;
+    private static ForgeConfigSpec.DoubleValue TANYA_SPELL_BULLET_DAMAGE_MULT;
+    private static ForgeConfigSpec.DoubleValue TANYA_SPELL_BULLET_VELOCITY_MULT;
+    private static ForgeConfigSpec.DoubleValue TANYA_SPELL_BULLET_BLAST_RADIUS;
+
+    // ---- [terrorist_spawning]: Desert patrols & global night raids -----
+    private static ForgeConfigSpec.BooleanValue TERRORIST_NATURAL_SPAWNS_ENABLED;
+    private static ForgeConfigSpec.BooleanValue TERRORIST_RAID_ENABLED;
+
     // static {} runs once at class load - defines ALL keys before register()
     static {
 
@@ -436,6 +450,44 @@ public class ClassSystemConfig {
                         "while out of combat.")
                 .define("lootPickup", true);
 
+        BUILDER.push("tanya_armor");
+        TANYA_FLIGHT_MINUTES = BUILDER
+                .comment("Total active aerial flight duration in minutes when wearing",
+                        "the full Imperial Aerial Mage (Tanya) armor set.")
+                .defineInRange("flightMinutes", 5.0, 0.5, 60.0);
+        TANYA_RECHARGE_PER_TICK = BUILDER
+                .comment("Flight ticks restored per tick while standing on the ground",
+                        "(2 = 2x recharge rate, 1 = 1:1 with flight drain).")
+                .defineInRange("rechargePerTick", 2, 1, 20);
+        TANYA_BARRIER_DRAIN_PER_TICK = BUILDER
+                .comment("Mana ticks drained per tick while Active Mana Barrier is deployed.")
+                .defineInRange("barrierDrainPerTick", 1, 0, 20);
+        TANYA_BARRIER_DAMAGE_REDUCTION = BUILDER
+                .comment("Fraction of incoming gun/projectile damage absorbed by the Mana Barrier (0.75 = 75%).")
+                .defineInRange("barrierDamageReduction", 0.75, 0.1, 0.95);
+        TANYA_SPELL_BULLET_MANA_COST = BUILDER
+                .comment("Mana ticks consumed per Mana-Infused Spell Sniping shot.")
+                .defineInRange("spellBulletManaCost", 40, 0, 600);
+        TANYA_SPELL_BULLET_DAMAGE_MULT = BUILDER
+                .comment("Damage multiplier applied to Mana-Infused Spell Sniping shots.")
+                .defineInRange("spellBulletDamageMultiplier", 1.35, 1.0, 3.0);
+        TANYA_SPELL_BULLET_VELOCITY_MULT = BUILDER
+                .comment("Velocity multiplier applied to Mana-Infused Spell Sniping shots.")
+                .defineInRange("spellBulletVelocityMultiplier", 1.45, 1.0, 2.5);
+        TANYA_SPELL_BULLET_BLAST_RADIUS = BUILDER
+                .comment("Kinetic mana detonation radius on bullet impact (blocks, 0 to disable AoE).")
+                .defineInRange("spellBulletBlastRadius", 1.8, 0.0, 5.0);
+        BUILDER.pop();   // close [tanya_armor]
+
+        BUILDER.push("terrorist_spawning");
+        TERRORIST_NATURAL_SPAWNS_ENABLED = BUILDER
+                .comment("Allow Terrorist Insurgent squads to naturally spawn on the surface of desert biomes.")
+                .define("naturalSpawnsEnabled", true);
+        TERRORIST_RAID_ENABLED = BUILDER
+                .comment("Allow Terrorist Insurgent squads to appear as a Night Raid faction in any biome.")
+                .define("raidEnabled", true);
+        BUILDER.pop();   // close [terrorist_spawning]
+
         // Freeze the builder into the immutable spec Forge will register
         SPEC = BUILDER.build();
     }
@@ -448,6 +500,7 @@ public class ClassSystemConfig {
     private static double factionHealthDefault(UnitClass c) {
         return switch (c) {
             case BHQ_UNIT -> 35.0;
+            case TERRORIST_UNIT -> 22.0;
             default -> 20.0;            // PMC baseline - VDF matches
         };
     }
@@ -455,6 +508,7 @@ public class ClassSystemConfig {
     private static double factionSpeedDefault(UnitClass c) {
         return switch (c) {
             case BHQ_UNIT -> 0.30;
+            case TERRORIST_UNIT -> 0.28;
             default -> 0.27;            // PMC baseline - VDF matches
         };
     }
@@ -660,14 +714,17 @@ public class ClassSystemConfig {
 
     private static double classSidearmDrawDefault(WeaponClass cls) {
         return switch (cls) {
-            case HEAVY_MG -> 7.5;
-            default -> 0.0;       // Camper (SNIPER), Demolisher (HEAVY) and assault classes stay on primary weapon
+            case HEAVY -> 12.0;   // Demolisher switches to pistol inside blast/CQB radius
+            case SNIPER -> 8.5;   // Camper draws pistol when rushed at close range
+            case HEAVY_MG -> 7.0;
+            default -> 0.0;       // other classes swap on empty mag / mid-reload in CQB
         };
     }
 
     private static double classSidearmReturnDefault(WeaponClass cls) {
         return switch (cls) {
-            case HEAVY -> 18.0;   // stays on the tube's sidearm a bit longer
+            case HEAVY -> 16.5;   // returns to launcher cleanly past blast range
+            case SNIPER -> 14.0;
             default -> 14.0;
         };
     }
@@ -1049,6 +1106,62 @@ public class ClassSystemConfig {
     public static boolean vdfNightWatch() {
         try {
             return VDF_NIGHT_WATCH.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return true;
+        }
+    }
+
+    public static double tanyaFlightMinutes() {
+        return safeGet(TANYA_FLIGHT_MINUTES, 5.0);
+    }
+
+    public static int tanyaFlightRechargePerTick() {
+        return safeInt(TANYA_RECHARGE_PER_TICK, 2);
+    }
+
+    public static int tanyaBarrierDrainPerTick() {
+        return safeInt(TANYA_BARRIER_DRAIN_PER_TICK, 1);
+    }
+
+    public static double tanyaBarrierDamageReduction() {
+        return safeGet(TANYA_BARRIER_DAMAGE_REDUCTION, 0.75);
+    }
+
+    public static int tanyaSpellBulletManaCost() {
+        return safeInt(TANYA_SPELL_BULLET_MANA_COST, 40);
+    }
+
+    public static double tanyaSpellBulletDamageMult() {
+        return safeGet(TANYA_SPELL_BULLET_DAMAGE_MULT, 1.35);
+    }
+
+    public static double tanyaSpellBulletVelocityMult() {
+        return safeGet(TANYA_SPELL_BULLET_VELOCITY_MULT, 1.45);
+    }
+
+    public static double tanyaSpellBulletBlastRadius() {
+        return safeGet(TANYA_SPELL_BULLET_BLAST_RADIUS, 1.8);
+    }
+
+    private static int safeInt(ForgeConfigSpec.IntValue value, int fallback) {
+        try {
+            return value.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return fallback;
+        }
+    }
+
+    public static boolean terroristNaturalSpawnsEnabled() {
+        try {
+            return TERRORIST_NATURAL_SPAWNS_ENABLED.get();
+        } catch (IllegalStateException notLoadedYet) {
+            return true;
+        }
+    }
+
+    public static boolean terroristRaidsEnabled() {
+        try {
+            return TERRORIST_RAID_ENABLED.get();
         } catch (IllegalStateException notLoadedYet) {
             return true;
         }

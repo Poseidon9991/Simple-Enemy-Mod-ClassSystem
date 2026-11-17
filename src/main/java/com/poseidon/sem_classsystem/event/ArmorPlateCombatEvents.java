@@ -2,11 +2,15 @@ package com.poseidon.sem_classsystem.event;
 
 import com.poseidon.sem_classsystem.SemClassSystem;
 import com.poseidon.sem_classsystem.item.ArmorPlateItem;
+import com.poseidon.sem_classsystem.registry.SemcsRegistries;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.particles.ItemParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
-import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -93,11 +97,15 @@ public final class ArmorPlateCombatEvents {
                 multiplier *= (1.0F - red);
                 plateHit = true;
 
+                int prevWear = active.getDamageValue();
                 int wear = Math.max(1, Math.round(amount * (bullet ? 1.15F : 0.85F)));
                 boolean broke = damagePlate(active, wear);
                 if (broke) {
                     plates.set(bestIdx, ItemStack.EMPTY);
-                    onPlateShattered(victim, ap);
+                    onPlateShattered(victim, ap, false);
+                } else {
+                    spawnPlateCrackingFx(victim, ap, prevWear, active.getDamageValue(), active.getMaxDamage(),
+                            bullet, false);
                 }
                 ArmorPlateItem.setPlates(chest, plates);
                 syncUnitArmorSlot(victim, 4, chest);
@@ -114,10 +122,14 @@ public final class ArmorPlateCombatEvents {
                 multiplier *= (1.0F - hRed);
                 plateHit = true;
 
+                int prevWear = hPlate.getDamageValue();
                 int wear = Math.max(1, Math.round(amount * 0.45F));
                 if (damagePlate(hPlate, wear)) {
                     hPlates.set(0, ItemStack.EMPTY);
-                    onPlateShattered(victim, hap);
+                    onPlateShattered(victim, hap, true);
+                } else {
+                    spawnPlateCrackingFx(victim, hap, prevWear, hPlate.getDamageValue(), hPlate.getMaxDamage(),
+                            bullet, true);
                 }
                 ArmorPlateItem.setPlates(head, hPlates);
                 syncUnitArmorSlot(victim, 5, head);
@@ -142,7 +154,72 @@ public final class ArmorPlateCombatEvents {
         return false;
     }
 
-    private static void onPlateShattered(LivingEntity victim, ArmorPlateItem broken) {
+    // Visible Plate Cracking FX: ceramic/metal plate shard particles matching
+    // the exact plate tier texture, ballistic sparks on gun hits, and audible
+    // fracture cracks + critical low-integrity alerts at <50% and <20%.
+    private static void spawnPlateCrackingFx(LivingEntity victim, ArmorPlateItem plate,
+                                             int prevWear, int nowWear, int maxWear,
+                                             boolean bullet, boolean isHelmet) {
+        if (!(victim.level() instanceof ServerLevel server) || maxWear <= 0) {
+            return;
+        }
+        double fxY = victim.getY() + (isHelmet ? victim.getEyeHeight() : victim.getBbHeight() * 0.60D);
+        double spreadXZ = isHelmet ? 0.22D : 0.30D;
+        double spreadY = isHelmet ? 0.12D : 0.20D;
+
+        ItemParticleOption shardParticle = new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(plate));
+        float prevFrac = (float) prevWear / (float) maxWear;
+        float nowFrac = (float) nowWear / (float) maxWear;
+
+        int shardCount = bullet ? (nowFrac >= 0.50F ? 8 : 5) : 3;
+        server.sendParticles(shardParticle, victim.getX(), fxY, victim.getZ(),
+                shardCount, spreadXZ, spreadY, spreadXZ, 0.14D);
+
+        if (bullet) {
+            server.sendParticles(SemcsRegistries.SPARK_PARTICLE.get(),
+                    victim.getX(), fxY, victim.getZ(),
+                    nowFrac >= 0.70F ? 10 : 6, spreadXZ, spreadY, spreadXZ, 0.18D);
+        }
+
+        if (nowFrac >= 0.50F) {
+            server.sendParticles(ParticleTypes.SMOKE, victim.getX(), fxY, victim.getZ(),
+                    nowFrac >= 0.80F ? 4 : 2, spreadXZ, spreadY, spreadXZ, 0.02D);
+        }
+
+        // Threshold fracture crack when plate integrity crosses 50% or 20% remaining
+        if (prevFrac < 0.50F && nowFrac >= 0.50F) {
+            server.playSound(null, victim.blockPosition(),
+                    SoundEvents.TURTLE_EGG_CRACK, SoundSource.PLAYERS, 0.75F, 1.55F);
+        } else if (prevFrac < 0.80F && nowFrac >= 0.80F) {
+            server.playSound(null, victim.blockPosition(),
+                    SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.35F, 1.85F);
+            if (victim instanceof Player player) {
+                player.displayClientMessage(
+                        Component.translatable("message.sem_classsystem.plate_cracking", plate.tier())
+                                .withStyle(ChatFormatting.GOLD),
+                        true);
+            }
+        }
+    }
+
+    private static void onPlateShattered(LivingEntity victim, ArmorPlateItem broken, boolean isHelmet) {
+        if (victim.level() instanceof ServerLevel server) {
+            double fxY = victim.getY() + (isHelmet ? victim.getEyeHeight() : victim.getBbHeight() * 0.60D);
+            ItemParticleOption shardParticle = new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(broken));
+            server.sendParticles(shardParticle, victim.getX(), fxY, victim.getZ(),
+                    18, 0.35D, 0.25D, 0.35D, 0.22D);
+            server.sendParticles(SemcsRegistries.SPARK_PARTICLE.get(), victim.getX(), fxY, victim.getZ(),
+                    14, 0.35D, 0.25D, 0.35D, 0.24D);
+            server.sendParticles(ParticleTypes.CRIT, victim.getX(), fxY, victim.getZ(),
+                    8, 0.30D, 0.22D, 0.30D, 0.16D);
+            server.sendParticles(ParticleTypes.POOF, victim.getX(), fxY, victim.getZ(),
+                    4, 0.25D, 0.20D, 0.25D, 0.04D);
+
+            server.playSound(null, victim.blockPosition(),
+                    SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 0.85F, 0.72F);
+            server.playSound(null, victim.blockPosition(),
+                    SoundEvents.ANVIL_BREAK, SoundSource.PLAYERS, 0.45F, 1.40F);
+        }
         victim.playSound(SoundEvents.ITEM_BREAK, 1.0F, 0.85F);
         if (victim instanceof Player player) {
             player.displayClientMessage(

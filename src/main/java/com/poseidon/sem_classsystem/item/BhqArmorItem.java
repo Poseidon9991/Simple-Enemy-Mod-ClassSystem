@@ -2,6 +2,7 @@ package com.poseidon.sem_classsystem.item;
 
 import com.poseidon.sem_classsystem.client.BhqArmorModel;
 import com.poseidon.sem_classsystem.client.SemcsArmorItemRenderer;
+import com.poseidon.sem_classsystem.client.TanyaArmorRenderer;
 import com.poseidon.sem_classsystem.menu.ArmorPlateMenu;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.model.HumanoidModel;
@@ -188,6 +189,11 @@ public class BhqArmorItem extends ArmorItem implements GeoItem {
             tooltip.add(Component.translatable("item.sem_classsystem.armor.plate_hint")
                     .withStyle(ChatFormatting.DARK_GRAY));
         }
+        if (this.piece.startsWith("tanya_")) {
+            int mins = (int) Math.round(com.poseidon.sem_classsystem.config.ClassSystemConfig.tanyaFlightMinutes());
+            tooltip.add(Component.translatable("item.sem_classsystem.tanya_armor.set_bonus", mins)
+                    .withStyle(ChatFormatting.AQUA));
+        }
         super.appendHoverText(stack, level, tooltip, flag);
     }
 
@@ -211,19 +217,23 @@ public class BhqArmorItem extends ArmorItem implements GeoItem {
                                                                  EquipmentSlot slot,
                                                                  HumanoidModel<?> base) {
                 if (this.renderer == null) {
-                    this.renderer = new GeoArmorRenderer<>(new BhqArmorModel()) {
-                        @Override
-                        protected void applyBoneVisibilityBySlot(EquipmentSlot currentSlot) {
-                            super.applyBoneVisibilityBySlot(currentSlot);
-                            // Vanilla HumanoidArmorLayer shows body + both legs for LEGS
-                            // (waist belt, buckle, hip pouches, groin/tasset plates live
-                            // on armorBody in our .geo.json files), whereas GeckoLib's
-                            // default LEGS switch only unhides rightLeg + leftLeg.
-                            if (currentSlot == EquipmentSlot.LEGS) {
-                                setBoneVisible(this.body, this.baseModel.body.visible);
+                    if (BhqArmorItem.this.piece.startsWith("tanya_")) {
+                        this.renderer = new TanyaArmorRenderer();
+                    } else {
+                        this.renderer = new GeoArmorRenderer<>(new BhqArmorModel()) {
+                            @Override
+                            protected void applyBoneVisibilityBySlot(EquipmentSlot currentSlot) {
+                                super.applyBoneVisibilityBySlot(currentSlot);
+                                // Vanilla HumanoidArmorLayer shows body + both legs for LEGS
+                                // (waist belt, buckle, hip pouches, groin/tasset plates live
+                                // on armorBody in our .geo.json files), whereas GeckoLib's
+                                // default LEGS switch only unhides rightLeg + leftLeg.
+                                if (currentSlot == EquipmentSlot.LEGS) {
+                                    setBoneVisible(this.body, this.baseModel.body.visible);
+                                }
                             }
-                        }
-                    };
+                        };
+                    }
                 }
                 // Required on the vanilla render path (ZeroContact does the
                 // same): populates entity/stack/slot or renderToBuffer NPEs.

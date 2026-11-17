@@ -37,12 +37,19 @@ import java.util.function.Supplier;
 public class ClassSpawnEggItem extends RoleSpawnEggItem {
 
     private final WeaponClass weaponClass;
+    private final UnitRole spawnRole;
 
     public ClassSpawnEggItem(Supplier<? extends EntityType<? extends Mob>> typeIn,
                              int primaryColorIn, int secondaryColorIn, WeaponClass weaponClass) {
+        this(typeIn, primaryColorIn, secondaryColorIn, weaponClass, UnitRole.FRIENDLY_DEFAULT);
+    }
+
+    public ClassSpawnEggItem(Supplier<? extends EntityType<? extends Mob>> typeIn,
+                             int primaryColorIn, int secondaryColorIn, WeaponClass weaponClass, UnitRole role) {
         super(typeIn, primaryColorIn, secondaryColorIn,
-                new Properties().stacksTo(64), UnitRole.FRIENDLY_DEFAULT);
+                new Properties().stacksTo(64), role);
         this.weaponClass = weaponClass;
+        this.spawnRole = role;
     }
 
     @Override
@@ -64,7 +71,7 @@ public class ClassSpawnEggItem extends RoleSpawnEggItem {
 
         CompoundTag itemTag = itemstack.getOrCreateTag();
         CompoundTag entityData = new CompoundTag();
-        entityData.putString("UnitRole", UnitRole.FRIENDLY_DEFAULT.name());
+        entityData.putString("UnitRole", this.spawnRole.name());
         entityData.putString(WeaponClassSupport.NBT_KEY, weaponClass.name());
         itemTag.put("EntityTag", entityData);
 

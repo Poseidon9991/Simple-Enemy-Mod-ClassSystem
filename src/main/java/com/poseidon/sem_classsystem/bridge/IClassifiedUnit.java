@@ -2,6 +2,7 @@
 package com.poseidon.sem_classsystem.bridge;
 
 import com.poseidon.sem_classsystem.faction.WeaponClass;
+import org.jetbrains.annotations.Nullable;
 
 // Injected onto AbstractUnit by MixinAbstractUnit (sewv-style interface bridge).
 // Lets any code ask an entity "which weapon class is this unit?" without
@@ -13,4 +14,10 @@ public interface IClassifiedUnit {
 
     // Assigns the unit's class (called once at spawn, or restored from NBT)
     void semcs$setWeaponClass(WeaponClass weaponClass);
+
+    // Per-entity cached effective class for the current tick + held stack.
+    @Nullable
+    default WeaponClass semcs$getCachedEffectiveClass() {
+        return semcs$getWeaponClass();
+    }
 }

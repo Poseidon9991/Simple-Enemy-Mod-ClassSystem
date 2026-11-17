@@ -2,6 +2,7 @@
 package com.poseidon.sem_classsystem.event;
 
 import com.poseidon.sem_classsystem.SemClassSystem;
+import com.poseidon.sem_classsystem.block.CommsRadarBlockEntity;
 import com.poseidon.sem_classsystem.entity.ai.UnitChunkDutyGoal;
 import com.poseidon.sem_classsystem.faction.UnitClass;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
@@ -83,7 +84,8 @@ public final class UnitMarkerTracker {
                 continue;
             }
             List<UnitMarker> markers = collect(level, player,
-                    unitsByLevel.computeIfAbsent(level, UnitMarkerTracker::unitsIn));
+                    unitsByLevel.computeIfAbsent(level, UnitMarkerTracker::unitsIn),
+                    ownerRadars(level, claims, player.getUUID()));
             SemcsNetwork.CHANNEL.send(
                     PacketDistributor.PLAYER.with(() -> player),
                     new PacketSyncUnitMarkers(markers));
@@ -143,11 +145,46 @@ public final class UnitMarkerTracker {
         return units;
     }
 
+    private static List<net.minecraft.core.BlockPos> ownerRadars(
+            ServerLevel level, PlayerChunkClaims claims, UUID ownerId) {
+        String dim = level.dimension().location().toString();
+        Set<Long> ownedChunks = claims.allIn(dim).get(ownerId);
+        if (ownedChunks == null || ownedChunks.isEmpty()) {
+            return List.of();
+        }
+        List<net.minecraft.core.BlockPos> radars = new ArrayList<>();
+        for (long chunkLong : ownedChunks) {
+            int cx = ChunkPos.getX(chunkLong);
+            int cz = ChunkPos.getZ(chunkLong);
+            if (!(level.getChunk(cx, cz, net.minecraft.world.level.chunk.ChunkStatus.FULL, false)
+                    instanceof net.minecraft.world.level.chunk.LevelChunk chunk)) {
+                continue;
+            }
+            for (var be : chunk.getBlockEntities().values()) {
+                if (be instanceof CommsRadarBlockEntity) {
+                    radars.add(be.getBlockPos());
+                }
+            }
+        }
+        return radars;
+    }
+
+    private static boolean nearAnyRadar(LivingEntity unit, List<net.minecraft.core.BlockPos> radars) {
+        double maxSqr = CommsRadarBlockEntity.INTEL_RADIUS * CommsRadarBlockEntity.INTEL_RADIUS;
+        for (net.minecraft.core.BlockPos pos : radars) {
+            if (unit.distanceToSqr(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D) <= maxSqr) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static List<UnitMarker> collect(ServerLevel level, ServerPlayer viewer,
-            List<LivingEntity> units) {
+            List<LivingEntity> units, List<net.minecraft.core.BlockPos> radars) {
         List<UnitMarker> out = new ArrayList<>();
         // Current dimension only - your own units map at any distance, and
-        // strangers (plus VDF village militia) must be "spotted" within SPOT_RANGE.
+        // strangers (plus VDF village militia) must be "spotted" within SPOT_RANGE
+        // (or within INTEL_RADIUS of an active Comms Radar in your claimed chunks).
         for (LivingEntity unit : units) {
             boolean isVdf = unit instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity;
             UnitMarker.Allegiance allegiance;
@@ -160,7 +197,8 @@ public final class UnitMarkerTracker {
                 allegiance = UnitMarker.Allegiance.HOSTILE;
             }
             if (allegiance != UnitMarker.Allegiance.OWN
-                    && unit.distanceToSqr(viewer) > SPOT_RANGE_SQR) {
+                    && unit.distanceToSqr(viewer) > SPOT_RANGE_SQR
+                    && !nearAnyRadar(unit, radars)) {
                 continue;
             }
             UnitClass faction = UnitClass.of(unit);
@@ -317,6 +355,7 @@ public final class UnitMarkerTracker {
             case PMC_UNIT -> 0x9C8B6B;     // contractor tan
             case BHQ_UNIT -> 0x4BC06A;     // royal green
             case VDF_UNIT -> 0x7A5C2E;     // militia earth
+            case TERRORIST_UNIT -> 0xB83228; // insurgent crimson
         };
     }
 }

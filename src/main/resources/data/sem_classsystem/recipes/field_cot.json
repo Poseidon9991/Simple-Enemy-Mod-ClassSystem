@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "WWW",
+    "PPP",
+    "S S"
+  ],
+  "key": {
+    "W": { "tag": "minecraft:wool" },
+    "P": { "tag": "minecraft:planks" },
+    "S": { "item": "minecraft:stick" }
+  },
+  "result": {
+    "item": "sem_classsystem:field_cot",
+    "count": 1
+  }
+}

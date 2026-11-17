@@ -6,7 +6,9 @@ import com.poseidon.sem_classsystem.entity.ai.UnitChunkDutyGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitEatGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitLootGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitMedicHealGoal;
+import com.poseidon.sem_classsystem.entity.ai.UnitMedicalStationGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitMeleeAttackGoal;
+import com.poseidon.sem_classsystem.entity.ai.UnitPlateResupplyGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitResupplyGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitSelfHealGoal;
 import com.poseidon.sem_classsystem.entity.ai.UnitSleepGoal;
@@ -47,8 +49,10 @@ public abstract class MixinAbstractUnitGoals {
             // unit) and eating sits under combat but above idle orders.
             entity.goalSelector.addGoal(2, new UnitSleepGoal(pmc));
             entity.goalSelector.addGoal(3, new UnitEatGoal(pmc));
-            // Same tier as eating: ammo stockpile runs inside owner claims
+            // Same tier as eating: ammo, plate, and medical station runs inside owner claims
             entity.goalSelector.addGoal(3, new UnitResupplyGoal(pmc));
+            entity.goalSelector.addGoal(3, new UnitPlateResupplyGoal(pmc));
+            entity.goalSelector.addGoal(3, new UnitMedicalStationGoal(pmc));
             // No needs gating: a worn TaCZ ammo box feeds a dry gun in place
             entity.goalSelector.addGoal(3, new UnitAmmoBoxGoal(pmc));
             // Bottom priority: scavenge useful drops only when idle

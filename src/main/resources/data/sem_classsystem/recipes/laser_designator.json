@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "  G",
+    "IRC",
+    "IR "
+  ],
+  "key": {
+    "G": { "item": "minecraft:red_stained_glass_pane" },
+    "I": { "item": "minecraft:iron_ingot" },
+    "R": { "item": "minecraft:redstone_block" },
+    "C": { "item": "minecraft:copper_ingot" }
+  },
+  "result": {
+    "item": "sem_classsystem:laser_designator",
+    "count": 1
+  }
+}

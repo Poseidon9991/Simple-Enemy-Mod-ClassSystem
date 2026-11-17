@@ -26,5 +26,41 @@
     "sounds": [
       "simpleenemymod:entity/us_unit/sound_us_unit_warning"
     ]
+  },
+  "tanya_barrier_deploy": {
+    "subtitle": "subtitles.sem_classsystem.tanya_barrier_deploy",
+    "sounds": [
+      "sem_classsystem:tanya/barrier_deploy"
+    ]
+  },
+  "tanya_barrier_hit": {
+    "subtitle": "subtitles.sem_classsystem.tanya_barrier_hit",
+    "sounds": [
+      "sem_classsystem:tanya/barrier_hit"
+    ]
+  },
+  "tanya_barrier_shatter": {
+    "subtitle": "subtitles.sem_classsystem.tanya_barrier_shatter",
+    "sounds": [
+      "sem_classsystem:tanya/barrier_shatter"
+    ]
+  },
+  "tanya_spell_shoot": {
+    "subtitle": "subtitles.sem_classsystem.tanya_spell_shoot",
+    "sounds": [
+      "sem_classsystem:tanya/spell_shoot"
+    ]
+  },
+  "tanya_spell_blast": {
+    "subtitle": "subtitles.sem_classsystem.tanya_spell_blast",
+    "sounds": [
+      "sem_classsystem:tanya/spell_blast"
+    ]
+  },
+  "tanya_flight_activate": {
+    "subtitle": "subtitles.sem_classsystem.tanya_flight_activate",
+    "sounds": [
+      "sem_classsystem:tanya/flight_activate"
+    ]
   }
 }

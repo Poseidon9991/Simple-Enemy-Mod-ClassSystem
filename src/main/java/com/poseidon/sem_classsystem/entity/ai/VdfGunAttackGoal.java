@@ -13,7 +13,11 @@ import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ReloadState;
 import com.tacz.guns.api.entity.ShootResult;
 import com.tacz.guns.api.item.IGun;
+import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.pojo.data.gun.BulletData;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
@@ -87,6 +91,35 @@ public class VdfGunAttackGoal extends Goal {
     private int proneHoldTicks;
     private int proneCooldownTicks;
     private int proneBlockedLosTicks;
+
+    // Per-stack CommonGunIndex cache to avoid repeated TimelessAPI lookups per tick.
+    private ItemStack cachedIndexStack = ItemStack.EMPTY;
+    @Nullable
+    private ResourceLocation cachedIndexGunId = null;
+    @Nullable
+    private CommonGunIndex cachedGunIndex = null;
+
+    @Nullable
+    private CommonGunIndex getHeldGunIndex(ItemStack gun) {
+        IGun iGun = IGun.getIGunOrNull(gun);
+        if (iGun == null) {
+            this.cachedIndexStack = ItemStack.EMPTY;
+            this.cachedIndexGunId = null;
+            this.cachedGunIndex = null;
+            return null;
+        }
+        ResourceLocation gunId = iGun.getGunId(gun);
+        if (gunId == null) {
+            return null;
+        }
+        if (gun == this.cachedIndexStack && gunId.equals(this.cachedIndexGunId)) {
+            return this.cachedGunIndex;
+        }
+        this.cachedIndexStack = gun;
+        this.cachedIndexGunId = gunId;
+        this.cachedGunIndex = TimelessAPI.getCommonGunIndex(gunId).orElse(null);
+        return this.cachedGunIndex;
+    }
 
     public VdfGunAttackGoal(VdfUnitEntity unit, double speedModifier) {
         this.unit = unit;
@@ -194,26 +227,7 @@ public class VdfGunAttackGoal extends Goal {
             updateStance(cls, target, dist);
         }
 
-        // Keep-away: classes with a kite distance back-pedal when the
-        // target pushes inside it (Camper's sniper standoff).
-        double kite = cls == null ? 0.0 : ClassSystemConfig.classKiteDistance(cls);
-        if (!this.prone && kite > 0.0 && canSee && dist < kite) {
-            Vec3 flat = new Vec3(this.unit.getX() - target.getX(), 0.0,
-                    this.unit.getZ() - target.getZ());
-            if (flat.lengthSqr() > 1.0E-4) {
-                Vec3 spot = this.unit.position().add(flat.normalize().scale(kite));
-                this.unit.getNavigation().moveTo(spot.x, spot.y, spot.z, approach);
-            }
-        } else if (this.prone) {
-            this.unit.getNavigation().stop();
-        } else if (dist > engage || !canSee) {
-            // Advance until inside the class's preferred distance; blind
-            // targets still get chased (militia investigates, doesn't hold).
-            this.unit.getNavigation().moveTo(target, approach);
-        } else {
-            this.unit.getNavigation().stop();
-        }
-        this.unit.getLookControl().setLookAt(target, 30.0F, 30.0F);
+        smartRetargetAndAlert(target, distSqr, canSee);
 
         IGunOperator operator = IGunOperator.fromLivingEntity(this.unit);
         operator.aim(true);
@@ -221,18 +235,28 @@ public class VdfGunAttackGoal extends Goal {
         ItemStack gunStack = this.unit.getMainHandItem();
         IGun iGun = IGun.getIGunOrNull(gunStack);
         if (iGun == null) {
+            this.unit.setSprinting(false);
             return;
         }
 
-        int ammo = iGun.getCurrentAmmoCount(gunStack);
         ReloadState.StateType reloadState = operator.getSynReloadState().getStateType();
+        boolean reloading = reloadState != null && reloadState.isReloading();
+
+        if (updateWeaponSwap(gunStack, iGun, distSqr, dist, canSee, reloading)) {
+            return;
+        }
+
+        updateCombatMovement(cls, target, dist, approach, engage, canSee, reloading);
+        this.unit.getLookControl().setLookAt(target, 30.0F, 30.0F);
+
+        int ammo = iGun.getCurrentAmmoCount(gunStack);
 
         // Reload in progress: shoot() would only come back IS_RELOADING, and
         // calling reload() again is a TaCZ no-op - wait it out. Tube-fed
         // shotguns load one shell per feed step, so once at least one round
         // is chambered and the target is still visible, cut the feed short
         // and fight with a partial tube instead of standing in the open.
-        if (reloadState != null && reloadState.isReloading()) {
+        if (reloading) {
             if (ammo > 0 && !reloadState.isReloadFinishing() && canSee) {
                 operator.cancelReload();
             }
@@ -263,9 +287,12 @@ public class VdfGunAttackGoal extends Goal {
                 && insideBlastRadius(target, dist)) {
             return;
         }
-        // Scoped hold: Campers wait for the sight picture before firing.
-        if (cls == WeaponClass.SNIPER && operator.getSynAimingProgress() < 1.0F) {
-            return;
+        // Distance-scaled scoped hold: close-range snaps fire immediately or via quick-scope.
+        if (cls == WeaponClass.SNIPER) {
+            float requiredAim = dist <= 10.0D ? 0.0F : (dist <= 20.0D ? 0.35F : 0.85F);
+            if (requiredAim > 0.0F && operator.getSynAimingProgress() < requiredAim) {
+                return;
+            }
         }
 
         // Aim at the target's eye line with the SAME spread pipeline the
@@ -373,13 +400,7 @@ public class VdfGunAttackGoal extends Goal {
                 && cls != WeaponClass.JACK) {
             return pos;
         }
-        ItemStack gun = this.unit.getMainHandItem();
-        IGun iGun = IGun.getIGunOrNull(gun);
-        var gunId = iGun == null ? null : iGun.getGunId(gun);
-        if (gunId == null) {
-            return pos;
-        }
-        var index = TimelessAPI.getCommonGunIndex(gunId).orElse(null);
+        CommonGunIndex index = getHeldGunIndex(this.unit.getMainHandItem());
         if (index == null || index.getBulletData() == null) {
             return pos;
         }
@@ -413,20 +434,224 @@ public class VdfGunAttackGoal extends Goal {
     // True when firing would catch the shooter in its own shell's blast
     // (Demolisher safety - mirrors the mixin's insideBlastRadius).
     private boolean insideBlastRadius(LivingEntity target, double dist) {
-        ItemStack gun = this.unit.getMainHandItem();
-        IGun iGun = IGun.getIGunOrNull(gun);
-        var gunId = iGun == null ? null : iGun.getGunId(gun);
-        if (gunId == null) {
-            return false;
-        }
-        BulletData bullet = TimelessAPI.getCommonGunIndex(gunId)
-                .map(index -> index.getBulletData()).orElse(null);
+        CommonGunIndex index = getHeldGunIndex(this.unit.getMainHandItem());
+        BulletData bullet = index == null ? null : index.getBulletData();
         if (bullet == null || bullet.getExplosionData() == null
                 || !bullet.getExplosionData().isExplode()) {
             return false;
         }
-        double danger = bullet.getExplosionData().getRadius() + 2.0;
-        return dist < Math.min(danger, 20.0);
+        double danger = Math.min(bullet.getExplosionData().getRadius() + 2.5D, 12.0D);
+        return dist < danger;
+    }
+
+    // ---- tactical movement, weapon swap & squad awareness ----------------
+
+    private boolean updateWeaponSwap(ItemStack held, IGun heldGun, double distSqr, double dist,
+                                     boolean canSee, boolean reloading) {
+        if ((this.unit.tickCount + this.unit.getId()) % 8 != 1) {
+            return false;
+        }
+        WeaponClass assigned = WeaponClassSupport.get(this.unit);
+        if (assigned == null || assigned == WeaponClass.PISTOL) {
+            return false;
+        }
+        long now = this.unit.level().getGameTime();
+        if (!UnitWeaponFallbackGoal.canSwapNow(this.unit, now)) {
+            return false;
+        }
+        boolean holdingBackup = UnitWeaponFallbackGoal.isCqbBackupItem(held, assigned);
+        double drawRange = ClassSystemConfig.classSidearmDrawDistance(assigned);
+        if (assigned == WeaponClass.HEAVY) {
+            drawRange = Math.max(11.0D, drawRange);
+        }
+        boolean primaryLowInCqb = !holdingBackup && (reloading || heldGun.getCurrentAmmoCount(held) <= 0);
+        boolean wantBackup = canSee && ((drawRange > 0.0D && dist <= drawRange)
+                || (primaryLowInCqb && dist <= 12.0D));
+
+        if (!holdingBackup && wantBackup) {
+            return UnitWeaponFallbackGoal.swapToBackup(this.unit, assigned, now);
+        }
+        if (holdingBackup) {
+            double returnDist = Math.max(14.0D, Math.max(drawRange + 4.0D,
+                    ClassSystemConfig.classSidearmReturnDistance(assigned)));
+            if (distSqr >= returnDist * returnDist
+                    && UnitWeaponFallbackGoal.hasReadyPrimaryForDistance(this.unit, assigned, distSqr, returnDist)) {
+                return UnitWeaponFallbackGoal.swapToPrimary(this.unit, assigned, now, false);
+            }
+        }
+        return false;
+    }
+
+    private void updateCombatMovement(@Nullable WeaponClass cls, LivingEntity target, double dist,
+                                      double approach, double engage, boolean canSee, boolean reloading) {
+        if (this.prone) {
+            this.unit.setSprinting(false);
+            this.unit.getNavigation().stop();
+            return;
+        }
+
+        double dx = target.getX() - this.unit.getX();
+        double dz = target.getZ() - this.unit.getZ();
+        double len = Math.sqrt(dx * dx + dz * dz);
+        double tx = len > 0.01D ? dx / len : 1.0D;
+        double tz = len > 0.01D ? dz / len : 0.0D;
+        double px = -tz;
+        double pz = tx;
+
+        // 1. Reload evasive sidestep when under fire in sight
+        if (reloading && canSee && len > 0.01D) {
+            this.unit.setSprinting(false);
+            if ((this.unit.tickCount + this.unit.getId()) % 12 == 0) {
+                double dir = (((this.unit.tickCount / 12) + this.unit.getId()) % 2 == 0) ? 1.0D : -1.0D;
+                double wx = this.unit.getX() + px * 2.6D * dir - tx * 1.0D;
+                double wz = this.unit.getZ() + pz * 2.6D * dir - tz * 1.0D;
+                if (isWalkableSpot(wx, this.unit.getY(), wz)) {
+                    this.unit.getMoveControl().setWantedPosition(wx, this.unit.getY(), wz, 1.08D);
+                }
+            }
+            return;
+        }
+
+        // 2. Keep-away kiting (SNIPER / HEAVY / MEDIC) with walkable fan-out
+        double kite = cls == null ? 0.0D : ClassSystemConfig.classKiteDistance(cls);
+        if (kite > 0.0D && canSee && dist < kite) {
+            this.unit.setSprinting(false);
+            int interval = cls == WeaponClass.SNIPER ? 10 : 6;
+            if ((this.unit.tickCount + this.unit.getId()) % interval == 0 && len > 0.01D) {
+                double backAngle = Math.atan2(-dz, -dx);
+                double bestScore = -1.0D;
+                double bestX = 0.0D, bestZ = 0.0D;
+                double reach = Math.min(8.0D, kite * 0.6D);
+                for (double deg : new double[]{0.0D, -40.0D, 40.0D, -80.0D, 80.0D}) {
+                    double a = backAngle + Math.toRadians(deg);
+                    double cx = this.unit.getX() + Math.cos(a) * reach;
+                    double cz = this.unit.getZ() + Math.sin(a) * reach;
+                    if (!isWalkableSpot(cx, this.unit.getY(), cz)) {
+                        continue;
+                    }
+                    double score = (cx - target.getX()) * (cx - target.getX())
+                            + (cz - target.getZ()) * (cz - target.getZ());
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestX = cx;
+                        bestZ = cz;
+                    }
+                }
+                if (bestScore > 0.0D) {
+                    this.unit.getMoveControl().setWantedPosition(bestX, this.unit.getY(), bestZ, approach);
+                }
+            }
+            return;
+        }
+
+        // 3. Shotgun serpentine advance & CQB circle-strafing
+        if (cls == WeaponClass.SHOTGUN) {
+            if (dist > 7.0D || !canSee) {
+                this.unit.setSprinting(dist > 9.0D);
+                if ((this.unit.tickCount + this.unit.getId()) % 8 == 0 || this.unit.getNavigation().isDone()) {
+                    double side = (((this.unit.tickCount + this.unit.getId() * 5) / 14) % 2 == 0) ? 1.0D : -1.0D;
+                    double stepAngle = Math.atan2(dz, dx) + Math.toRadians(24.0D * side);
+                    double stepDist = Math.min(6.0D, dist);
+                    double wx = this.unit.getX() + Math.cos(stepAngle) * stepDist;
+                    double wz = this.unit.getZ() + Math.sin(stepAngle) * stepDist;
+                    if (dist > 8.0D && isWalkableSpot(wx, this.unit.getY(), wz)) {
+                        this.unit.getNavigation().moveTo(wx, this.unit.getY(), wz, Math.max(1.12D, approach));
+                    } else {
+                        this.unit.getNavigation().moveTo(target, Math.max(1.12D, approach));
+                    }
+                }
+            } else {
+                this.unit.setSprinting(false);
+                if ((this.unit.tickCount + this.unit.getId()) % 10 == 0) {
+                    double side = (((this.unit.tickCount + this.unit.getId() * 3) / 14) % 2 == 0) ? 1.0D : -1.0D;
+                    double radial = dist < 2.8D ? -1.4D : (dist > 5.5D ? 0.9D : 0.0D);
+                    double wx = this.unit.getX() + px * 2.8D * side + tx * radial;
+                    double wz = this.unit.getZ() + pz * 2.8D * side + tz * radial;
+                    if (isWalkableSpot(wx, this.unit.getY(), wz)) {
+                        this.unit.getMoveControl().setWantedPosition(wx, this.unit.getY(), wz, 1.08D);
+                    }
+                }
+            }
+            return;
+        }
+
+        // 4. Advance if outside engage range or obstructed
+        this.unit.setSprinting(false);
+        if (dist > engage || !canSee) {
+            if ((this.unit.tickCount + this.unit.getId()) % 6 == 0 || this.unit.getNavigation().isDone()) {
+                this.unit.getNavigation().moveTo(target, approach);
+            }
+            return;
+        }
+
+        // 5. Engaged within range: spread from stacked militia + agile skirmish strafing
+        this.unit.getNavigation().stop();
+        if ((this.unit.tickCount + this.unit.getId()) % 14 == 0 && len > 0.01D) {
+            var crowded = this.unit.level().getEntitiesOfClass(
+                    VdfUnitEntity.class,
+                    this.unit.getBoundingBox().inflate(1.6D, 1.0D, 1.6D),
+                    other -> other != this.unit && other.isAlive());
+            if (!crowded.isEmpty()) {
+                VdfUnitEntity mate = crowded.get(0);
+                double dot = (this.unit.getX() - mate.getX()) * px + (this.unit.getZ() - mate.getZ()) * pz;
+                double side = dot >= 0.0D ? 1.0D : -1.0D;
+                double wx = this.unit.getX() + px * 2.0D * side;
+                double wz = this.unit.getZ() + pz * 2.0D * side;
+                if (isWalkableSpot(wx, this.unit.getY(), wz)) {
+                    this.unit.getMoveControl().setWantedPosition(wx, this.unit.getY(), wz, 1.02D);
+                }
+                return;
+            }
+            if (cls != WeaponClass.SNIPER && cls != WeaponClass.HEAVY_MG) {
+                boolean smg = cls == WeaponClass.SMG;
+                double side = (((this.unit.tickCount / 14) + this.unit.getId()) % 2 == 0) ? 1.0D : -1.0D;
+                double lat = smg ? 2.6D : 2.0D;
+                double fwd = smg ? (dist > 11.0D ? 1.0D : (dist < 5.5D ? -1.0D : 0.0D)) : 0.0D;
+                double wx = this.unit.getX() + px * lat * side + tx * fwd;
+                double wz = this.unit.getZ() + pz * lat * side + tz * fwd;
+                if (isWalkableSpot(wx, this.unit.getY(), wz)) {
+                    this.unit.getMoveControl().setWantedPosition(wx, this.unit.getY(), wz, smg ? 1.08D : 1.0D);
+                }
+            }
+        }
+    }
+
+    private boolean isWalkableSpot(double x, double y, double z) {
+        BlockPos pos = BlockPos.containing(x, y, z);
+        if (!this.unit.level().hasChunkAt(pos)) {
+            return false;
+        }
+        Vec3 delta = new Vec3(x - this.unit.getX(), y - this.unit.getY(), z - this.unit.getZ());
+        if (!this.unit.level().noCollision(this.unit, this.unit.getBoundingBox().move(delta))) {
+            return false;
+        }
+        return this.unit.level().getBlockState(pos.below())
+                .entityCanStandOnFace(this.unit.level(), pos.below(), this.unit, Direction.UP)
+                && this.unit.level().getFluidState(pos).isEmpty();
+    }
+
+    private void smartRetargetAndAlert(LivingEntity current, double currentDistSqr, boolean currentVisible) {
+        if ((this.unit.tickCount + this.unit.getId()) % 16 != 4) {
+            return;
+        }
+        LivingEntity hurtBy = this.unit.getLastHurtByMob();
+        if (hurtBy != null && hurtBy.isAlive() && hurtBy != current && this.unit.canAttack(hurtBy)) {
+            int hurtAge = this.unit.tickCount - this.unit.getLastHurtByMobTimestamp();
+            if (hurtAge <= 40 && (!currentVisible || this.unit.distanceToSqr(hurtBy) < currentDistSqr * 0.65D)
+                    && this.unit.getSensing().hasLineOfSight(hurtBy)) {
+                this.unit.setTarget(hurtBy);
+                current = hurtBy;
+            }
+        }
+        var allies = this.unit.level().getEntitiesOfClass(
+                VdfUnitEntity.class,
+                this.unit.getBoundingBox().inflate(28.0D, 12.0D, 28.0D),
+                other -> other != this.unit && other.isAlive() && other.getTarget() == null);
+        for (VdfUnitEntity ally : allies) {
+            if (ally.canAttack(current)) {
+                ally.setTarget(current);
+            }
+        }
     }
 
     // True when a protected ally or same-faction unit stands in the firing

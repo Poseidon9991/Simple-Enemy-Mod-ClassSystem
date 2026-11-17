@@ -50,7 +50,7 @@ public final class SemClassCommands {
     // assignment.
     private static final String[] CLASS_KEYS = Arrays.stream(WeaponClass.mainClasses())
             .map(WeaponClass::configKey).toArray(String[]::new);
-    private static final String[] FACTION_KEYS = {"ru", "us", "pmc", "bhq"};
+    private static final String[] FACTION_KEYS = {"ru", "us", "pmc", "bhq", "vdf", "terrorist"};
 
     private static final SuggestionProvider<CommandSourceStack> CLASS_SUGGEST =
             (ctx, builder) -> SharedSuggestionProvider.suggest(CLASS_KEYS, builder);
@@ -187,22 +187,30 @@ public final class SemClassCommands {
             return 0;
         }
 
-        // Resolve faction key -> SEM entity type
+        // Resolve faction key -> SEM / addon entity type
         net.minecraft.world.entity.EntityType<?> type = switch (factionArg) {
             case "ru" -> ModEntities.RUUNIT.get();
             case "us" -> ModEntities.USUNIT.get();
             case "pmc" -> ModEntities.PMCUNIT.get();
             case "bhq" -> SemcsRegistries.BHQ_UNIT.get();
+            case "vdf" -> SemcsRegistries.VDF_UNIT.get();
+            case "terrorist" -> SemcsRegistries.TERRORIST_UNIT.get();
             default -> null;
         };
         if (type == null) {
-            src.sendFailure(Component.literal("Unknown faction: " + factionArg + " (use ru, us, pmc or bhq)"));
+            src.sendFailure(Component.literal("Unknown faction: " + factionArg + " (use ru, us, pmc, bhq, vdf or terrorist)"));
+            return 0;
+        }
+        if ("terrorist".equals(factionArg)
+                && !com.poseidon.sem_classsystem.entity.TerroristUnitEntity.isAllowedClass(cls)) {
+            src.sendFailure(Component.literal(
+                    "Terrorist units only support rifle, heavy (demolisher), and sniper (camper)"));
             return 0;
         }
 
         ServerLevel level = src.getLevel();
         Entity entity = type.create(level);
-        if (!(entity instanceof AbstractUnit unit)) {
+        if (!(entity instanceof net.minecraft.world.entity.Mob unit)) {
             src.sendFailure(Component.literal("Could not create unit"));
             return 0;
         }
@@ -237,11 +245,17 @@ public final class SemClassCommands {
 
         Collection<? extends Entity> targets = EntityArgument.getEntities(ctx, "targets");
         int changed = 0;
+        int rejectedTerrorists = 0;
         for (Entity entity : targets) {
             // isClassifiable: only SEM's own unit types - addon subclasses
             // (sewv medics/engineers/...) keep their own gear and rules
             if (entity instanceof AbstractUnit unit && unit instanceof IClassifiedUnit classified
                     && WeaponClassSupport.isClassifiable(entity)) {
+                if (entity instanceof com.poseidon.sem_classsystem.entity.TerroristUnitEntity
+                        && !com.poseidon.sem_classsystem.entity.TerroristUnitEntity.isAllowedClass(cls)) {
+                    rejectedTerrorists++;
+                    continue;
+                }
                 classified.semcs$setWeaponClass(cls);          // new class
                 unit.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY); // drop old gun
                 unit.equipRandomGun();                          // pick from new class pool
@@ -251,7 +265,9 @@ public final class SemClassCommands {
             }
         }
         if (changed == 0) {
-            src.sendFailure(Component.literal("No SEM units in the selected entities"));
+            src.sendFailure(Component.literal(rejectedTerrorists > 0
+                    ? "Terrorist units only support rifle, heavy (demolisher), and sniper (camper)"
+                    : "No SEM units in the selected entities"));
             return 0;
         }
         int finalChanged = changed;

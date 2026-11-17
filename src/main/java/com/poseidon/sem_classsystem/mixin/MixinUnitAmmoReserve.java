@@ -229,7 +229,7 @@ public abstract class MixinUnitAmmoReserve {
 
     @Unique
     private static void semcs$equipBackupSidearm(LivingEntity entity, RandomSource random) {
-        WeaponClass cls = WeaponClassSupport.get(entity);
+        final WeaponClass assignedCls = WeaponClassSupport.get(entity);
 
         // 1. Always issue field rations + Medic IFAK supplies first
         if (entity instanceof PmcUnitEntity) {
@@ -243,7 +243,7 @@ public abstract class MixinUnitAmmoReserve {
                         break;
                     }
                 }
-                if (cls == WeaponClass.MEDIC) {
+                if (assignedCls == WeaponClass.MEDIC) {
                     for (int slot = STORAGE_START; slot < modifiable.getSlots(); slot++) {
                         if (modifiable.getStackInSlot(slot).isEmpty()) {
                             modifiable.setStackInSlot(slot, new ItemStack(SemcsRegistries.IFAK_POUCH.get()));
@@ -255,12 +255,22 @@ public abstract class MixinUnitAmmoReserve {
         } else {
             entity.getPersistentData().putInt("semcs_field_rations", 3);
         }
-        if (cls == WeaponClass.MEDIC) {
+        if (assignedCls == WeaponClass.MEDIC) {
             entity.getPersistentData().putInt("semcs_medic_charges", 12);
         }
 
-        // 2. Camper (SNIPER), Demolisher (HEAVY), and PISTOL subclass do NOT receive a backup sidearm
-        if (cls == WeaponClass.PISTOL || cls == WeaponClass.SNIPER || cls == WeaponClass.HEAVY) {
+        // 2. Every non-pistol class receives a backup sidearm (including Camper/SNIPER and Demolisher/HEAVY).
+        WeaponClass cls = assignedCls;
+        if (cls == null) {
+            ItemStack main = entity.getMainHandItem();
+            IGun mg = IGun.getIGunOrNull(main);
+            ResourceLocation gid = mg != null ? mg.getGunId(main) : null;
+            cls = gid != null ? ClassLoadouts.inferClass(gid) : null;
+        }
+        if (cls == WeaponClass.PISTOL) {
+            return;
+        }
+        if (!(entity instanceof PmcUnitEntity) && entity.getPersistentData().contains("semcs_backup_sidearm")) {
             return;
         }
         String tableKey = entity instanceof BhqUnitEntity ? "bhq_units"

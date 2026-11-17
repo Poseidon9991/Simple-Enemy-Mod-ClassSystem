@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IQI",
+    "MNM",
+    "GCG"
+  ],
+  "key": {
+    "I": { "item": "minecraft:iron_ingot" },
+    "Q": { "item": "minecraft:quartz" },
+    "M": { "item": "minecraft:magma_cream" },
+    "N": { "item": "sem_classsystem:nvg_night" },
+    "G": { "item": "minecraft:gold_ingot" },
+    "C": { "item": "minecraft:comparator" }
+  },
+  "result": {
+    "item": "sem_classsystem:nvg_infrared",
+    "count": 1
+  }
+}

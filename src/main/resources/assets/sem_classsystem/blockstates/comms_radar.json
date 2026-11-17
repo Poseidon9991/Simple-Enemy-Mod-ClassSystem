@@ -1,0 +1,12 @@
+{
+  "variants": {
+    "facing=north,alert=false": { "model": "sem_classsystem:block/comms_radar" },
+    "facing=south,alert=false": { "model": "sem_classsystem:block/comms_radar", "y": 180 },
+    "facing=west,alert=false":  { "model": "sem_classsystem:block/comms_radar", "y": 270 },
+    "facing=east,alert=false":  { "model": "sem_classsystem:block/comms_radar", "y": 90 },
+    "facing=north,alert=true":  { "model": "sem_classsystem:block/comms_radar_alert" },
+    "facing=south,alert=true":  { "model": "sem_classsystem:block/comms_radar_alert", "y": 180 },
+    "facing=west,alert=true":   { "model": "sem_classsystem:block/comms_radar_alert", "y": 270 },
+    "facing=east,alert=true":   { "model": "sem_classsystem:block/comms_radar_alert", "y": 90 }
+  }
+}

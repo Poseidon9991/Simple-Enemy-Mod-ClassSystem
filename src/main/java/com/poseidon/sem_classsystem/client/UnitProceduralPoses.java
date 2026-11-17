@@ -71,8 +71,8 @@ public final class UnitProceduralPoses {
                                              ModelPart rightLeg, ModelPart leftLeg,
                                              float limbSwing, float limbSwingAmount, float ageInTicks,
                                              UnitProceduralAnimState state) {
-        float phase = state.walkPhase() > 0.001F ? state.walkPhase() : (limbSwing * 0.6662F);
-        float effLimbAmt = Math.max(limbSwingAmount, state.smoothStrideAmplitude());
+        float phase = state.hasWalkPhase() ? state.walkPhase() : (limbSwing * 0.6662F);
+        float effLimbAmt = state.hasWalkPhase() ? state.smoothStrideAmplitude() : limbSwingAmount;
         applyLocomotionPolish(unit, head, body, rightArm, leftArm, rightLeg, leftLeg,
                 phase / 0.6662F, effLimbAmt, ageInTicks,
                 state.smoothWalkBlend(), state.smoothRunBlend(), state.smoothCombatBlend(),
@@ -109,76 +109,74 @@ public final class UnitProceduralPoses {
         // 1. Strip SEM's cartoon squash-and-stretch scale keyframes (1.10x/0.97y)
         resetScales(unit, head, body, rightArm, leftArm, rightLeg, leftLeg);
 
-        // Stride dynamics: moveAmt reflects actual speed (gentle walk vs full athletic sprint)
-        float moveAmt = Mth.clamp(limbSwingAmount * walkBlend, 0.0F, 1.0F);
-        // Flip the stride phase when backpedalling so the lifted knee leads the
-        // actual direction of travel instead of moonwalking.
-        float dirSign = moveFwd < -0.15F ? -1.0F : 1.0F;
-        float stride = Mth.cos(limbSwing * 0.6662F) * dirSign;
-        float stepSin = Mth.sin(limbSwing * 0.6662F) * dirSign;
-        float doubleStep = Mth.cos(limbSwing * 1.3324F);
+        // Stride dynamics: moveAmt scales calmly with walkBlend and actual speed-locked stride amplitude
+        float moveAmt = Mth.clamp(limbSwingAmount * Mth.clamp(walkBlend * 2.0F, 0.0F, 1.0F), 0.0F, 1.0F);
+        float phase = limbSwing * 0.6662F;
+        float stride = Mth.cos(phase);
+        float stepSin = Mth.sin(phase);
+        float doubleStep = Mth.cos(phase * 2.0F);
         float breath = Mth.sin(ageInTicks * 0.09F);
         float idleSway = Mth.cos(ageInTicks * 0.045F) * (1.0F - moveAmt);
-        float turnBank = Mth.clamp(turnRate * 0.0045F, -0.09F, 0.09F);
+        float turnBank = Mth.clamp(turnRate * 0.0040F, -0.08F, 0.08F);
 
-        // 2. Stabilize root & torso: slow walk has calm vertical step, running has athletic bounce
-        float bounceScale = Mth.lerp(runBlend, 0.16F, 0.50F);
-        unit.x = stepSin * 0.22F * moveAmt + idleSway * 0.08F;
+        // 2. Stabilize root & torso: keep lateral weight-shift subtle (0.08) so bodies never shimmy sideways
+        float bounceScale = Mth.lerp(runBlend, 0.14F, 0.45F);
+        unit.x = stepSin * 0.08F * moveAmt + idleSway * 0.04F;
         unit.y = -Math.abs(stepSin) * bounceScale * moveAmt;
         unit.z = 0.0F;
         unit.xRot = 0.0873F;
         unit.yRot = 0.0F;
-        unit.zRot = stepSin * 0.022F * moveAmt + turnBank;
+        unit.zRot = stepSin * (0.010F + runBlend * 0.014F) * moveAmt + turnBank * 0.85F;
 
-        // Upright tactical walk vs forward-pitched athletic sprint lean:
-        // Slow walk keeps torso completely upright (fwdLean = 0); sprint drives chest forward.
+        // Upright tactical walk vs forward-pitched athletic sprint lean
         float baseBodyYRot = Mth.lerp(walkBlend * (1.0F - 0.55F * combatBlend), 0.6536F, 0.34F);
-        float fwdLean = runBlend * (0.22F * Math.max(-0.4F, moveFwd));
-        float sideLean = moveSide * 0.09F * moveAmt + turnBank * 0.7F;
+        float fwdLean = runBlend * (0.20F * Math.max(-0.35F, moveFwd));
+        float sideLean = moveSide * (0.05F + runBlend * 0.04F) * moveAmt + turnBank * 0.65F;
         body.x = 0.0F;
-        body.y = -6.26F + breath * 0.09F * (1.0F - moveAmt);
+        body.y = -6.26F + breath * 0.08F * (1.0F - moveAmt);
         body.z = 1.0616F;
-        body.xRot = 0.0997F + fwdLean + breath * 0.018F * (1.0F - moveAmt);
-        body.yRot = baseBodyYRot - stride * (0.05F + runBlend * 0.08F) * moveAmt - turnBank * 0.9F;
-        body.zRot = 0.0238F + stepSin * 0.024F * moveAmt + sideLean + idleSway * 0.012F;
+        body.xRot = 0.0997F + fwdLean + breath * 0.016F * (1.0F - moveAmt);
+        body.yRot = baseBodyYRot - stride * (0.035F + runBlend * 0.085F) * moveAmt - turnBank * 0.85F;
+        body.zRot = 0.0238F + stepSin * (0.012F + runBlend * 0.015F) * moveAmt + sideLean + idleSway * 0.008F;
 
         head.x = 0.0F;
         head.y = -6.16F + breath * 0.04F * (1.0F - moveAmt);
-        head.z = 1.0616F - Math.max(0.0F, fwdLean) * 2.2F;
-        head.zRot -= sideLean * 0.35F;
+        head.z = 1.0616F - Math.max(0.0F, fwdLean) * 2.0F;
+        head.zRot = -sideLean * 0.30F;
 
-        // 3. Distance-synchronized legs:
-        //    Slow walk: gentle 20-30 degree swing, low knee lift
-        //    Running: wide 60-70 degree swing, high driving knee lift
+        // 3. Symmetric, distance-synchronized legs centered cleanly on the torso hip axis (z = 1.0616):
+        //    Slow walk: calm ~14-32 deg swing, gentle knee lift
+        //    Running: wide ~63 deg swing, high driving knee lift
         float absSide = Math.abs(moveSide) * moveAmt;
-        float fwdScale = 1.0F - 0.38F * absSide;
-        float rSwing = stride * 1.15F * moveAmt * fwdScale;
-        float lSwing = -stride * 1.15F * moveAmt * fwdScale;
-        float liftScale = Mth.lerp(runBlend, 0.35F, 0.85F);
-        float rLift = Math.max(0.0F, -rSwing) * liftScale + Math.max(0.0F, stepSin * moveSide) * 0.45F * absSide;
-        float lLift = Math.max(0.0F, -lSwing) * liftScale + Math.max(0.0F, -stepSin * moveSide) * 0.45F * absSide;
-        float strafeRoll = stride * moveSide * 0.24F * moveAmt;
-        float strafeShiftX = stepSin * moveSide * 0.45F * moveAmt;
+        float fwdScale = 1.0F - 0.35F * absSide;
+        float rSwing = stride * 1.10F * moveAmt * fwdScale;
+        float lSwing = -stride * 1.10F * moveAmt * fwdScale;
+        float liftScale = Mth.lerp(runBlend, 0.28F, 0.82F);
+        float rLift = Math.max(0.0F, -rSwing) * liftScale + Math.max(0.0F, stepSin * moveSide) * 0.35F * absSide;
+        float lLift = Math.max(0.0F, -lSwing) * liftScale + Math.max(0.0F, -stepSin * moveSide) * 0.35F * absSide;
+        float strafeRoll = stride * moveSide * (0.16F + runBlend * 0.08F) * moveAmt;
+        float strafeShiftX = stepSin * moveSide * 0.30F * moveAmt;
 
         rightLeg.x = -1.9F + strafeShiftX;
         rightLeg.y = 6.0F - rLift;
-        rightLeg.z = Mth.lerp(walkBlend, 4.0F, 1.4F) + rSwing * 0.45F;
-        rightLeg.xRot = Mth.lerp(walkBlend, 0.1309F, 0.02F) + rSwing;
-        rightLeg.yRot = moveSide * 0.14F * moveAmt;
+        rightLeg.z = Mth.lerp(walkBlend, 4.0F, 1.0616F) + rSwing * 0.42F;
+        rightLeg.xRot = Mth.lerp(walkBlend, 0.1309F, 0.0F) + rSwing;
+        rightLeg.yRot = moveSide * 0.12F * moveAmt;
         rightLeg.zRot = strafeRoll;
 
-        leftLeg.x = Mth.lerp(walkBlend, 2.15F, 1.95F) + strafeShiftX;
+        leftLeg.x = Mth.lerp(walkBlend, 2.15F, 1.9F) + strafeShiftX;
         leftLeg.y = Mth.lerp(walkBlend, 5.85F, 6.0F) - lLift;
-        leftLeg.z = Mth.lerp(walkBlend, -1.0F, 0.6F) + lSwing * 0.45F;
-        leftLeg.xRot = Mth.lerp(walkBlend, -0.1745F, -0.02F) + lSwing;
-        leftLeg.yRot = moveSide * 0.14F * moveAmt;
+        leftLeg.z = Mth.lerp(walkBlend, -1.0F, 1.0616F) + lSwing * 0.42F;
+        leftLeg.xRot = Mth.lerp(walkBlend, -0.1745F, 0.0F) + lSwing;
+        leftLeg.yRot = moveSide * 0.12F * moveAmt;
         leftLeg.zRot = -strafeRoll * 0.85F;
 
-        // 4. Anchored shoulders & natural arm cadence
-        float patrolRelax = 1.0F - 0.68F * combatBlend;
-        float armBobY = doubleStep * (0.12F + runBlend * 0.22F) * moveAmt + breath * 0.11F * (1.0F - moveAmt);
-        float swayX = stepSin * (0.05F + runBlend * 0.06F) * moveAmt * patrolRelax;
-        float swayY = stride * (0.03F + runBlend * 0.04F) * moveAmt * patrolRelax;
+        // 4. Anchored shoulders & speed-damped arm cadence (eliminates sprint-level arm whip during slow walks)
+        float patrolRelax = 1.0F - 0.72F * combatBlend;
+        float armSpeedScale = 0.25F + 0.75F * runBlend;
+        float armBobY = doubleStep * (0.04F + runBlend * 0.22F) * moveAmt + breath * 0.09F * (1.0F - moveAmt);
+        float swayX = stepSin * (0.025F + runBlend * 0.065F) * moveAmt * patrolRelax * armSpeedScale;
+        float swayY = stride * (0.018F + runBlend * 0.045F) * moveAmt * patrolRelax * armSpeedScale;
         rightArm.x = -3.0F;
         rightArm.y = -2.9089F + armBobY;
         rightArm.z = 3.4377F;
@@ -220,25 +218,24 @@ public final class UnitProceduralPoses {
         resetScales(unit, head, body, rightArm, leftArm, rightLeg, leftLeg);
 
         float walkBlend = animState.smoothWalkBlend();
+        float runBlend = animState.smoothRunBlend();
         float combatBlend = animState.smoothCombatBlend();
         float crouchBlend = animState.smoothCrouchBlend();
-        float moveFwd = animState.moveForward();
         float moveSide = animState.moveSide();
-        float turnBank = Mth.clamp(animState.turnRate() * 0.0045F, -0.09F, 0.09F);
-        float dirSign = moveFwd < -0.15F ? -1.0F : 1.0F;
-        float effLimbAmt = Math.max(limbSwingAmount, animState.smoothStrideAmplitude());
-        float legMove = Mth.clamp(Math.max(effLimbAmt * 1.15F, walkBlend * 0.58F) * walkBlend, 0.0F, 1.0F);
-        float phase = animState.walkPhase() > 0.001F ? animState.walkPhase() : (limbSwing * 0.6662F);
-        float stride = Mth.cos(phase) * dirSign;
-        float stepSin = Mth.sin(phase) * dirSign;
+        float turnBank = Mth.clamp(animState.turnRate() * 0.0040F, -0.08F, 0.08F);
+        float effLimbAmt = animState.hasWalkPhase() ? animState.smoothStrideAmplitude() : limbSwingAmount;
+        float legMove = Mth.clamp(effLimbAmt * Mth.clamp(walkBlend * 2.0F, 0.0F, 1.0F), 0.0F, 1.0F);
+        float phase = animState.hasWalkPhase() ? animState.walkPhase() : (limbSwing * 0.6662F);
+        float stride = Mth.cos(phase);
+        float stepSin = Mth.sin(phase);
         float breath = Mth.sin(ageInTicks * 0.09F);
 
-        unit.x = stepSin * 0.20F * legMove;
-        unit.y = -Math.abs(stepSin) * 0.44F * legMove;
+        unit.x = stepSin * 0.08F * legMove;
+        unit.y = -Math.abs(stepSin) * Mth.lerp(runBlend, 0.14F, 0.42F) * legMove;
         unit.z = 0.0F;
         unit.xRot = 0.04F;
         unit.yRot = 0.0F;
-        unit.zRot = stepSin * 0.018F * legMove + turnBank;
+        unit.zRot = stepSin * (0.010F + runBlend * 0.012F) * legMove + turnBank * 0.85F;
 
         float pt = Mth.frac(ageInTicks);
         float bodyYaw = Mth.rotLerp(pt, living.yBodyRotO, living.yBodyRot);

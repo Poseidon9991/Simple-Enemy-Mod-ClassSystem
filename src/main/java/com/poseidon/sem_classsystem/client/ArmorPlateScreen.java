@@ -22,19 +22,19 @@ public class ArmorPlateScreen extends AbstractContainerScreen<ArmorPlateMenu> {
     private static final int WIN_H = 166;
 
     private static final List<Component> INSERT_EMPTY_TOOLTIP = List.of(
-            Component.literal("Ballistic Insert Slot").withStyle(ChatFormatting.GOLD),
-            Component.literal("Accepts Level 1 to 5 Armor Plates").withStyle(ChatFormatting.GRAY),
-            Component.literal("Insert or remove plates directly by clicking").withStyle(ChatFormatting.DARK_GRAY)
+            Component.translatable("gui.sem_classsystem.plate.slot_insert").withStyle(ChatFormatting.GOLD),
+            Component.translatable("gui.sem_classsystem.plate.accepts_range").withStyle(ChatFormatting.GRAY),
+            Component.translatable("gui.sem_classsystem.plate.click_hint").withStyle(ChatFormatting.DARK_GRAY)
     );
     private static final List<Component> FRONT_EMPTY_TOOLTIP = List.of(
-            Component.literal("Front Ballistic Plate Slot").withStyle(ChatFormatting.GOLD),
-            Component.literal("Accepts Level 1 to 5 Armor Plates").withStyle(ChatFormatting.GRAY),
-            Component.literal("Insert or remove plates directly by clicking").withStyle(ChatFormatting.DARK_GRAY)
+            Component.translatable("gui.sem_classsystem.plate.slot_front").withStyle(ChatFormatting.GOLD),
+            Component.translatable("gui.sem_classsystem.plate.accepts_range").withStyle(ChatFormatting.GRAY),
+            Component.translatable("gui.sem_classsystem.plate.click_hint").withStyle(ChatFormatting.DARK_GRAY)
     );
     private static final List<Component> BACK_EMPTY_TOOLTIP = List.of(
-            Component.literal("Back Ballistic Plate Slot").withStyle(ChatFormatting.GOLD),
-            Component.literal("Accepts Level 1 to 5 Armor Plates").withStyle(ChatFormatting.GRAY),
-            Component.literal("Insert or remove plates directly by clicking").withStyle(ChatFormatting.DARK_GRAY)
+            Component.translatable("gui.sem_classsystem.plate.slot_back").withStyle(ChatFormatting.GOLD),
+            Component.translatable("gui.sem_classsystem.plate.accepts_range").withStyle(ChatFormatting.GRAY),
+            Component.translatable("gui.sem_classsystem.plate.click_hint").withStyle(ChatFormatting.DARK_GRAY)
     );
 
     private int cachedFilledCount = -1;
@@ -114,26 +114,41 @@ public class ArmorPlateScreen extends AbstractContainerScreen<ArmorPlateMenu> {
             }
         }
 
-        // 3. Armor Protection Summary Bar (reads directly from live PlateSlots without NBT deserialization)
-        int bulletPct = 0;
-        int generalPct = 0;
+        // 3. Armor Protection Summary Bar (mirrors ArmorPlateCombatEvents.onLivingHurt)
+        ArmorPlateItem bestPlate = null;
         int filledCount = 0;
         int maxSlots = this.menu.getMaxPlateSlots();
         for (int i = 0; i < maxSlots && i < this.menu.slots.size(); i++) {
             ItemStack p = this.menu.slots.get(i).getItem();
             if (!p.isEmpty() && p.getItem() instanceof ArmorPlateItem ap) {
-                bulletPct += Math.round(ap.bulletReduction() * 100.0F);
-                generalPct += Math.round(ap.generalReduction() * 100.0F);
                 filledCount++;
+                if (bestPlate == null || ap.tier() > bestPlate.tier()) {
+                    bestPlate = ap;
+                }
             }
         }
+        float rawBullet = bestPlate != null ? bestPlate.bulletReduction() : 0.0F;
+        float rawGeneral = bestPlate != null ? bestPlate.generalReduction() : 0.0F;
+        if (this.menu.isVest()) {
+            if (filledCount >= 2) {
+                rawBullet = Math.min(0.92F, rawBullet + 0.05F);
+                rawGeneral = Math.min(0.92F, rawGeneral + 0.05F);
+            }
+        } else {
+            rawBullet *= 0.25F;
+            rawGeneral *= 0.25F;
+        }
+        int bulletPct = Math.round(rawBullet * 100.0F);
+        int generalPct = Math.round(rawGeneral * 100.0F);
         if (filledCount != this.cachedFilledCount
                 || bulletPct != this.cachedBulletPct
                 || generalPct != this.cachedGeneralPct) {
             this.cachedFilledCount = filledCount;
             this.cachedBulletPct = bulletPct;
             this.cachedGeneralPct = generalPct;
-            this.cachedSummary = filledCount + "/" + maxSlots + " Plates | +" + bulletPct + "% Bullet | +" + generalPct + "% Impact";
+            this.cachedSummary = Component.translatable(
+                    "gui.sem_classsystem.plate.summary",
+                    filledCount, maxSlots, bulletPct, generalPct).getString();
             this.cachedSummaryWidth = this.font.width(this.cachedSummary);
         }
         int sumColor = filledCount > 0 ? 0x55FF55 : 0xAAAAAA;

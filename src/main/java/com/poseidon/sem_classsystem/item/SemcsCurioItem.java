@@ -155,6 +155,12 @@ public class SemcsCurioItem extends Item {
                             left, stack.getMaxDamage())
                     .withStyle(ChatFormatting.GOLD));
         }
+        if (stack.is(SemcsRegistries.NVG_NIGHT.get())
+                || stack.is(SemcsRegistries.NVG_INFRARED.get())
+                || stack.is(SemcsRegistries.NVG_SMART.get())) {
+            tooltip.add(Component.translatable("item.sem_classsystem.nvg.tooltip_hint")
+                    .withStyle(ChatFormatting.DARK_AQUA));
+        }
         super.appendHoverText(stack, level, tooltip, flag);
     }
 }

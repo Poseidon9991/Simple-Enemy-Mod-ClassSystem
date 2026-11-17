@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " G ",
+    "RBR",
+    "SMS"
+  ],
+  "key": {
+    "G": { "item": "minecraft:glass_bottle" },
+    "R": { "item": "minecraft:redstone" },
+    "B": { "item": "minecraft:blaze_powder" },
+    "S": { "item": "minecraft:sugar" },
+    "M": { "item": "minecraft:glistering_melon_slice" }
+  },
+  "result": {
+    "item": "sem_classsystem:combat_stim",
+    "count": 2
+  }
+}

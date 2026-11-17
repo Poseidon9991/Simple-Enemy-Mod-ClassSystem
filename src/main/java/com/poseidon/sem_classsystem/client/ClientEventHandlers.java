@@ -2,12 +2,17 @@
 package com.poseidon.sem_classsystem.client;
 
 import com.poseidon.sem_classsystem.SemClassSystem;
+import com.poseidon.sem_classsystem.client.particle.ManaBlastParticle;
+import com.poseidon.sem_classsystem.client.particle.ManaSparkParticle;
 import com.poseidon.sem_classsystem.client.particle.MuzzleFlashParticle;
 import com.poseidon.sem_classsystem.client.particle.SparkParticle;
 import com.poseidon.sem_classsystem.client.particle.ZzzParticle;
 import com.poseidon.sem_classsystem.item.BhqArmorItem;
+import com.poseidon.sem_classsystem.menu.WornPlateContainer;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
@@ -43,8 +48,13 @@ public final class ClientEventHandlers {
         event.enqueueWork(() -> {
             MenuScreens.register(SemcsRegistries.RECRUIT_TABLE_MENU.get(), RecruitTableScreen::new);
             MenuScreens.register(SemcsRegistries.ARMOR_PLATE_MENU.get(), ArmorPlateScreen::new);
+            MenuScreens.register(SemcsRegistries.ARMORER_BENCH_MENU.get(), ArmorerBenchScreen::new);
+            MenuScreens.register(SemcsRegistries.MEDICAL_STATION_MENU.get(), MedicalStationScreen::new);
+            WornPlateContainer.WornArmorPlateSlot.creativeScreenCheck =
+                    () -> Minecraft.getInstance().screen instanceof CreativeModeInventoryScreen;
             if (ModList.get().isLoaded("curios")) {
                 SpottingScopeCurioRenderer.register();
+                NvgCurioRenderer.register();
             }
         });
         // Xaero's World Map is a soft dep: the isLoaded gate keeps
@@ -67,11 +77,14 @@ public final class ClientEventHandlers {
         event.registerSpriteSet(SemcsRegistries.SPARK_PARTICLE.get(), SparkParticle.Provider::new);
         event.registerSpriteSet(SemcsRegistries.MUZZLE_FLASH_PARTICLE.get(), MuzzleFlashParticle.Provider::new);
         event.registerSpriteSet(SemcsRegistries.ZZZ_PARTICLE.get(), ZzzParticle.Provider::new);
+        event.registerSpriteSet(SemcsRegistries.MANA_SPARK_PARTICLE.get(), ManaSparkParticle.Provider::new);
+        event.registerSpriteSet(SemcsRegistries.MANA_BLAST_PARTICLE.get(), ManaBlastParticle.Provider::new);
     }
 
     @SubscribeEvent
     public static void onRegisterLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(VdfUnitModel.LAYER_LOCATION, VdfUnitModel::createBodyLayer);
+        event.registerLayerDefinition(TerroristUnitModel.LAYER_LOCATION, TerroristUnitModel::createBodyLayer);
     }
 
     // SemcsArmorItemRenderer swaps GUI rendering to "<piece>_flat#inventory" so
@@ -97,6 +110,8 @@ public final class ClientEventHandlers {
         // VDF gets its own renderer - it extends PathfinderMob, not the
         // SEM unit hierarchy, so SEM's bound renderers don't apply.
         event.registerEntityRenderer(SemcsRegistries.VDF_UNIT.get(), VdfUnitRenderer::new);
+        // Terrorist Insurgents get their own 3D keffiyeh/chest-rig model and renderer
+        event.registerEntityRenderer(SemcsRegistries.TERRORIST_UNIT.get(), TerroristUnitRenderer::new);
     }
 
     @SubscribeEvent
@@ -124,6 +139,7 @@ public final class ClientEventHandlers {
             attachCuriosLayer(event, ModEntities.RUUNIT.get());
             attachCuriosLayer(event, ModEntities.USUNIT.get());
             attachCuriosLayer(event, SemcsRegistries.VDF_UNIT.get());
+            attachCuriosLayer(event, SemcsRegistries.TERRORIST_UNIT.get());
         }
 
     }
@@ -145,7 +161,8 @@ public final class ClientEventHandlers {
     public static void onItemColors(RegisterColorHandlersEvent.Item event) {
         event.register((stack, tintIndex) -> 0xFFFFFFFF,
                 SemcsRegistries.BHQ_UNIT_SPAWN_EGG.get(),
-                SemcsRegistries.VDF_UNIT_SPAWN_EGG.get());
+                SemcsRegistries.VDF_UNIT_SPAWN_EGG.get(),
+                SemcsRegistries.TERRORIST_UNIT_SPAWN_EGG.get());
         for (RegistryObject<Item> egg : SemcsRegistries.CLASS_SPAWN_EGGS) {
             event.register((stack, tintIndex) -> 0xFFFFFFFF, egg.get());
         }

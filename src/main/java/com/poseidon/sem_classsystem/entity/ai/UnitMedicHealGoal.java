@@ -297,7 +297,8 @@ public class UnitMedicHealGoal extends Goal {
                         return owner != null && e instanceof Player p && p.getUUID().equals(owner);
                     }
                     if (e instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity) {
-                        return true;
+                        return this.mob instanceof com.poseidon.sem_classsystem.entity.VdfUnitEntity
+                                || this.mob instanceof PmcUnitEntity;
                     }
                     if (this.mob.isAlliedTo(e)) {
                         return true;

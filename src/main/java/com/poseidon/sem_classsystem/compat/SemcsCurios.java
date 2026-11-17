@@ -45,6 +45,97 @@ public final class SemcsCurios {
         CuriosApi.registerCurio(SemcsRegistries.SPOTTING_SCOPE.get(), new SpottingScope());
         CuriosApi.registerCurio(SemcsRegistries.SERGEANTS_INSIGNIA.get(), new Insignia());
         CuriosApi.registerCurio(SemcsRegistries.IFAK_POUCH.get(), new Ifak());
+        CuriosApi.registerCurio(SemcsRegistries.NVG_NIGHT.get(), new NvgCurio());
+        CuriosApi.registerCurio(SemcsRegistries.NVG_INFRARED.get(), new NvgCurio());
+        CuriosApi.registerCurio(SemcsRegistries.NVG_SMART.get(), new NvgCurio());
+    }
+
+    public static com.poseidon.sem_classsystem.item.NvgMode getEquippedNvgMode(LivingEntity entity) {
+        if (entity == null) {
+            return com.poseidon.sem_classsystem.item.NvgMode.NONE;
+        }
+        var opt = CuriosApi.getCuriosInventory(entity).resolve();
+        if (opt.isEmpty()) {
+            return com.poseidon.sem_classsystem.item.NvgMode.NONE;
+        }
+        var handler = opt.get();
+        if (handler.findFirstCurio(SemcsRegistries.NVG_SMART.get()).isPresent()) {
+            return com.poseidon.sem_classsystem.item.NvgMode.SMART;
+        }
+        if (handler.findFirstCurio(SemcsRegistries.NVG_INFRARED.get()).isPresent()) {
+            return com.poseidon.sem_classsystem.item.NvgMode.INFRARED;
+        }
+        if (handler.findFirstCurio(SemcsRegistries.NVG_NIGHT.get()).isPresent()) {
+            return com.poseidon.sem_classsystem.item.NvgMode.NIGHT_VISION;
+        }
+        return com.poseidon.sem_classsystem.item.NvgMode.NONE;
+    }
+
+    private static final class NvgCurio implements top.theillusivec4.curios.api.type.capability.ICurioItem {
+
+        @Override
+        public boolean canEquipFromUse(top.theillusivec4.curios.api.SlotContext slotContext, ItemStack stack) {
+            return true;
+        }
+
+        @Override
+        public top.theillusivec4.curios.api.type.capability.ICurio.SoundInfo getEquipSound(
+                top.theillusivec4.curios.api.SlotContext slotContext, ItemStack stack) {
+            return new top.theillusivec4.curios.api.type.capability.ICurio.SoundInfo(
+                    net.minecraft.sounds.SoundEvents.ARMOR_EQUIP_IRON, 0.85F, 1.15F);
+        }
+
+        @Override
+        public void onEquip(top.theillusivec4.curios.api.SlotContext slotContext,
+                            ItemStack prevStack, ItemStack stack) {
+            LivingEntity entity = slotContext.entity();
+            if (entity != null && !entity.level().isClientSide
+                    && !entity.getPersistentData().getBoolean(
+                            com.poseidon.sem_classsystem.network.PacketToggleNvg.TAG_NVG_OFF)) {
+                entity.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                        net.minecraft.world.effect.MobEffects.NIGHT_VISION,
+                        com.poseidon.sem_classsystem.network.PacketToggleNvg.NVG_EFFECT_DURATION,
+                        0, true, false, true));
+            }
+        }
+
+        @Override
+        public void onUnequip(top.theillusivec4.curios.api.SlotContext slotContext,
+                              ItemStack newStack, ItemStack stack) {
+            LivingEntity entity = slotContext.entity();
+            if (entity != null && !entity.level().isClientSide
+                    && getEquippedNvgMode(entity) == com.poseidon.sem_classsystem.item.NvgMode.NONE) {
+                var existing = entity.getEffect(net.minecraft.world.effect.MobEffects.NIGHT_VISION);
+                if (existing != null
+                        && existing.getDuration() <= com.poseidon.sem_classsystem.network.PacketToggleNvg.NVG_EFFECT_DURATION + 20) {
+                    entity.removeEffect(net.minecraft.world.effect.MobEffects.NIGHT_VISION);
+                }
+            }
+        }
+
+        @Override
+        public void curioTick(top.theillusivec4.curios.api.SlotContext slotContext, ItemStack stack) {
+            LivingEntity entity = slotContext.entity();
+            if (entity == null || entity.level().isClientSide || entity.tickCount % 20 != 0) {
+                return;
+            }
+            boolean off = entity.getPersistentData().getBoolean(
+                    com.poseidon.sem_classsystem.network.PacketToggleNvg.TAG_NVG_OFF);
+            var existing = entity.getEffect(net.minecraft.world.effect.MobEffects.NIGHT_VISION);
+            if (off) {
+                if (existing != null
+                        && existing.getDuration() <= com.poseidon.sem_classsystem.network.PacketToggleNvg.NVG_EFFECT_DURATION + 20) {
+                    entity.removeEffect(net.minecraft.world.effect.MobEffects.NIGHT_VISION);
+                }
+                return;
+            }
+            if (existing == null || existing.getDuration() < 220) {
+                entity.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                        net.minecraft.world.effect.MobEffects.NIGHT_VISION,
+                        com.poseidon.sem_classsystem.network.PacketToggleNvg.NVG_EFFECT_DURATION,
+                        0, true, false, true));
+            }
+        }
     }
 
     public static boolean hasSpottingScope(LivingEntity entity) {

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "sem_classsystem:block/medical_station_top",
+    "front": "sem_classsystem:block/medical_station_front",
+    "side": "sem_classsystem:block/medical_station_side"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "top": "sem_classsystem:block/field_cot_top",
+    "side": "sem_classsystem:block/field_cot_side",
+    "particle": "sem_classsystem:block/field_cot_top"
+  },
+  "elements": [
+    {
+      "from": [1, 4, 1],
+      "to": [15, 8, 15],
+      "faces": {
+        "up":    { "texture": "#top" },
+        "down":  { "texture": "#side" },
+        "north": { "texture": "#side" },
+        "south": { "texture": "#side" },
+        "east":  { "texture": "#side" },
+        "west":  { "texture": "#side" }
+      }
+    },
+    {
+      "from": [1, 0, 1],
+      "to": [3, 4, 3],
+      "faces": {
+        "down":  { "texture": "#side" },
+        "north": { "texture": "#side" },
+        "south": { "texture": "#side" },
+        "east":  { "texture": "#side" },
+        "west":  { "texture": "#side" }
+      }
+    },
+    {
+      "from": [13, 0, 1],
+      "to": [15, 4, 3],
+      "faces": {
+        "down":  { "texture": "#side" },
+        "north": { "texture": "#side" },
+        "south": { "texture": "#side" },
+        "east":  { "texture": "#side" },
+        "west":  { "texture": "#side" }
+      }
+    },
+    {
+      "from": [1, 0, 13],
+      "to": [3, 4, 15],
+      "faces": {
+        "down":  { "texture": "#side" },
+        "north": { "texture": "#side" },
+        "south": { "texture": "#side" },
+        "east":  { "texture": "#side" },
+        "west":  { "texture": "#side" }
+      }
+    },
+    {
+      "from": [13, 0, 13],
+      "to": [15, 4, 15],
+      "faces": {
+        "down":  { "texture": "#side" },
+        "north": { "texture": "#side" },
+        "south": { "texture": "#side" },
+        "east":  { "texture": "#side" },
+        "west":  { "texture": "#side" }
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "DGD",
+    "ENE",
+    "RCR"
+  ],
+  "key": {
+    "D": { "item": "minecraft:diamond" },
+    "G": { "item": "minecraft:cyan_stained_glass_pane" },
+    "E": { "item": "minecraft:ender_eye" },
+    "N": { "item": "sem_classsystem:nvg_night" },
+    "R": { "item": "minecraft:redstone_block" },
+    "C": { "item": "minecraft:compass" }
+  },
+  "result": {
+    "item": "sem_classsystem:nvg_smart",
+    "count": 1
+  }
+}

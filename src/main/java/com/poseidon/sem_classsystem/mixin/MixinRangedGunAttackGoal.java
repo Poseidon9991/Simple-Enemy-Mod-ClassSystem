@@ -2,6 +2,7 @@
 package com.poseidon.sem_classsystem.mixin;
 
 // Our helper: faction x class -> spread multiplier
+import com.poseidon.sem_classsystem.entity.ai.UnitWeaponFallbackGoal;
 import com.poseidon.sem_classsystem.faction.ClassLoadouts;
 import com.poseidon.sem_classsystem.faction.UnitClassAttributes;
 import com.poseidon.sem_classsystem.faction.WeaponClass;
@@ -14,12 +15,16 @@ import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ShootResult;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.entity.EntityKineticBullet;
+import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.pojo.data.gun.BulletData;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import java.util.function.Supplier;
 // Vanilla RNG source the goal passes to the spread calculator
@@ -55,6 +60,14 @@ public abstract class MixinRangedGunAttackGoal {
     // The entity SEM is currently aiming at - needed for aim-lead prediction.
     @Shadow(remap = false)
     private LivingEntity target;
+
+    @Shadow(remap = false)
+    private boolean cachedHasLoS;
+
+    @Shadow(remap = false)
+    private boolean hasLineOfSightToTarget(LivingEntity target) {
+        return false;
+    }
 
     // SEM's constructor-set burst/cooldown values. @Mutable removes "final" at
     // weave time so we can retune them after the constructor.
@@ -131,6 +144,38 @@ public abstract class MixinRangedGunAttackGoal {
     // The target the current correction was learned against.
     @Unique
     private Entity semcs$adjustTarget = null;
+    @Unique
+    private double semcs$lastAimDist = -1.0D;
+
+    // Per-stack CommonGunIndex cache to avoid repeated TimelessAPI lookups per tick.
+    @Unique
+    private ItemStack semcs$cachedIndexStack = ItemStack.EMPTY;
+    @Unique
+    private ResourceLocation semcs$cachedIndexGunId = null;
+    @Unique
+    private CommonGunIndex semcs$cachedGunIndex = null;
+
+    @Unique
+    private CommonGunIndex semcs$getHeldGunIndex(ItemStack gun) {
+        IGun iGun = IGun.getIGunOrNull(gun);
+        if (iGun == null) {
+            this.semcs$cachedIndexStack = ItemStack.EMPTY;
+            this.semcs$cachedIndexGunId = null;
+            this.semcs$cachedGunIndex = null;
+            return null;
+        }
+        ResourceLocation gunId = iGun.getGunId(gun);
+        if (gunId == null) {
+            return null;
+        }
+        if (gun == this.semcs$cachedIndexStack && gunId.equals(this.semcs$cachedIndexGunId)) {
+            return this.semcs$cachedGunIndex;
+        }
+        this.semcs$cachedIndexStack = gun;
+        this.semcs$cachedIndexGunId = gunId;
+        this.semcs$cachedGunIndex = TimelessAPI.getCommonGunIndex(gunId).orElse(null);
+        return this.semcs$cachedGunIndex;
+    }
 
     // TAIL of the constructor: runs right after SEM stored the global
     // AiShootingConfig burst/cooldown values into the finals above -
@@ -271,12 +316,7 @@ public abstract class MixinRangedGunAttackGoal {
             return pos;
         }
         ItemStack gun = this.mob.getMainHandItem();
-        IGun iGun = IGun.getIGunOrNull(gun);
-        ResourceLocation gunId = iGun == null ? null : iGun.getGunId(gun);
-        if (gunId == null) {
-            return pos;
-        }
-        var index = TimelessAPI.getCommonGunIndex(gunId).orElse(null);
+        CommonGunIndex index = semcs$getHeldGunIndex(gun);
         if (index == null) {
             return pos;
         }
@@ -306,6 +346,12 @@ public abstract class MixinRangedGunAttackGoal {
         // gravity is subtracted from delta-Y per tick (blocks/tick^2)
         double dist = this.mob.getEyePosition().distanceTo(
                 pos.add(0, entity.getBbHeight() / 2.0, 0));
+        if (launcher) {
+            if (this.semcs$lastAimDist > 0.0D && Math.abs(dist - this.semcs$lastAimDist) > 6.0D) {
+                this.semcs$aimAdjustY *= 0.25D;
+            }
+            this.semcs$lastAimDist = dist;
+        }
         // Slow lobbers need real flight-time and aim-up budgets; bullets
         // keep the tight caps so nothing aims at the sky.
         double tMax = launcher ? 24.0 : 8.0;
@@ -354,16 +400,31 @@ public abstract class MixinRangedGunAttackGoal {
     @Unique
     private Vec3 semcs$groundAimPoint(LivingEntity entity, Vec3 aim) {
         if (!entity.onGround()) {
-            return aim;
+            return new Vec3(aim.x, entity.getY() + entity.getBbHeight() * 0.35D, aim.z);
         }
         double deck = entity.getY() - 0.25D;
         double px = this.mob.getX() - aim.x;
         double pz = this.mob.getZ() - aim.z;
         double pl = Math.sqrt(px * px + pz * pz);
-        if (pl <= 2.0D) {
-            return new Vec3(aim.x, deck, aim.z);
+        Vec3 feetAim = pl <= 2.0D
+                ? new Vec3(aim.x, deck, aim.z)
+                : new Vec3(aim.x + px / pl * 0.7D, deck, aim.z + pz / pl * 0.7D);
+        // Check if a low wall or ridge near the shooter would clip the feet-line shot;
+        // if obstructed more than 2.5 blocks in front of the target, aim at upper torso instead.
+        Vec3 eye = this.mob.getEyePosition();
+        var hit = this.mob.level().clip(new ClipContext(
+                eye, feetAim, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this.mob));
+        if (hit.getType() != HitResult.Type.MISS
+                && hit.getLocation().distanceToSqr(feetAim) > 2.5D * 2.5D) {
+            Vec3 torsoAim = new Vec3(aim.x, entity.getY() + entity.getBbHeight() * 0.6D, aim.z);
+            var upperHit = this.mob.level().clip(new ClipContext(
+                    eye, torsoAim, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this.mob));
+            if (upperHit.getType() == HitResult.Type.MISS
+                    || upperHit.getLocation().distanceToSqr(eye) > hit.getLocation().distanceToSqr(eye)) {
+                return torsoAim;
+            }
         }
-        return new Vec3(aim.x + px / pl * 0.7D, deck, aim.z + pz / pl * 0.7D);
+        return feetAim;
     }
 
     // How perfectly each class predicts intercepts: monsters move dumb and
@@ -417,6 +478,9 @@ public abstract class MixinRangedGunAttackGoal {
         this.semcs$stationaryTicks = 0;
         this.semcs$proneHoldTicks = 0;
         this.semcs$proneBlockedLosTicks = 0;
+        if (this.target != null && this.target.isAlive()) {
+            this.cachedHasLoS = this.hasLineOfSightToTarget(this.target);
+        }
         WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
         if (cls != null && ClassSystemConfig.classCrouchWhileFiring(cls)
                 && cls != WeaponClass.SHOTGUN && cls != WeaponClass.SMG) {
@@ -425,17 +489,12 @@ public abstract class MixinRangedGunAttackGoal {
         }
     }
 
-    // ---- camper scoped aim -------------------------------------------------
+    // ---- camper scoped aim & close-range responsiveness --------------------
     @Inject(method = "tick", at = @At("HEAD"))
     private void semcs$assertAim(CallbackInfo ci) {
         if (this.semcs$proneCooldownTicks > 0) {
             this.semcs$proneCooldownTicks--;
         }
-        // "Planted" = actually not translating, not "nav object happens to be
-        // done" - a stale path flickering isDone=false used to zero the counter
-        // every time a tactical helper re-pathed, even while the unit never
-        // moved an inch. deltaMovement is the truth; once prone, the pin below
-        // kills any live path anyway.
         boolean stationary = this.mob.onGround()
                 && this.mob.getDeltaMovement().horizontalDistanceSqr() < 0.01D;
         if (stationary) {
@@ -445,8 +504,6 @@ public abstract class MixinRangedGunAttackGoal {
         }
         if (this.semcs$prone) {
             this.semcs$proneHoldTicks++;
-            // Every-tick pin: tactical AI re-issues paths between the 5-tick
-            // stance evals - kill them here so a prone unit never creeps.
             if (!this.mob.getNavigation().isDone()) {
                 this.mob.getNavigation().stop();
             }
@@ -454,15 +511,54 @@ public abstract class MixinRangedGunAttackGoal {
             this.semcs$proneHoldTicks = 0;
         }
 
+        // Fix SEM's 5-tick cachedHasLoS stall: if Sensing sees the target and cachedHasLoS
+        // is still false (e.g., right after goal start()), update cachedHasLoS immediately.
+        if (this.target != null && this.target.isAlive()
+                && !this.cachedHasLoS && this.mob.getSensing().hasLineOfSight(this.target)) {
+            this.cachedHasLoS = this.hasLineOfSightToTarget(this.target);
+        }
+
+        WeaponClass eff = WeaponClassSupport.getEffective(this.mob);
+        if ((eff == WeaponClass.SNIPER || eff == WeaponClass.HEAVY)
+                && this.target != null && this.target.isAlive()) {
+            IGunOperator.fromLivingEntity(this.mob).aim(true);
+            this.semcs$aiming = true;
+        }
+
+        // Shotgun partial-reload combat interrupt: if caught mid-reload with >= 1 shell in
+        // the tube and a visible enemy within 12 blocks, cancel reload and fire immediately.
+        if (eff == WeaponClass.SHOTGUN && this.target != null && this.target.isAlive()
+                && this.mob.distanceToSqr(this.target) <= 144.0D
+                && this.mob.getSensing().hasLineOfSight(this.target)) {
+            IGunOperator op = IGunOperator.fromLivingEntity(this.mob);
+            if (op != null && op.getSynReloadState().getStateType().isReloading()) {
+                ItemStack held = this.mob.getMainHandItem();
+                IGun gun = IGun.getIGunOrNull(held);
+                if (gun != null && gun.getCurrentAmmoCount(held) > 0) {
+                    op.cancelReload();
+                }
+            }
+        }
+
+        // Demolisher blast-standoff immediate sidearm switch: draw pistol without delay.
+        if ((eff == WeaponClass.HEAVY || eff == WeaponClass.JACK)
+                && this.target != null && this.target.isAlive()
+                && this.mob instanceof PathfinderMob pm
+                && semcs$insideBlastRadius()) {
+            WeaponClass assigned = WeaponClassSupport.get(this.mob);
+            long now = this.mob.level().getGameTime();
+            if (assigned != null && assigned != WeaponClass.PISTOL
+                    && UnitWeaponFallbackGoal.canSwapNow(pm, now)
+                    && UnitWeaponFallbackGoal.hasUsableBackup(pm, assigned)) {
+                UnitWeaponFallbackGoal.swapToBackup(pm, assigned, now);
+                return;
+            }
+        }
+
         if (this.mob.tickCount % 5 != 0) {
             return;
         }
         semcs$updateStance();
-        if (WeaponClassSupport.get(this.mob) == WeaponClass.SNIPER
-                && WeaponClassSupport.getEffective(this.mob) == WeaponClass.SNIPER) {
-            IGunOperator.fromLivingEntity(this.mob).aim(true);
-            this.semcs$aiming = true;
-        }
     }
 
     // ---- stance selection with hysteresis & low-eye LoS verification --------
@@ -673,7 +769,7 @@ public abstract class MixinRangedGunAttackGoal {
     @Unique
     private long semcs$lastSeenTick = Long.MIN_VALUE;
 
-    @Inject(method = {"getCachedRoughLineOfSight", "getCachedClearLineOfSight"},
+    @Inject(method = "hasLineOfSightToTarget",
             at = @At("HEAD"), cancellable = true, remap = false)
     private void semcs$indirectFire(LivingEntity entity, CallbackInfoReturnable<Boolean> cir) {
         if (entity != this.target) {
@@ -706,11 +802,7 @@ public abstract class MixinRangedGunAttackGoal {
         if (cls != WeaponClass.HEAVY && cls != WeaponClass.JACK) {
             return false;
         }
-        ItemStack gun = this.mob.getMainHandItem();
-        IGun iGun = IGun.getIGunOrNull(gun);
-        ResourceLocation gunId = iGun == null ? null : iGun.getGunId(gun);
-        var index = gunId == null ? null
-                : TimelessAPI.getCommonGunIndex(gunId).orElse(null);
+        CommonGunIndex index = semcs$getHeldGunIndex(this.mob.getMainHandItem());
         if (index == null || !"rpg".equals(index.getType())) {
             return false;
         }
@@ -731,9 +823,9 @@ public abstract class MixinRangedGunAttackGoal {
         return WeaponClassSupport.elevationTolerantDistanceSqr(self, target);
     }
 
-    // Holds the actual trigger pull until the scope is fully up: while aiming
-    // progress is under 1.0 we return COOL_DOWN, which SEM treats as a benign
-    // "wait a tick" - the burst state stays put and retries next tick.
+    // Holds the actual trigger pull until the scope is ready for the distance:
+    // inside 10 blocks Campers snap/hip-fire immediately; 10-20 blocks quick-scope;
+    // past 20 blocks require full steady scope aim.
     // remap=false: both the method and the target are mod classes.
     @Redirect(method = "handleBurstFiringState", remap = false,
             at = @At(value = "INVOKE",
@@ -750,18 +842,24 @@ public abstract class MixinRangedGunAttackGoal {
             return ShootResult.COOL_DOWN;
         }
         WeaponClass cls = WeaponClassSupport.getEffective(this.mob);
-        // Blast standoff: a launcher round that lands within its own
-        // explosion radius hurts the shooter (and squad). Hold fire while
-        // the target is inside the danger zone - HEAVY's kite distance
-        // back-pedals the unit out instead of eating its own blast.
+        // Blast standoff: if holding an explosive launcher inside its danger zone,
+        // hold fire while our sidearm swap engages (or if dangerously close < 5m).
         if ((cls == WeaponClass.HEAVY || cls == WeaponClass.JACK)
                 && this.target != null && semcs$insideBlastRadius()) {
-            return ShootResult.COOL_DOWN;
+            boolean hasBackup = this.mob instanceof PathfinderMob pm
+                    && UnitWeaponFallbackGoal.hasUsableBackup(pm, WeaponClassSupport.get(this.mob));
+            if (hasBackup || this.mob.distanceToSqr(this.target) < 25.0D) {
+                return ShootResult.COOL_DOWN;
+            }
         }
         boolean sniper = cls == WeaponClass.SNIPER;
-        if (sniper && operator.getSynAimingProgress() < 1.0F) {
-            operator.aim(true);   // keep the flag asserted between ticks
-            return ShootResult.COOL_DOWN;
+        if (sniper && this.target != null) {
+            double distSq = this.mob.distanceToSqr(this.target);
+            float requiredAim = distSq <= 100.0D ? 0.0F : (distSq <= 400.0D ? 0.35F : 0.85F);
+            if (requiredAim > 0.0F && operator.getSynAimingProgress() < requiredAim) {
+                operator.aim(true);
+                return ShootResult.COOL_DOWN;
+            }
         }
         ShootResult result = operator.shoot(pitch, yaw);
         // Camper shoot-and-scoot: after a couple of landed shots, arc to a
@@ -786,20 +884,14 @@ public abstract class MixinRangedGunAttackGoal {
     // code uses.
     @Unique
     private boolean semcs$insideBlastRadius() {
-        ItemStack gun = this.mob.getMainHandItem();
-        IGun iGun = IGun.getIGunOrNull(gun);
-        ResourceLocation gunId = iGun == null ? null : iGun.getGunId(gun);
-        if (gunId == null) {
-            return false;
-        }
-        BulletData bullet = TimelessAPI.getCommonGunIndex(gunId)
-                .map(index -> index.getBulletData()).orElse(null);
+        CommonGunIndex index = semcs$getHeldGunIndex(this.mob.getMainHandItem());
+        BulletData bullet = index == null ? null : index.getBulletData();
         if (bullet == null || bullet.getExplosionData() == null
                 || !bullet.getExplosionData().isExplode()) {
             return false;
         }
-        double danger = bullet.getExplosionData().getRadius() + 2.0;
-        return this.mob.distanceTo(this.target) < Math.min(danger, 20.0);
+        double danger = Math.min(bullet.getExplosionData().getRadius() + 2.5D, 12.0D);
+        return this.mob.distanceToSqr(this.target) < danger * danger;
     }
 
     // True if a friendly unit or allied player intersects the firing ray
@@ -872,6 +964,7 @@ public abstract class MixinRangedGunAttackGoal {
         if (this.target != this.semcs$adjustTarget) {
             this.semcs$adjustTarget = this.target;
             this.semcs$aimAdjustY = 0.0;
+            this.semcs$lastAimDist = -1.0D;
             this.semcs$trackedShell = null;
             return;
         }

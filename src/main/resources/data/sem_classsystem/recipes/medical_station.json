@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "WRW",
+    "WGW",
+    "ICI"
+  ],
+  "key": {
+    "W": { "item": "minecraft:white_wool" },
+    "R": { "item": "minecraft:red_wool" },
+    "G": { "item": "minecraft:golden_apple" },
+    "I": { "item": "minecraft:iron_ingot" },
+    "C": { "item": "minecraft:chest" }
+  },
+  "result": {
+    "item": "sem_classsystem:medical_station",
+    "count": 1
+  }
+}

@@ -45,12 +45,14 @@ import com.poseidon.sem_classsystem.bridge.IClassifiedUnit;           // class-s
 import com.poseidon.sem_classsystem.faction.ClassLoadouts;            // gun-id -> class inference on fallbacks
 import com.poseidon.sem_classsystem.faction.UnitClassAttributes;       // configured stat application
 import com.poseidon.sem_classsystem.faction.WeaponClassSupport;        // NBT save/restore + last-resort class roll
+import com.poseidon.sem_classsystem.entity.ai.UnitWeaponFallbackGoal;  // shared sidearm/primary swap keys
 import com.poseidon.sem_classsystem.item.ArmorPlateItem;
 import com.poseidon.sem_classsystem.item.BhqArmorItem;
 import com.poseidon.sem_classsystem.menu.ArmorPlateMenu;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;          // vdf_* militia armor set
 import com.poseidon.sem_classsystem.faction.WeaponClass;              // militia loadout roll categories
 import com.tacz.guns.api.item.IGun;                                    // held-gun checks
+import com.tacz.guns.api.item.builder.AttachmentItemBuilder;           // sidearm attachments
 import com.tacz.guns.api.item.builder.GunItemBuilder;                  // militia gun construction
 import com.tacz.guns.api.item.gun.FireMode;                            // SEMI/AUTO
 import net.minecraft.server.level.ServerPlayer;
@@ -204,6 +206,28 @@ public class VdfUnitEntity extends PathfinderMob implements IClassifiedUnit {
     public void semcs$setWeaponClass(WeaponClass weaponClass) {
         this.entityData.set(DATA_WEAPON_CLASS,
                 weaponClass == null ? -1 : weaponClass.ordinal());
+        this.effCacheTick = -1;
+        this.effCacheStack = ItemStack.EMPTY;
+    }
+
+    private int effCacheTick = -1;
+    private ItemStack effCacheStack = ItemStack.EMPTY;
+    @Nullable
+    private WeaponClass effCacheClass = null;
+
+    @Override
+    @Nullable
+    public WeaponClass semcs$getCachedEffectiveClass() {
+        int now = this.tickCount;
+        ItemStack held = this.getMainHandItem();
+        if (now == this.effCacheTick && held == this.effCacheStack) {
+            return this.effCacheClass;
+        }
+        WeaponClass computed = WeaponClassSupport.computeEffective(this, held);
+        this.effCacheTick = now;
+        this.effCacheStack = held;
+        this.effCacheClass = computed;
+        return computed;
     }
 
     // ---- client animation ---------------------------------------------------
@@ -270,11 +294,21 @@ public class VdfUnitEntity extends PathfinderMob implements IClassifiedUnit {
 
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
-        if (player.isShiftKeyDown() && player.getItemInHand(hand).isEmpty()) {
+        if (player.isShiftKeyDown() && player.getItemInHand(hand).isEmpty()
+                && (player.isCreative() || isWearingFullVdfSet(player))) {
             ItemStack chest = this.getItemBySlot(EquipmentSlot.CHEST);
+            EquipmentSlot targetSlot = null;
             if (chest.getItem() instanceof BhqArmorItem && ArmorPlateItem.maxPlateSlots(chest) > 0) {
+                targetSlot = EquipmentSlot.CHEST;
+            } else {
+                ItemStack head = this.getItemBySlot(EquipmentSlot.HEAD);
+                if (head.getItem() instanceof BhqArmorItem && ArmorPlateItem.maxPlateSlots(head) > 0) {
+                    targetSlot = EquipmentSlot.HEAD;
+                }
+            }
+            if (targetSlot != null) {
                 if (!this.level().isClientSide && player instanceof ServerPlayer sp) {
-                    ArmorPlateMenu.openForEntity(sp, this, EquipmentSlot.CHEST);
+                    ArmorPlateMenu.openForEntity(sp, this, targetSlot);
                 }
                 return InteractionResult.sidedSuccess(this.level().isClientSide);
             }
@@ -361,6 +395,7 @@ public class VdfUnitEntity extends PathfinderMob implements IClassifiedUnit {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new com.poseidon.sem_classsystem.entity.ai.UnitMedicHealGoal(this));
         this.goalSelector.addGoal(1, new com.poseidon.sem_classsystem.entity.ai.VdfGunAttackGoal(this, 1.0D));
+        this.goalSelector.addGoal(9, new UnitWeaponFallbackGoal(this));
 
         // --- militia duties ---
         this.goalSelector.addGoal(3, new com.poseidon.sem_classsystem.entity.ai.VdfRaidResponseGoal(this));
@@ -404,11 +439,11 @@ public class VdfUnitEntity extends PathfinderMob implements IClassifiedUnit {
                         && !(e instanceof AbstractUnit)
                         && !isProtectedAlly(e)));
 
-        // SEM's foreign armies - tag checks, NOT instanceof, so VDF (which is
-        // in no faction tag) never targets itself
+        // SEM's foreign armies + Terrorist insurgents
         this.targetSelector.addGoal(3, new VerticalAwareTargetGoal<>(
                 this, LivingEntity.class, true, 32.0D,
-                e -> UnitFactionTags.isRuUnit(e) || UnitFactionTags.isUsUnit(e)));
+                e -> UnitFactionTags.isRuUnit(e) || UnitFactionTags.isUsUnit(e)
+                        || e instanceof TerroristUnitEntity));
     }
 
     // ---- armament -----------------------------------------------------------
@@ -449,6 +484,55 @@ public class VdfUnitEntity extends PathfinderMob implements IClassifiedUnit {
         iGun.setDummyAmmoAmount(gun, 9999);
         this.setItemSlot(EquipmentSlot.MAINHAND, gun);
         this.setDropChance(EquipmentSlot.MAINHAND, 0.0F);       // stays on the corpse
+        equipBackupSidearm();
+    }
+
+    private void equipBackupSidearm() {
+        WeaponClass assigned = this.semcs$getWeaponClass();
+        if (assigned == WeaponClass.PISTOL) {
+            return;
+        }
+        CompoundTag pdata = this.getPersistentData();
+        if (pdata.contains(UnitWeaponFallbackGoal.SIDEARM_NBT)
+                || pdata.contains(UnitWeaponFallbackGoal.PRIMARY_NBT)) {
+            return;
+        }
+        net.nekoyuni.SimpleEnemyMod.data.UnitLoadout pistolLoadout =
+                ClassLoadouts.pick("vdf_units", WeaponClass.PISTOL, this.random);
+        ItemStack pistol;
+        if (pistolLoadout != null && pistolLoadout.gunId != null) {
+            FireMode fm = "AUTO".equalsIgnoreCase(pistolLoadout.fireMode)
+                    ? FireMode.AUTO : FireMode.SEMI;
+            pistol = GunItemBuilder.create()
+                    .setId(pistolLoadout.gunId)
+                    .setAmmoCount(pistolLoadout.ammoCount)
+                    .setFireMode(fm)
+                    .setCount(1)
+                    .build();
+            IGun pg = IGun.getIGunOrNull(pistol);
+            if (pg != null) {
+                pistolLoadout.scopeId.ifPresent(id ->
+                        pg.installAttachment(pistol, AttachmentItemBuilder.create().setId(id).build()));
+                pistolLoadout.muzzleId.ifPresent(id ->
+                        pg.installAttachment(pistol, AttachmentItemBuilder.create().setId(id).build()));
+                pistolLoadout.gripId.ifPresent(id ->
+                        pg.installAttachment(pistol, AttachmentItemBuilder.create().setId(id).build()));
+            }
+        } else {
+            pistol = GunItemBuilder.create()
+                    .setId(ResourceLocation.fromNamespaceAndPath("tacz", "glock_17"))
+                    .setAmmoCount(17)
+                    .setFireMode(FireMode.SEMI)
+                    .setCount(1)
+                    .build();
+        }
+        IGun pistolGun = IGun.getIGunOrNull(pistol);
+        if (pistolGun == null) {
+            return;
+        }
+        pistolGun.setMaxDummyAmmoAmount(pistol, Integer.MAX_VALUE);
+        pistolGun.setDummyAmmoAmount(pistol, 9999);
+        pdata.put(UnitWeaponFallbackGoal.SIDEARM_NBT, pistol.save(new CompoundTag()));
     }
 
     // One gun stack from the datapack table for the already-rolled class.
@@ -579,6 +663,7 @@ public class VdfUnitEntity extends PathfinderMob implements IClassifiedUnit {
                 WeaponClassSupport.getOrAssign(this, this.random);
             }
         }
+        equipBackupSidearm();
     }
 
     // ---- voice ---------------------------------------------------------------

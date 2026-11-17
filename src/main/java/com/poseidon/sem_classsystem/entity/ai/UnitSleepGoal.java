@@ -1,5 +1,7 @@
 package com.poseidon.sem_classsystem.entity.ai;
 
+import com.poseidon.sem_classsystem.block.FieldCotBlock;
+import com.poseidon.sem_classsystem.block.FieldCotBlockEntity;
 import com.poseidon.sem_classsystem.config.ClassSystemConfig;
 import com.poseidon.sem_classsystem.needs.UnitNeeds;
 import com.poseidon.sem_classsystem.registry.SemcsRegistries;
@@ -117,11 +119,17 @@ public class UnitSleepGoal extends Goal {
     public void tick() {
         if (this.unit.isSleeping()) {
             this.sleepTicks++;
-            int energyPace = ClassSystemConfig.sleepEnergyTicks();
+            boolean onCot = this.bed != null
+                    && this.unit.level().getBlockState(this.bed).getBlock() instanceof FieldCotBlock;
+            int basePace = ClassSystemConfig.sleepEnergyTicks();
+            int energyPace = onCot ? Math.max(20, (basePace * 2) / 3) : basePace;
             if (energyPace > 0 && this.sleepTicks % energyPace == 0) {
                 UnitNeeds.restoreEnergy(this.unit);
                 if (UnitNeeds.energy(this.unit) >= UnitNeeds.WAKE_AT) {
                     UnitNeeds.onRested(this.unit);
+                    if (onCot) {
+                        UnitNeeds.addMorale(this.unit, 5);
+                    }
                 }
             }
             // Wounded recovery: rest knits wounds slowly (slower than a medic).
@@ -157,6 +165,11 @@ public class UnitSleepGoal extends Goal {
             // Claim the bunk, lie down. startSleeping sets the SLEEPING pose
             // and pins the unit to the bed position.
             UnitNeeds.claimBed(this.unit, this.bed);
+            if (this.unit.level() instanceof ServerLevel sl
+                    && sl.getBlockEntity(this.bed) instanceof FieldCotBlockEntity cot
+                    && cot.shift() != UnitNeeds.SHIFT_AUTO) {
+                UnitNeeds.setShift(this.unit, cot.shift());
+            }
             this.unit.getNavigation().stop();
             this.unit.startSleeping(this.bed);
             this.sleepTicks = 0;
@@ -210,6 +223,12 @@ public class UnitSleepGoal extends Goal {
         // this every POI candidate ran its own entity sweep.
         Set<Long> claimed = claimedBedsNear(level, this.unit.blockPosition(),
                 radius * 2.0D);
+        // Dedicated Barracks Field Cots take priority over villager/player beds.
+        BlockPos cotPos = StockpileSearch.findBlockEntity(this.unit, FieldCotBlockEntity.class,
+                cot -> !claimed.contains(cot.getBlockPos().asLong()));
+        if (cotPos != null) {
+            return cotPos;
+        }
         Predicate<Holder<net.minecraft.world.entity.ai.village.poi.PoiType>> isBed =
                 h -> h.is(PoiTypes.HOME);
         Predicate<BlockPos> inClaims = p -> claims.isClaimedBy(
@@ -228,8 +247,11 @@ public class UnitSleepGoal extends Goal {
     // A bed counts only if the block still exists, it sits in a chunk the
     // owner claims, and no other unit has already claimed it.
     private boolean bedUsable(BlockPos pos) {
-        if (!(this.unit.level() instanceof ServerLevel level)
-                || !(level.getBlockState(pos).getBlock() instanceof BedBlock)) {
+        if (!(this.unit.level() instanceof ServerLevel level)) {
+            return false;
+        }
+        var block = level.getBlockState(pos).getBlock();
+        if (!(block instanceof BedBlock) && !(block instanceof FieldCotBlock)) {
             return false;
         }
         UUID owner = this.unit.getOwnerUUID();

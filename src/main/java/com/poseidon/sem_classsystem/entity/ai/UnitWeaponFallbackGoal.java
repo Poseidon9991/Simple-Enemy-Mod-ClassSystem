@@ -1,43 +1,49 @@
 package com.poseidon.sem_classsystem.entity.ai;
 
+import com.poseidon.sem_classsystem.config.ClassSystemConfig;
+import com.poseidon.sem_classsystem.faction.ClassLoadouts;
+import com.poseidon.sem_classsystem.faction.WeaponClass;
+import com.poseidon.sem_classsystem.faction.WeaponClassSupport;
 import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.item.IGun;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.items.IItemHandlerModifiable;
+import net.nekoyuni.SimpleEnemyMod.entity.unit.PmcUnitEntity;
 
-// Ammo auto-resupply: TaCZ already drains every slot of the unit's
-// ITEM_HANDLER when reloading, so a dry magazine means the whole inventory
-// is out of that calibre. This always-on scan notices "magazine empty AND
-// no matching rounds anywhere" and swaps in the best alternative firearm
-// the unit is carrying (the backup sidearm we issue at spawn, or any gun
-// that still has ammo). When the player restocks the primary's ammo the
-// next scan swaps back to the strongest armed gun automatically.
-//
-// For inventory-less enemy units (RU/US) the backup pistol lives in the
-// "semcs_backup_sidearm" NBT written by MixinUnitAmmoReserve; the drained
-// primary is parked in "semcs_stashed_primary" so it can be restored.
+import javax.annotation.Nullable;
+
+// Always-on weapon management goal:
+// 1. Swaps to a loaded backup sidearm / alternate gun when the held gun is completely out of ammo.
+// 2. Swaps back from a CQB backup sidearm to the unit's primary weapon once combat ends or the
+//    target is comfortably outside sidearm return distance and a usable primary exists.
+// 3. Provides shared static swap helpers used by MixinTacticalManagerGoal and VdfGunAttackGoal.
 public class UnitWeaponFallbackGoal extends Goal {
 
-    private static final String SIDEARM_NBT = "semcs_backup_sidearm";
-    private static final String STASHED_NBT = "semcs_stashed_primary";
+    public static final String SIDEARM_NBT = "semcs_backup_sidearm";
+    public static final String PRIMARY_NBT = "semcs_primary_gun";
+    private static final String LEGACY_STASHED_NBT = "semcs_stashed_primary";
+    private static final String NEXT_SWAP_NBT = "semcs_next_swap_tick";
+    private static final int STORAGE_START = 6;
 
     private final PathfinderMob mob;
     private int scanCooldown = 0;
 
     public UnitWeaponFallbackGoal(PathfinderMob mob) {
         this.mob = mob;
-        // No MOVE/LOOK flags: this only swaps items, never drives the body.
         this.setFlags(java.util.EnumSet.noneOf(Flag.class));
     }
 
     @Override
     public boolean canUse() {
-        return true;   // always-on lightweight scanner
+        return true;
     }
 
     @Override
@@ -45,88 +51,340 @@ public class UnitWeaponFallbackGoal extends Goal {
         if (this.mob.level().isClientSide || !this.mob.isAlive() || this.mob.isUsingItem()) {
             return;
         }
-        com.poseidon.sem_classsystem.faction.WeaponClass assigned =
-                com.poseidon.sem_classsystem.faction.WeaponClassSupport.get(this.mob);
-        if (assigned == com.poseidon.sem_classsystem.faction.WeaponClass.SNIPER
-                || assigned == com.poseidon.sem_classsystem.faction.WeaponClass.HEAVY) {
-            return;
-        }
         if (--this.scanCooldown > 0) {
             return;
         }
-        this.scanCooldown = 20;
+        this.scanCooldown = 10;
+
+        migrateLegacyStash(this.mob);
 
         ItemStack held = this.mob.getMainHandItem();
         IGun heldGun = IGun.getIGunOrNull(held);
-        if (heldGun == null) {
+        boolean holdingMelee = UnitMeleeAttackGoal.isMeleeWeapon(held);
+        if (heldGun == null && !holdingMelee) {
             return;
         }
 
-        boolean loaded = heldGun.getCurrentAmmoCount(held) > 0;
-        boolean infinite = heldGun.useDummyAmmo(held) && heldGun.getDummyAmmoAmount(held) > 0;
-        boolean reservable = heldGun.hasInventoryAmmo(this.mob, held, true);
-        if (loaded || infinite || reservable) {
-            return; // gun can still fire - nothing to do
+        WeaponClass assigned = WeaponClassSupport.get(this.mob);
+        long now = this.mob.level().getGameTime();
+        long nextSwap = this.mob.getPersistentData().getLong(NEXT_SWAP_NBT);
+
+        boolean holdingBackup = assigned != null && assigned != WeaponClass.PISTOL
+                && isCqbBackupItem(held, assigned);
+
+        boolean heldHasAmmo = heldGun != null && hasUsableAmmo(this.mob, held);
+
+        // 1. Out-of-combat or long-range return from backup (pistol/melee) -> primary gun.
+        if (holdingBackup && now >= nextSwap) {
+            LivingEntity target = this.mob.getTarget();
+            boolean inCombat = target != null && target.isAlive();
+            if (!inCombat) {
+                if (hasUsablePrimary(this.mob, assigned) || (heldGun != null && !heldHasAmmo)) {
+                    if (swapToPrimary(this.mob, assigned, now, true)) {
+                        return;
+                    }
+                }
+            } else {
+                double distSq = this.mob.distanceToSqr(target);
+                double drawDist = ClassSystemConfig.classSidearmDrawDistance(assigned);
+                double returnDist = Math.max(14.0D, Math.max(drawDist + 4.0D,
+                        ClassSystemConfig.classSidearmReturnDistance(assigned)));
+                if (distSq >= returnDist * returnDist && hasReadyPrimaryForDistance(this.mob, assigned, distSq, returnDist)) {
+                    if (swapToPrimary(this.mob, assigned, now, false)) {
+                        return;
+                    }
+                }
+            }
         }
 
-        swapToArmedWeapon(held);
+        // 2. Completely dry held weapon fallback (mag empty AND no reserve ammo anywhere).
+        if (heldGun == null || heldHasAmmo) {
+            return;
+        }
+        if (holdingBackup) {
+            swapToPrimary(this.mob, assigned, now, true);
+        } else {
+            swapToBackupOrArmed(this.mob, assigned, held, now);
+        }
     }
 
-    private void swapToArmedWeapon(ItemStack dryGun) {
-        // 1. Inventory units (PMC/BHQ): swap with the best gun in storage.
-        var cap = this.mob.getCapability(ForgeCapabilities.ITEM_HANDLER);
-        if (cap.isPresent() && cap.orElse(null) instanceof IItemHandlerModifiable handler) {
-            int bestSlot = -1;
-            int bestScore = -1;
-            for (int slot = 6; slot < handler.getSlots(); slot++) {
-                ItemStack stack = handler.getStackInSlot(slot);
-                IGun g = IGun.getIGunOrNull(stack);
-                if (g == null) {
-                    continue;
+    public static void migrateLegacyStash(PathfinderMob mob) {
+        CompoundTag data = mob.getPersistentData();
+        if (data.contains(LEGACY_STASHED_NBT)) {
+            if (!data.contains(PRIMARY_NBT)) {
+                data.put(PRIMARY_NBT, data.getCompound(LEGACY_STASHED_NBT).copy());
+            }
+            data.remove(LEGACY_STASHED_NBT);
+        }
+    }
+
+    public static boolean isCqbBackupItem(ItemStack stack, @Nullable WeaponClass assigned) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+        if (UnitMeleeAttackGoal.isMeleeWeapon(stack)) {
+            return true;
+        }
+        if (assigned == WeaponClass.PISTOL) {
+            return false;
+        }
+        IGun iGun = IGun.getIGunOrNull(stack);
+        if (iGun == null) {
+            return false;
+        }
+        ResourceLocation gunId = iGun.getGunId(stack);
+        WeaponClass gunCls = gunId != null ? ClassLoadouts.inferClass(gunId) : null;
+        return gunCls == WeaponClass.PISTOL || (assigned != null && assigned != WeaponClass.SMG && gunCls == WeaponClass.SMG);
+    }
+
+    public static boolean hasUsableAmmo(LivingEntity mob, ItemStack stack) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+        IGun g = IGun.getIGunOrNull(stack);
+        if (g == null) {
+            return false;
+        }
+        return g.getCurrentAmmoCount(stack) > 0
+                || g.getDummyAmmoAmount(stack) > 0
+                || g.hasInventoryAmmo(mob, stack, true);
+    }
+
+    public static boolean hasUsablePrimary(PathfinderMob mob, @Nullable WeaponClass assigned) {
+        if (mob instanceof PmcUnitEntity) {
+            var cap = mob.getCapability(ForgeCapabilities.ITEM_HANDLER);
+            if (cap.isPresent() && cap.orElse(null) instanceof IItemHandlerModifiable modifiable) {
+                for (int s = STORAGE_START; s < modifiable.getSlots(); s++) {
+                    ItemStack st = modifiable.getStackInSlot(s);
+                    if (!isCqbBackupItem(st, assigned) && hasUsableAmmo(mob, st)) {
+                        return true;
+                    }
                 }
-                int score = g.getCurrentAmmoCount(stack)
-                        + (g.hasInventoryAmmo(this.mob, stack, true) ? 1000 : 0)
-                        + Math.min(g.getDummyAmmoAmount(stack), 999);
-                if (score > bestScore && score > 0) {
-                    bestScore = score;
-                    bestSlot = slot;
+                ItemStack off = modifiable.getStackInSlot(1);
+                return !isCqbBackupItem(off, assigned) && hasUsableAmmo(mob, off);
+            }
+            return false;
+        }
+        migrateLegacyStash(mob);
+        CompoundTag data = mob.getPersistentData();
+        if (!data.contains(PRIMARY_NBT)) {
+            return false;
+        }
+        ItemStack st = ItemStack.of(data.getCompound(PRIMARY_NBT));
+        return !isCqbBackupItem(st, assigned) && hasUsableAmmo(mob, st);
+    }
+
+    // Avoids ping-ponging back to an unloaded primary at mid-range if it swapped due to mid-fight reload:
+    // require either a loaded magazine on the primary, OR distance >= max(returnDist, 20.0) blocks.
+    public static boolean hasReadyPrimaryForDistance(PathfinderMob mob, @Nullable WeaponClass assigned,
+                                                     double distSq, double returnDist) {
+        ItemStack primary = peekPrimaryStack(mob, assigned);
+        if (primary.isEmpty() || !hasUsableAmmo(mob, primary)) {
+            return false;
+        }
+        IGun g = IGun.getIGunOrNull(primary);
+        if (g != null && g.getCurrentAmmoCount(primary) > 0) {
+            return distSq >= returnDist * returnDist;
+        }
+        double safeReloadDist = Math.max(returnDist, 20.0D);
+        return distSq >= safeReloadDist * safeReloadDist;
+    }
+
+    public static boolean hasUsableBackup(PathfinderMob mob, @Nullable WeaponClass assigned) {
+        if (mob instanceof PmcUnitEntity) {
+            var cap = mob.getCapability(ForgeCapabilities.ITEM_HANDLER);
+            if (cap.isPresent() && cap.orElse(null) instanceof IItemHandlerModifiable modifiable) {
+                for (int s = STORAGE_START; s < modifiable.getSlots(); s++) {
+                    ItemStack st = modifiable.getStackInSlot(s);
+                    if (isCqbBackupItem(st, assigned) && (UnitMeleeAttackGoal.isMeleeWeapon(st) || hasUsableAmmo(mob, st))) {
+                        return true;
+                    }
+                }
+                ItemStack off = modifiable.getStackInSlot(1);
+                return isCqbBackupItem(off, assigned) && (UnitMeleeAttackGoal.isMeleeWeapon(off) || hasUsableAmmo(mob, off));
+            }
+            return false;
+        }
+        CompoundTag data = mob.getPersistentData();
+        if (!data.contains(SIDEARM_NBT)) {
+            return false;
+        }
+        ItemStack st = ItemStack.of(data.getCompound(SIDEARM_NBT));
+        return !st.isEmpty() && (UnitMeleeAttackGoal.isMeleeWeapon(st) || hasUsableAmmo(mob, st));
+    }
+
+    private static ItemStack peekPrimaryStack(PathfinderMob mob, @Nullable WeaponClass assigned) {
+        if (mob instanceof PmcUnitEntity) {
+            var cap = mob.getCapability(ForgeCapabilities.ITEM_HANDLER);
+            if (cap.isPresent() && cap.orElse(null) instanceof IItemHandlerModifiable modifiable) {
+                for (int s = STORAGE_START; s < modifiable.getSlots(); s++) {
+                    ItemStack st = modifiable.getStackInSlot(s);
+                    if (IGun.getIGunOrNull(st) != null && !isCqbBackupItem(st, assigned)) {
+                        return st;
+                    }
+                }
+                ItemStack off = modifiable.getStackInSlot(1);
+                if (IGun.getIGunOrNull(off) != null && !isCqbBackupItem(off, assigned)) {
+                    return off;
                 }
             }
-            if (bestSlot >= 0) {
-                ItemStack replacement = handler.getStackInSlot(bestSlot);
-                handler.setStackInSlot(bestSlot, dryGun);
-                handler.setStackInSlot(0, replacement);   // onContentsChanged -> draw()
-                this.mob.setItemSlot(EquipmentSlot.MAINHAND, replacement);
-                return;
+            return ItemStack.EMPTY;
+        }
+        CompoundTag data = mob.getPersistentData();
+        return data.contains(PRIMARY_NBT) ? ItemStack.of(data.getCompound(PRIMARY_NBT)) : ItemStack.EMPTY;
+    }
+
+    public static boolean canSwapNow(PathfinderMob mob, long now) {
+        return !mob.isUsingItem() && now >= mob.getPersistentData().getLong(NEXT_SWAP_NBT);
+    }
+
+    public static boolean swapToBackup(PathfinderMob mob, @Nullable WeaponClass assigned, long now) {
+        return swapToBackupOrArmed(mob, assigned, mob.getMainHandItem(), now);
+    }
+
+    public static boolean swapToBackupOrArmed(PathfinderMob mob, @Nullable WeaponClass assigned,
+                                              ItemStack currentMain, long now) {
+        if (mob instanceof PmcUnitEntity) {
+            var cap = mob.getCapability(ForgeCapabilities.ITEM_HANDLER);
+            if (cap.isPresent() && cap.orElse(null) instanceof IItemHandlerModifiable handler) {
+                int bestSlot = -1;
+                int bestScore = -1;
+                for (int slot = STORAGE_START; slot < handler.getSlots(); slot++) {
+                    ItemStack stack = handler.getStackInSlot(slot);
+                    int score = scoreSwapCandidate(mob, stack, assigned, true);
+                    if (score > bestScore && score > 0) {
+                        bestScore = score;
+                        bestSlot = slot;
+                    }
+                }
+                if (bestSlot < 0) {
+                    int offScore = scoreSwapCandidate(mob, handler.getStackInSlot(1), assigned, true);
+                    if (offScore > 0) {
+                        bestSlot = 1;
+                    }
+                }
+                if (bestSlot >= 0) {
+                    ItemStack replacement = handler.getStackInSlot(bestSlot).copy();
+                    handler.setStackInSlot(bestSlot, currentMain.copy());
+                    handler.setStackInSlot(0, replacement);
+                    mob.setItemSlot(EquipmentSlot.MAINHAND, replacement);
+                    mob.getPersistentData().putLong(NEXT_SWAP_NBT, now + 60L);
+                    return true;
+                }
             }
+            return false;
         }
 
-        // 2. No inventory / no armed gun in storage: fall back to the NBT
-        //    sidearm issued to RU/US units at spawn.
-        CompoundTag data = this.mob.getPersistentData();
-        ItemStack current = this.mob.getMainHandItem();
+        migrateLegacyStash(mob);
+        CompoundTag data = mob.getPersistentData();
         if (data.contains(SIDEARM_NBT)) {
             ItemStack sidearm = ItemStack.of(data.getCompound(SIDEARM_NBT));
-            IGun sg = IGun.getIGunOrNull(sidearm);
-            if (!sidearm.isEmpty() && sg != null
-                    && (sg.getCurrentAmmoCount(sidearm) > 0 || sg.getDummyAmmoAmount(sidearm) > 0)) {
-                data.put(STASHED_NBT, current.save(new CompoundTag()));
+            if (!sidearm.isEmpty() && (UnitMeleeAttackGoal.isMeleeWeapon(sidearm) || hasUsableAmmo(mob, sidearm))) {
+                data.put(PRIMARY_NBT, currentMain.copy().save(new CompoundTag()));
                 data.remove(SIDEARM_NBT);
-                this.mob.setItemSlot(EquipmentSlot.MAINHAND, sidearm);
-                IGunOperator.fromLivingEntity(this.mob).draw(() -> sidearm);
-                return;
+                mob.setItemInHand(InteractionHand.MAIN_HAND, sidearm);
+                IGunOperator op = IGunOperator.fromLivingEntity(mob);
+                if (op != null) {
+                    op.draw(() -> mob.getMainHandItem());
+                }
+                data.putLong(NEXT_SWAP_NBT, now + 60L);
+                return true;
             }
         }
-        // Sidearm also spent: restore the stashed primary so the unit keeps
-        // its real gun (and can fire again if it somehow regains ammo).
-        if (data.contains(STASHED_NBT)) {
-            ItemStack primary = ItemStack.of(data.getCompound(STASHED_NBT));
-            if (!primary.isEmpty()) {
-                data.put(SIDEARM_NBT, current.save(new CompoundTag()));
-                data.remove(STASHED_NBT);
-                this.mob.setItemSlot(EquipmentSlot.MAINHAND, primary);
-                IGunOperator.fromLivingEntity(this.mob).draw(() -> primary);
+        return false;
+    }
+
+    public static boolean swapToPrimary(PathfinderMob mob, @Nullable WeaponClass assigned,
+                                        long now, boolean allowDryFallback) {
+        if (mob instanceof PmcUnitEntity) {
+            var cap = mob.getCapability(ForgeCapabilities.ITEM_HANDLER);
+            if (cap.isPresent() && cap.orElse(null) instanceof IItemHandlerModifiable handler) {
+                int bestSlot = -1;
+                int bestScore = -1;
+                for (int slot = STORAGE_START; slot < handler.getSlots(); slot++) {
+                    ItemStack stack = handler.getStackInSlot(slot);
+                    if (IGun.getIGunOrNull(stack) == null || isCqbBackupItem(stack, assigned)) {
+                        continue;
+                    }
+                    int score = scoreSwapCandidate(mob, stack, assigned, false);
+                    if (score > bestScore && (allowDryFallback || score > 0)) {
+                        bestScore = score;
+                        bestSlot = slot;
+                    }
+                }
+                if (bestSlot < 0) {
+                    ItemStack off = handler.getStackInSlot(1);
+                    if (IGun.getIGunOrNull(off) != null && !isCqbBackupItem(off, assigned)) {
+                        int offScore = scoreSwapCandidate(mob, off, assigned, false);
+                        if (allowDryFallback || offScore > 0) {
+                            bestSlot = 1;
+                        }
+                    }
+                }
+                if (bestSlot >= 0) {
+                    ItemStack replacement = handler.getStackInSlot(bestSlot).copy();
+                    handler.setStackInSlot(bestSlot, mob.getMainHandItem().copy());
+                    handler.setStackInSlot(0, replacement);
+                    mob.setItemSlot(EquipmentSlot.MAINHAND, replacement);
+                    mob.getPersistentData().putLong(NEXT_SWAP_NBT, now + 60L);
+                    maybeTriggerOutOfCombatReload(mob, replacement);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        migrateLegacyStash(mob);
+        CompoundTag data = mob.getPersistentData();
+        if (data.contains(PRIMARY_NBT)) {
+            ItemStack primary = ItemStack.of(data.getCompound(PRIMARY_NBT));
+            if (!primary.isEmpty() && (allowDryFallback || hasUsableAmmo(mob, primary))) {
+                ItemStack prevBackup = mob.getMainHandItem().copy();
+                data.put(SIDEARM_NBT, prevBackup.save(new CompoundTag()));
+                data.remove(PRIMARY_NBT);
+                mob.setItemInHand(InteractionHand.MAIN_HAND, primary);
+                IGunOperator op = IGunOperator.fromLivingEntity(mob);
+                if (op != null) {
+                    op.draw(() -> mob.getMainHandItem());
+                    maybeTriggerOutOfCombatReload(mob, primary);
+                }
+                data.putLong(NEXT_SWAP_NBT, now + 60L);
+                return true;
             }
         }
+        return false;
+    }
+
+    private static void maybeTriggerOutOfCombatReload(PathfinderMob mob, ItemStack swappedPrimary) {
+        if (mob.getTarget() != null && mob.getTarget().isAlive()) {
+            return;
+        }
+        IGun g = IGun.getIGunOrNull(swappedPrimary);
+        if (g != null && g.getCurrentAmmoCount(swappedPrimary) <= 0
+                && (g.getDummyAmmoAmount(swappedPrimary) > 0 || g.hasInventoryAmmo(mob, swappedPrimary, true))) {
+            IGunOperator op = IGunOperator.fromLivingEntity(mob);
+            if (op != null) {
+                op.reload();
+            }
+        }
+    }
+
+    private static int scoreSwapCandidate(LivingEntity mob, ItemStack stack,
+                                          @Nullable WeaponClass assigned, boolean preferBackup) {
+        IGun g = IGun.getIGunOrNull(stack);
+        if (g == null) {
+            return (preferBackup && UnitMeleeAttackGoal.isMeleeWeapon(stack)) ? 1 : -1;
+        }
+        int ammoScore = g.getCurrentAmmoCount(stack)
+                + (g.hasInventoryAmmo(mob, stack, true) ? 1000 : 0)
+                + Math.min(g.getDummyAmmoAmount(stack), 999);
+        if (ammoScore <= 0) {
+            return 0;
+        }
+        boolean isBackup = isCqbBackupItem(stack, assigned);
+        if (preferBackup) {
+            return isBackup ? ammoScore + 5000 : ammoScore;
+        }
+        return !isBackup ? ammoScore + 5000 : ammoScore;
     }
 }

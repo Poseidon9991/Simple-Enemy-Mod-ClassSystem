@@ -200,7 +200,8 @@ public class ArmorPlateItem extends Item {
         }
         if (bhq.getType() == ArmorItem.Type.HELMET) {
             String p = bhq.piece();
-            if ("bhq_cap".equals(p) || "sf911_beret".equals(p) || "camper_helmet".equals(p)) {
+            if ("bhq_cap".equals(p) || "sf911_beret".equals(p)
+                    || "camper_helmet".equals(p) || "terrorist_helmet".equals(p)) {
                 return 3;
             }
         }

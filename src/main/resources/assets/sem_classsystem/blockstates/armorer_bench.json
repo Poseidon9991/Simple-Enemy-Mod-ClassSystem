@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "sem_classsystem:block/armorer_bench" },
+    "facing=south": { "model": "sem_classsystem:block/armorer_bench", "y": 180 },
+    "facing=west":  { "model": "sem_classsystem:block/armorer_bench", "y": 270 },
+    "facing=east":  { "model": "sem_classsystem:block/armorer_bench", "y": 90 }
+  }
+}

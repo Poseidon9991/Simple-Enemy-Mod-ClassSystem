@@ -25,8 +25,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
 
-// Shared stockpile search for the unit needs goals. A "stockpile" is any
-// block entity inside the OWNER'S claimed chunks that exposes
+// Shared stockpile search for the unit needs & station goals. A "stockpile" is
+// any block entity inside the OWNER'S claimed chunks that exposes
 // ForgeCapabilities.ITEM_HANDLER and holds a matching stack - chests,
 // barrels, shulker crates, and our Ration Crate (which is preferred at
 // equal distance so players can mark the official pantry).
@@ -34,9 +34,59 @@ import java.util.function.Predicate;
 // Only already-loaded chunks are touched: getChunk(..., FULL, false)
 // returns null for anything not loaded, so searches never generate or
 // force-load terrain.
-final class StockpileSearch {
+public final class StockpileSearch {
 
     private StockpileSearch() {
+    }
+
+    // Nearest claimed BlockEntity of the given type matching filter.
+    public static <T extends BlockEntity> BlockPos findBlockEntity(
+            PmcUnitEntity unit, Class<T> type, Predicate<T> filter) {
+        if (!(unit.level() instanceof ServerLevel level)) {
+            return null;
+        }
+        UUID owner = unit.getOwnerUUID();
+        if (owner == null) {
+            return null;
+        }
+        String dim = level.dimension().location().toString();
+        Set<Long> claims = PlayerChunkClaims.get(level.getServer().overworld())
+                .allIn(dim).get(owner);
+        if (claims == null || claims.isEmpty()) {
+            return null;
+        }
+        int radius = ClassSystemConfig.needsSearchRadius();
+        BlockPos best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (long chunkLong : claims) {
+            int cx = ChunkPos.getX(chunkLong);
+            int cz = ChunkPos.getZ(chunkLong);
+            double cdx = (cx << 4) + 8 - unit.getX();
+            double cdz = (cz << 4) + 8 - unit.getZ();
+            if (cdx * cdx + cdz * cdz > (radius + 16.0) * (radius + 16.0)) {
+                continue;
+            }
+            if (!(level.getChunk(cx, cz, ChunkStatus.FULL, false) instanceof LevelChunk chunk)) {
+                continue;
+            }
+            for (Map.Entry<BlockPos, BlockEntity> be : chunk.getBlockEntities().entrySet()) {
+                if (!type.isInstance(be.getValue())) {
+                    continue;
+                }
+                double dist = unit.distanceToSqr(
+                        be.getKey().getX() + 0.5, be.getKey().getY() + 0.5,
+                        be.getKey().getZ() + 0.5);
+                if (dist > radius * radius || dist >= bestDist) {
+                    continue;
+                }
+                T typed = type.cast(be.getValue());
+                if (filter.test(typed)) {
+                    best = be.getKey().immutable();
+                    bestDist = dist;
+                }
+            }
+        }
+        return best;
     }
 
     // Nearest claimed container holding at least one accepted stack.

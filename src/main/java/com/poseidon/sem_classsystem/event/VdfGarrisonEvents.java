@@ -171,7 +171,8 @@ public final class VdfGarrisonEvents {
                         || (e instanceof net.minecraft.world.entity.monster.Monster
                             && !(e instanceof net.nekoyuni.SimpleEnemyMod.entity.unit.AbstractUnit))
                         || net.nekoyuni.SimpleEnemyMod.entity.unit.util.UnitFactionTags.isRuUnit(e)
-                        || net.nekoyuni.SimpleEnemyMod.entity.unit.util.UnitFactionTags.isUsUnit(e)));
+                        || net.nekoyuni.SimpleEnemyMod.entity.unit.util.UnitFactionTags.isUsUnit(e)
+                        || e instanceof com.poseidon.sem_classsystem.entity.TerroristUnitEntity));
 
         for (VdfUnitEntity unit : militia) {
             unit.addEffect(new net.minecraft.world.effect.MobEffectInstance(
